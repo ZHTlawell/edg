@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -23,30 +23,65 @@ interface StudentManagementProps {
   onShowDetail?: (student: Student) => void;
 }
 
-// 统一的日期选择器组件逻辑
-const CustomDatePicker: React.FC<{
+/**
+ * EduAdmin 全系统统一日期选择组件 - 深度修复版
+ */
+const EduDatePicker: React.FC<{
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
   className?: string;
 }> = ({ value, onChange, placeholder = "年 / 月 / 日", className = "" }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleContainerClick = () => {
+    // 强制触发原生选择器
+    if (inputRef.current && 'showPicker' in inputRef.current) {
+      try {
+        inputRef.current.showPicker();
+      } catch (e) {
+        inputRef.current.focus();
+      }
+    }
+  };
+
   return (
-    <div className={`relative group h-[56px] w-full ${className}`}>
-      {/* 视觉层：在下方展示设计稿样式 */}
-      <div className="absolute inset-0 flex items-center bg-slate-50/50 border border-slate-100 rounded-2xl px-5 transition-all group-focus-within:ring-4 group-focus-within:ring-blue-50 group-focus-within:border-blue-500 group-focus-within:bg-white shadow-sm pointer-events-none">
-        <CalendarIcon size={20} className="text-slate-400 mr-4 group-focus-within:text-blue-500 transition-colors" />
-        <span className={`text-base font-bold ${value ? 'text-black' : 'text-slate-300'}`}>
+    <div 
+      className={`relative group h-[56px] w-full cursor-pointer ${className}`}
+      onClick={handleContainerClick}
+    >
+      {/* 视觉模拟层：完全按照 UI 图渲染 */}
+      <div className="absolute inset-0 flex items-center bg-slate-50/50 border border-slate-200 rounded-2xl px-5 transition-all group-focus-within:ring-4 group-focus-within:ring-blue-50 group-focus-within:border-blue-500 group-focus-within:bg-white shadow-sm pointer-events-none z-0">
+        <CalendarIcon size={20} className="text-slate-400 mr-3 group-focus-within:text-blue-500 transition-colors" />
+        <span className={`text-base font-bold ${value ? 'text-slate-900' : 'text-slate-300'}`}>
           {value || placeholder}
         </span>
       </div>
       
-      {/* 交互层：透明的原生输入框在最上方，负责接收点击和弹出日历 */}
+      {/* 交互层：透明的原生 input，通过 CSS 确保点击区域覆盖全场 */}
       <input 
+        ref={inputRef}
         type="date" 
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+        className="edu-date-input absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+        style={{ colorScheme: 'light' }}
       />
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        /* 关键修复：让原生日期触发区域撑满整个容器 */
+        .edu-date-input::-webkit-calendar-picker-indicator {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          cursor: pointer;
+          opacity: 0;
+        }
+      `}} />
     </div>
   );
 };
@@ -217,7 +252,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                     type="text" 
                     value={editingStudent?.name || ''} 
                     onChange={e => setEditingStudent({...editingStudent, name: e.target.value})}
-                    className={`w-full bg-slate-50/50 border ${formErrors.name ? 'border-red-500 ring-2 ring-red-50' : 'border-slate-100 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white'} rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black transition-all placeholder:text-slate-300 shadow-sm`}
+                    className={`w-full bg-slate-50/50 border ${formErrors.name ? 'border-red-500 ring-2 ring-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white'} rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black transition-all placeholder:text-slate-300 shadow-sm`}
                     placeholder="请输入真实姓名"
                   />
                   {formErrors.name && <p className="text-xs text-red-500 font-bold ml-2">{formErrors.name}</p>}
@@ -239,7 +274,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">出生日期</label>
-                  <CustomDatePicker 
+                  <EduDatePicker 
                     value={editingStudent?.birthday || ''}
                     onChange={(val) => setEditingStudent(prev => ({ ...prev, birthday: val }))}
                   />
@@ -251,7 +286,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                     type="tel" 
                     value={editingStudent?.phone || ''}
                     onChange={e => setEditingStudent({...editingStudent, phone: e.target.value})}
-                    className={`w-full bg-slate-50/50 border ${formErrors.phone ? 'border-red-500 ring-2 ring-red-50' : 'border-slate-100 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white'} rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black transition-all placeholder:text-slate-300 shadow-sm`}
+                    className={`w-full bg-slate-50/50 border ${formErrors.phone ? 'border-red-500 ring-2 ring-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white'} rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black transition-all placeholder:text-slate-300 shadow-sm`}
                     placeholder="11位手机号码"
                   />
                   {formErrors.phone && <p className="text-xs text-red-500 font-bold ml-2">{formErrors.phone}</p>}
@@ -263,7 +298,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                     <select 
                       value={editingStudent?.campus}
                       onChange={e => setEditingStudent({...editingStudent, campus: e.target.value})}
-                      className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer shadow-sm"
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer shadow-sm"
                     >
                       <option value="总校区">总部旗舰校区</option>
                       <option value="浦东校区">浦东分校区</option>
@@ -275,12 +310,12 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">来源渠道</label>
-                  <input type="text" className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="如：地推咨询、老生介绍" />
+                  <input type="text" className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="如：地推咨询、老生介绍" />
                 </div>
 
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">学业备注</label>
-                  <input type="text" className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="补充其他信息..." />
+                  <input type="text" className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="补充其他信息..." />
                 </div>
               </div>
             </section>
@@ -297,7 +332,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                     className={`px-4 py-4 rounded-[1.25rem] border-2 text-[11px] font-bold uppercase tracking-widest transition-all ${
                       editingStudent?.status === st 
                       ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-200 scale-105' 
-                      : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
+                      : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     {getStatusLabel(st as StudentStatus)}
@@ -397,7 +432,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               placeholder="搜索学员、手机号..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-black placeholder:text-slate-400"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-black placeholder:text-slate-400"
             />
           </div>
           
@@ -406,7 +441,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               <select 
                 value={selectedCampus} 
                 onChange={(e) => setSelectedCampus(e.target.value)} 
-                className="bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer"
+                className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer"
               >
                 <option value="all">全量校区</option>
                 <option value="总校区">总部旗舰校区</option>
@@ -420,7 +455,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               <select 
                 value={selectedStatus} 
                 onChange={(e) => setSelectedStatus(e.target.value)} 
-                className="bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer"
+                className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer"
               >
                 <option value="all">全量状态</option>
                 <option value="potential">潜在</option>
@@ -454,7 +489,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-400 ml-1">学员性别</label>
-                <div className="flex bg-slate-50 p-1.5 rounded-[1.25rem] border border-slate-100 h-14">
+                <div className="flex bg-slate-50 p-1.5 rounded-[1.25rem] border border-slate-200 h-14">
                   <button onClick={() => setFilterGender('all')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>不限</button>
                   <button onClick={() => setFilterGender('male')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'male' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>男</button>
                   <button onClick={() => setFilterGender('female')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'female' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>女</button>
@@ -462,21 +497,21 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               </div>
 
               <div className="space-y-2 group">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">入学时间</label>
-                <CustomDatePicker 
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">开始日期</label>
+                <EduDatePicker 
                   value={startDate} 
                   onChange={setStartDate} 
-                  className="h-14 !rounded-[1.25rem]" 
+                  className="!h-14 !rounded-[1.25rem]" 
                   placeholder="年 / 月 / 日" 
                 />
               </div>
 
               <div className="space-y-2 group">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">结束时间</label>
-                <CustomDatePicker 
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">截止日期</label>
+                <EduDatePicker 
                   value={endDate} 
                   onChange={setEndDate} 
-                  className="h-14 !rounded-[1.25rem]" 
+                  className="!h-14 !rounded-[1.25rem]" 
                   placeholder="年 / 月 / 日" 
                 />
               </div>

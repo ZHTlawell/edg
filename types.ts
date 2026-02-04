@@ -1,7 +1,10 @@
+// Added React import to resolve missing 'React' namespace in TypeScript
+import React from 'react';
 
 export interface NavItem {
   id: string;
   label: string;
+  // Fix: React namespace is now accessible for ReactNode
   icon: React.ReactNode;
   path: string;
   children?: NavItem[];
@@ -12,6 +15,7 @@ export interface StatData {
   value: string;
   change: string;
   trend: 'up' | 'down' | 'neutral';
+  // Fix: React namespace is now accessible for ReactNode
   icon: React.ReactNode;
   iconBg: string;
 }
