@@ -4,7 +4,6 @@ import React from 'react';
 export interface NavItem {
   id: string;
   label: string;
-  // Fix: React namespace is now accessible for ReactNode
   icon: React.ReactNode;
   path: string;
   children?: NavItem[];
@@ -15,7 +14,6 @@ export interface StatData {
   value: string;
   change: string;
   trend: 'up' | 'down' | 'neutral';
-  // Fix: React namespace is now accessible for ReactNode
   icon: React.ReactNode;
   iconBg: string;
 }
@@ -28,17 +26,36 @@ export interface Activity {
   type: 'registration' | 'payment' | 'alert' | 'course';
 }
 
-export type CourseStatus = 'ongoing' | 'completed' | 'pending';
+export type CourseStatus = 'enabled' | 'disabled' | 'pending';
 
 export interface Course {
   id: string;
+  code: string; // 课程编号
   name: string;
-  description: string;
-  instructor: string;
-  totalLessons: number;
-  startDate: string;
+  category: string; // 课程类型
+  level: string; // 级别 (初级/中级/高级)
+  totalLessons: number; // 课时数
+  price: string; // 价格/价格策略
+  campus: string; // 适用校区
   status: CourseStatus;
-  category: string;
+  updateTime: string;
+  instructor: string;
+  description: string;
+}
+
+export type ClassStatus = 'pending' | 'ongoing' | 'closed';
+
+export interface Class {
+  id: string;
+  name: string;
+  campus: string;
+  courseName: string;
+  teacherName: string;
+  capacity: number;
+  enrolled: number;
+  schedule: string; // 每周几 + 时间段
+  status: ClassStatus;
+  createdAt: string;
 }
 
 export type StudentStatus = 'potential' | 'trial' | 'active' | 'inactive' | 'graduated' | 'dropped';

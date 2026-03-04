@@ -1,18 +1,21 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
-  MoreVertical, 
-  Edit2, 
+  Edit3, 
   Trash2, 
-  ExternalLink, 
-  Calendar, 
-  Clock, 
-  Users,
+  Download, 
   Filter,
   ChevronRight,
-  Home
+  Home,
+  ChevronDown,
+  MoreHorizontal,
+  Eye,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  Users
 } from 'lucide-react';
 import { Course, CourseStatus } from '../types';
 import { CourseFormModal } from './CourseFormModal';
@@ -20,85 +23,135 @@ import { CourseFormModal } from './CourseFormModal';
 const INITIAL_COURSES: Course[] = [
   {
     id: '1',
+    code: 'C2024001',
     name: '高级UI/UX设计实战',
     description: '深度讲解现代产品设计流程与工具使用。',
     instructor: '李老师',
     totalLessons: 32,
-    startDate: '2024-05-20',
-    status: 'ongoing',
+    price: '¥4,800.00',
+    status: 'enabled',
     category: '设计',
+    level: '高级',
+    campus: '总校区',
+    updateTime: '2024-05-20 14:30'
   },
   {
     id: '2',
+    code: 'C2024002',
     name: '全栈开发：从入门到架构',
     description: '涵盖前端React与后端Node.js的全栈开发知识。',
     instructor: '张教授',
     totalLessons: 48,
-    startDate: '2024-06-15',
-    status: 'pending',
+    price: '¥6,200.00',
+    status: 'enabled',
     category: '编程',
+    level: '中级',
+    campus: '浦东校区',
+    updateTime: '2024-05-18 09:15'
   },
   {
     id: '3',
+    code: 'C2024003',
     name: '商业数据分析大师班',
     description: '使用Python与Tableau进行深度商业洞察。',
     instructor: '陈首席',
     totalLessons: 24,
-    startDate: '2024-04-10',
-    status: 'completed',
+    price: '¥3,500.00',
+    status: 'disabled',
     category: '数据',
+    level: '初级',
+    campus: '静安校区',
+    updateTime: '2024-04-10 11:00'
+  },
+  {
+    id: '4',
+    code: 'C2024004',
+    name: 'Python 自动化办公',
+    description: '零基础快速上手提升工作效率。',
+    instructor: '刘老师',
+    totalLessons: 12,
+    price: '¥1,200.00',
+    status: 'enabled',
+    category: '编程',
+    level: '初级',
+    campus: '总校区',
+    updateTime: '2024-05-22 10:00'
   }
 ];
 
 export const CourseManagement: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>(INITIAL_COURSES);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterLevel, setFilterLevel] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCampus, setFilterCampus] = useState('all');
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
-  const filteredCourses = courses.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.instructor.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCourses = useMemo(() => {
+    return courses.filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.code.includes(searchTerm);
+      const matchesType = filterType === 'all' || c.category === filterType;
+      const matchesLevel = filterLevel === 'all' || c.level === filterLevel;
+      const matchesStatus = filterStatus === 'all' || c.status === filterStatus;
+      const matchesCampus = filterCampus === 'all' || c.campus === filterCampus;
+      return matchesSearch && matchesType && matchesLevel && matchesStatus && matchesCampus;
+    });
+  }, [searchTerm, filterType, filterLevel, filterStatus, filterCampus, courses]);
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('确定要删除这门课程吗？此操作不可撤销。')) {
-      setCourses(courses.filter(c => c.id !== id));
+  const handleToggleStatus = (id: string) => {
+    setCourses(courses.map(c => {
+      if (c.id === id) {
+        return { ...c, status: c.status === 'enabled' ? 'disabled' : 'enabled' as CourseStatus };
+      }
+      return c;
+    }));
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredCourses.map(c => c.id));
+    } else {
+      setSelectedIds([]);
     }
   };
 
-  const handleEdit = (course: Course) => {
-    setEditingCourse(course);
-    setIsModalOpen(true);
+  const handleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(i => i !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
   };
 
-  const handleAdd = () => {
-    setEditingCourse(null);
-    setIsModalOpen(true);
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterType('all');
+    setFilterLevel('all');
+    setFilterStatus('all');
+    setFilterCampus('all');
   };
 
   const handleSave = (course: Course) => {
     if (editingCourse) {
       setCourses(courses.map(c => c.id === course.id ? course : c));
     } else {
-      setCourses([{ ...course, id: Date.now().toString() }, ...courses]);
+      const newCourse: Course = { 
+        ...course, 
+        id: Date.now().toString(),
+        code: `C${new Date().getFullYear()}${Math.floor(100 + Math.random() * 900)}`,
+        updateTime: new Date().toLocaleString()
+      };
+      setCourses([newCourse, ...courses]);
     }
     setIsModalOpen(false);
   };
 
-  const getStatusBadge = (status: CourseStatus) => {
-    switch (status) {
-      case 'ongoing':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">进行中</span>;
-      case 'completed':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-600 border border-green-100">已完成</span>;
-      case 'pending':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-50 text-slate-500 border border-slate-100">筹备中</span>;
-    }
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-sm text-slate-400">
         <Home size={16} className="text-slate-500" />
@@ -109,101 +162,238 @@ export const CourseManagement: React.FC = () => {
 
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-800">课程管理</h1>
-          <p className="text-sm text-slate-500">发布、编辑和查看所有教育培训课程。</p>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">课程管理</h1>
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+            <Download size={18} />
+            导出数据
+          </button>
+          <button 
+            onClick={() => { setEditingCourse(null); setIsModalOpen(true); }}
+            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
+          >
+            <Plus size={18} />
+            新增课程
+          </button>
         </div>
-        <button 
-          onClick={handleAdd}
-          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all shadow-sm shadow-blue-100 active:scale-95"
-        >
-          <Plus size={18} />
-          新增课程
-        </button>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-          <input
-            type="text"
-            placeholder="搜索课程名称、讲师..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-sm"
-          />
+      {/* Filter & Search Bar Card */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {/* Search Box */}
+          <div className="xl:col-span-2 relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+            <input
+              type="text"
+              placeholder="搜索课程名称 / 课程编号..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium"
+            />
+          </div>
+
+          {/* Type Select */}
+          <div className="relative">
+            <select 
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer"
+            >
+              <option value="all">所有课程类型</option>
+              <option value="设计">设计类</option>
+              <option value="编程">编程开发</option>
+              <option value="数据">数据分析</option>
+              <option value="艺术">艺术文化</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+
+          {/* Level Select */}
+          <div className="relative">
+            <select 
+              value={filterLevel}
+              onChange={(e) => setFilterLevel(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer"
+            >
+              <option value="all">所有课程级别</option>
+              <option value="初级">初级课程</option>
+              <option value="中级">中级课程</option>
+              <option value="高级">高级研修</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+
+          {/* Campus Select */}
+          <div className="relative">
+            <select 
+              value={filterCampus}
+              onChange={(e) => setFilterCampus(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer"
+            >
+              <option value="all">全量适用校区</option>
+              <option value="总校区">总部旗舰校</option>
+              <option value="浦东校区">浦东分校</option>
+              <option value="静安校区">静安分校</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-          <Filter size={16} />
-          筛选条件
-        </button>
+
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">状态筛选:</span>
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button 
+                  onClick={() => setFilterStatus('all')}
+                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >全部</button>
+                <button 
+                  onClick={() => setFilterStatus('enabled')}
+                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'enabled' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >启用中</button>
+                <button 
+                  onClick={() => setFilterStatus('disabled')}
+                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'disabled' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >已停用</button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={resetFilters}
+              className="flex items-center gap-2 px-6 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <RotateCcw size={16} />
+              重置
+            </button>
+            <button className="flex items-center gap-2 px-8 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
+              查询
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Courses Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Main Table Area */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        {/* Table Toolbar */}
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+          <div className="flex items-center gap-4">
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">课程档案统计 ({filteredCourses.length})</p>
+            {selectedIds.length > 0 && (
+              <div className="flex items-center gap-2 animate-in slide-in-from-left-2">
+                <div className="h-4 w-px bg-slate-300 mx-2"></div>
+                <span className="text-sm font-bold text-blue-600 underline">已选中 {selectedIds.length} 项</span>
+                <button className="text-xs font-bold text-slate-600 hover:text-blue-600 ml-2">批量启用</button>
+                <button className="text-xs font-bold text-slate-600 hover:text-red-600 ml-2">批量删除</button>
+              </div>
+            )}
+          </div>
+          <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+            <Filter size={18} />
+          </button>
+        </div>
+
+        {/* The Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[1200px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">课程名称</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">主讲人</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">总课时</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">开课时间</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">状态</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">操作</th>
+              <tr className="bg-slate-50/50">
+                <th className="px-6 py-4 w-12 text-center">
+                  <input 
+                    type="checkbox" 
+                    onChange={handleSelectAll}
+                    checked={selectedIds.length === filteredCourses.length && filteredCourses.length > 0}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                  />
+                </th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">课程编号</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">课程名称</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">类型/级别</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">价格策略/课时</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">适用校区</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">当前状态</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">更新时间</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em] text-right">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredCourses.length > 0 ? (
                 filteredCourses.map((course) => (
-                  <tr key={course.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-slate-800">{course.name}</span>
-                        <span className="text-xs text-slate-400 line-clamp-1">{course.category}</span>
-                      </div>
+                  <tr key={course.id} className={`hover:bg-blue-50/10 transition-colors group ${selectedIds.includes(course.id) ? 'bg-blue-50/20' : ''}`}>
+                    <td className="px-6 py-5 text-center">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(course.id)}
+                        onChange={() => handleSelectOne(course.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                      />
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-slate-100 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-200 uppercase">
-                          {course.instructor.charAt(0)}
+                    <td className="px-6 py-5">
+                      <span className="text-xs font-mono font-bold text-slate-400">{course.code}</span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 font-bold border border-slate-200">
+                          {course.name.charAt(0)}
                         </div>
-                        <span className="text-sm text-slate-600">{course.instructor}</span>
+                        <span className="font-bold text-slate-800 tracking-tight">{course.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-sm font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                        {course.totalLessons} 节
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                        <Calendar size={14} className="text-slate-400" />
-                        {course.startDate}
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-700">{course.category}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{course.level}级别</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      {getStatusBadge(course.status)}
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-emerald-600">{course.price}</span>
+                        <span className="text-[10px] font-medium text-slate-400">{course.totalLessons} 课时总额</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="px-6 py-5 text-sm text-slate-500 font-medium">
+                      {course.campus}
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2">
+                        {course.status === 'enabled' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                            <CheckCircle2 size={12} /> 启用中
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-slate-50 text-slate-400 border border-slate-100">
+                            <XCircle size={12} /> 已停用
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-xs text-slate-400 font-mono">
+                      {course.updateTime}
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="查看详情">
+                          <Eye size={18} />
+                        </button>
                         <button 
-                          onClick={() => handleEdit(course)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                          onClick={() => { setEditingCourse(course); setIsModalOpen(true); }}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" 
                           title="编辑"
                         >
-                          <Edit2 size={16} />
+                          <Edit3 size={18} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(course.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                          title="删除"
+                          onClick={() => handleToggleStatus(course.id)}
+                          className={`p-2 transition-all rounded-lg ${course.status === 'enabled' ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                          title={course.status === 'enabled' ? '停用' : '启用'}
                         >
-                          <Trash2 size={16} />
+                          <RotateCcw size={18} />
                         </button>
-                        <button className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors">
-                          <MoreVertical size={16} />
+                        <button className="p-2 text-slate-300 hover:text-slate-900 transition-all">
+                          <MoreHorizontal size={18} />
                         </button>
                       </div>
                     </td>
@@ -211,16 +401,41 @@ export const CourseManagement: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    <div className="flex flex-col items-center gap-2">
-                      <Search size={32} className="opacity-20" />
-                      <span>未找到符合条件的课程</span>
+                  <td colSpan={9} className="px-6 py-32 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-6 bg-slate-50 rounded-full">
+                        <Users size={64} className="opacity-10 text-slate-900" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xl font-bold text-slate-700">未找到符合条件的课程档案</p>
+                        <p className="text-sm font-medium">尝试更换关键词或重置筛选条件</p>
+                      </div>
                     </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between bg-slate-50/20">
+          <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
+            <span>显示 1 到 {filteredCourses.length} 条 / 共 {filteredCourses.length} 条数据</span>
+            <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+              <button className="px-3 py-1 bg-slate-100 rounded-md text-slate-800">10 条/页</button>
+              <ChevronDown size={14} className="mx-2" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-300 cursor-not-allowed">上一页</button>
+            <div className="flex items-center">
+              <button className="w-10 h-10 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-100">1</button>
+              <button className="w-10 h-10 bg-transparent text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-100">2</button>
+              <button className="w-10 h-10 bg-transparent text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-100">3</button>
+            </div>
+            <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">下一页</button>
+          </div>
         </div>
       </div>
 

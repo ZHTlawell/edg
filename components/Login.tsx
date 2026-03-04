@@ -1,212 +1,236 @@
 
-import React from 'react';
-import { School, User, Lock, ArrowRight, Loader2, Mail, ShieldCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  School, 
+  User, 
+  Lock, 
+  ArrowRight, 
+  Loader2, 
+  ShieldCheck, 
+  Smartphone, 
+  GraduationCap, 
+  LayoutDashboard,
+  Users,
+  CheckCircle2
+} from 'lucide-react';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (role: string) => void;
 }
 
+type UserRole = 'admin' | 'teacher' | 'student';
+
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isRegistering, setIsRegistering] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeRole, setActiveRole] = useState<UserRole>('admin');
   
   // Form States
-  const [account, setAccount] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [confirmPassword, setConfirmPassword] = React.useState('');
-  const [inviteCode, setInviteCode] = React.useState('');
+  const [account, setAccount] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API process
+    // Simulate authentication process
     setTimeout(() => {
       setIsLoading(false);
-      if (isRegistering) {
-        alert('注册申请已提交，请联系总校管理员审核！');
-        setIsRegistering(false);
-        setConfirmPassword('');
-        setInviteCode('');
-      } else {
-        onLogin();
-      }
-    }, 1000);
+      onLogin(activeRole);
+    }, 1200);
   };
 
-  const toggleMode = () => {
-    setIsRegistering(!isRegistering);
-    // Reset secondary fields when toggling
-    setConfirmPassword('');
-    setInviteCode('');
+  // UI Theme Configuration based on role
+  const getRoleConfig = (role: UserRole) => {
+    switch (role) {
+      case 'admin':
+        return {
+          title: '管理端登录',
+          desc: '总部及分校区教务管理门户',
+          color: 'blue',
+          accent: 'bg-blue-600',
+          hover: 'hover:bg-blue-700',
+          shadow: 'shadow-blue-100',
+          ring: 'focus:ring-blue-100',
+          border: 'focus:border-blue-600',
+          label: '管理员账号 / 工号',
+          icon: <LayoutDashboard size={20} />
+        };
+      case 'teacher':
+        return {
+          title: '教师端登录',
+          desc: '授课讲师与教研人员办公系统',
+          color: 'indigo',
+          accent: 'bg-indigo-600',
+          hover: 'hover:bg-indigo-700',
+          shadow: 'shadow-indigo-100',
+          ring: 'focus:ring-indigo-100',
+          border: 'focus:border-indigo-600',
+          label: '教师编号 / 手机号',
+          icon: <Users size={20} />
+        };
+      case 'student':
+        return {
+          title: '学员/家长端',
+          desc: '在线学习进度与课表查询中心',
+          color: 'emerald',
+          accent: 'bg-emerald-600',
+          hover: 'hover:bg-emerald-700',
+          shadow: 'shadow-emerald-100',
+          ring: 'focus:ring-emerald-100',
+          border: 'focus:border-emerald-600',
+          label: '手机号 / 学号',
+          icon: <GraduationCap size={20} />
+        };
+    }
   };
 
-  const inputClasses = "w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-600 focus:bg-white transition-all text-sm text-slate-950 font-medium shadow-sm placeholder:text-slate-400";
+  const config = getRoleConfig(activeRole);
+  const inputClasses = `w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-11 pr-4 outline-none focus:ring-4 ${config.ring} ${config.border} focus:bg-white transition-all text-sm text-slate-900 font-bold shadow-sm placeholder:text-slate-300`;
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-6 font-sans">
-      {/* Top Header Section */}
-      <div className="mb-8 flex flex-col items-center text-center space-y-4 transition-all duration-500">
-        <div className="bg-blue-600 p-3 rounded-2xl shadow-xl shadow-blue-200">
-          <School className="text-white" size={32} />
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#F8FAFC] p-6">
+      {/* Branding */}
+      <div className="mb-10 flex flex-col items-center text-center space-y-4 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div className={`p-4 rounded-3xl text-white shadow-2xl transition-all duration-500 ${config.accent} transform hover:rotate-3`}>
+          <School size={36} />
         </div>
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">EduAdmin Pro</h1>
-          <p className="text-slate-500 font-medium text-sm text-opacity-80">进阶教育培训信息管理系统</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">EduAdmin Pro</h1>
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em]">Premium Education Management System</p>
         </div>
       </div>
 
-      {/* Main Form Card */}
-      <div className="w-full max-w-[420px] bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden transition-all duration-300">
-        <div className="p-8 sm:p-10">
-          <div className="mb-8 text-center sm:text-left">
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-              {isRegistering ? '申请管理账号' : '欢迎登录'}
+      {/* Role Switcher Tabs */}
+      <div className="w-full max-w-[480px] bg-white p-1.5 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 flex gap-1 mb-8 animate-in fade-in duration-500 delay-100">
+        {(['admin', 'teacher', 'student'] as UserRole[]).map((role) => {
+          const isActive = activeRole === role;
+          const roleConfig = getRoleConfig(role);
+          return (
+            <button
+              key={role}
+              onClick={() => setActiveRole(role)}
+              className={`flex-1 flex flex-col items-center justify-center py-4 rounded-[1.5rem] transition-all relative overflow-hidden group ${
+                isActive ? 'bg-slate-900 text-white shadow-xl scale-105 z-10' : 'text-slate-400 hover:bg-slate-50'
+              }`}
+            >
+              <div className={`mb-2 transition-transform duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                {role === 'admin' && <LayoutDashboard size={20} />}
+                {role === 'teacher' && <Users size={20} />}
+                {role === 'student' && <GraduationCap size={20} />}
+              </div>
+              <span className="text-xs font-bold tracking-wider uppercase">
+                {role === 'admin' ? '管理端' : role === 'teacher' ? '教师端' : '学员端'}
+              </span>
+              {isActive && (
+                <div className={`absolute top-0 right-0 w-12 h-12 -translate-y-6 translate-x-6 rounded-full blur-2xl opacity-50 ${roleConfig.accent}`}></div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Login Card */}
+      <div className="w-full max-w-[480px] bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden relative animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+        <div className="p-10 md:p-12">
+          <div className="mb-10 text-center sm:text-left space-y-2">
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+              {config.title}
+              <CheckCircle2 size={24} className={isActiveRole('admin') ? 'text-blue-500' : isActiveRole('teacher') ? 'text-indigo-500' : 'text-emerald-500'} />
             </h2>
-            <p className="text-slate-500 text-sm mt-1">
-              {isRegistering ? '请填写校区管理员申请信息' : '请使用您的账号登录系统'}
-            </p>
+            <p className="text-slate-400 text-sm font-medium">{config.desc}</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              {/* Account / Email Input */}
-              <div className="space-y-1.5">
-                <label htmlFor="account" className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
-                  {isRegistering ? '管理员邮箱' : '登录账号'}
-                </label>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-5">
+              {/* Account Input */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{config.label}</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
-                    {isRegistering ? <Mail size={18} /> : <User size={18} />}
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-slate-900 transition-colors pointer-events-none">
+                    {activeRole === 'student' ? <Smartphone size={18} /> : <User size={18} />}
                   </div>
                   <input
-                    id="account"
-                    name="account"
-                    type={isRegistering ? "email" : "text"}
-                    autoFocus
+                    type="text"
                     required
-                    autoComplete={isRegistering ? "email" : "username"}
                     value={account}
                     onChange={(e) => setAccount(e.target.value)}
                     className={inputClasses}
-                    placeholder={isRegistering ? "admin@school.com" : "请输入账号/邮箱"}
+                    placeholder={activeRole === 'student' ? "请输入手机号" : "输入工号或账号"}
                   />
                 </div>
               </div>
 
               {/* Password Input */}
-              <div className="space-y-1.5">
-                <label htmlFor="password" className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">登录密码</label>
+              <div className="space-y-2">
+                <div className="flex justify-between items-end ml-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">访问凭证 / 密码</label>
+                  <a href="#" className="text-[10px] font-bold text-blue-600 hover:underline uppercase tracking-widest">忘记密码?</a>
+                </div>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-slate-900 transition-colors pointer-events-none">
                     <Lock size={18} />
                   </div>
                   <input
-                    id="password"
-                    name="password"
                     type="password"
                     required
-                    autoComplete={isRegistering ? "new-password" : "current-password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={inputClasses}
-                    placeholder="请输入密码"
+                    placeholder="请输入登录密码"
                   />
                 </div>
               </div>
 
-              {/* Bottom Actions Bar (Login Mode only) */}
-              {!isRegistering && (
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      id="remember" 
-                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
-                    />
-                    <label htmlFor="remember" className="text-sm text-slate-500 cursor-pointer select-none font-medium">记住登录状态</label>
-                  </div>
-                  <a href="#" className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">忘记密码?</a>
-                </div>
-              )}
-
-              {/* Registration Specific Fields */}
-              {isRegistering && (
-                <div className="space-y-4 pt-1 animate-fade-in">
-                  <div className="space-y-1.5">
-                    <label htmlFor="confirmPassword" className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">确认密码</label>
-                    <div className="relative group">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
-                        <ShieldCheck size={18} />
-                      </div>
-                      <input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        required
-                        autoComplete="new-password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={inputClasses}
-                        placeholder="请再次确认密码"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="inviteCode" className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">校区校验码</label>
-                    <input
-                      id="inviteCode"
-                      name="inviteCode"
-                      type="text"
-                      required
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-600 focus:bg-white transition-all text-sm text-slate-950 font-medium shadow-sm placeholder:text-slate-400"
-                      placeholder="请输入 6 位校区授权码"
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="flex items-center gap-3 px-1 pt-1">
+                <input 
+                  type="checkbox" 
+                  id="remember" 
+                  className="w-4 h-4 rounded-md border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer transition-all" 
+                />
+                <label htmlFor="remember" className="text-xs text-slate-500 font-bold cursor-pointer select-none">记住登录状态 (受信任设备)</label>
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2 group active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+              className={`w-full ${config.accent} ${config.hover} text-white font-bold py-4 rounded-2xl transition-all shadow-xl ${config.shadow} flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed`}
             >
               {isLoading ? (
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <>
-                  {isRegistering ? '立即提交申请' : '登录'}
+                  <span className="tracking-tight">安全登录系统</span>
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center text-sm text-slate-500 font-medium">
-            {isRegistering ? (
-              <>
-                已有管理账号？ <button type="button" onClick={toggleMode} className="text-blue-600 font-bold hover:underline underline-offset-4">返回登录</button>
-              </> : (
-              <>
-                还没有系统账号？ <button type="button" onClick={toggleMode} className="text-blue-600 font-bold hover:underline underline-offset-4">申请注册</button>
-              </>
-            )}
+          <div className="mt-12 pt-8 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2024 EDUADMIN SYSTEMS</p>
+             <div className="flex items-center gap-6">
+               <a href="#" className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest">使用协议</a>
+               <a href="#" className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest">隐私声明</a>
+             </div>
           </div>
         </div>
       </div>
 
+      {/* Decorative background elements */}
+      <div className={`fixed -bottom-32 -left-32 w-96 h-96 rounded-full blur-[120px] opacity-20 transition-colors duration-1000 ${isActiveRole('admin') ? 'bg-blue-400' : isActiveRole('teacher') ? 'bg-indigo-400' : 'bg-emerald-400'}`}></div>
+      <div className={`fixed -top-32 -right-32 w-96 h-96 rounded-full blur-[120px] opacity-20 transition-colors duration-1000 ${isActiveRole('admin') ? 'bg-blue-400' : isActiveRole('teacher') ? 'bg-indigo-400' : 'bg-emerald-400'}`}></div>
+
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.3s ease-out forwards;
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
       `}} />
     </div>
   );
+
+  function isActiveRole(role: UserRole) {
+    return activeRole === role;
+  }
 };

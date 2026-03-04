@@ -1,8 +1,12 @@
 
 import React from 'react';
-import { Search, Bell, HelpCircle, ChevronDown, MapPin } from 'lucide-react';
+import { Search, Bell, HelpCircle, ChevronDown, MapPin, LogOut } from 'lucide-react';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onLogout?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
       {/* Search Bar */}
@@ -11,8 +15,8 @@ export const Header: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
           <input
             type="text"
-            placeholder="搜索学员、课程..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-sm"
+            placeholder="搜索学员、课程、订单..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-sm font-medium"
           />
         </div>
       </div>
@@ -20,9 +24,9 @@ export const Header: React.FC = () => {
       {/* Actions */}
       <div className="flex items-center gap-4">
         {/* Branch Selector */}
-        <button className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg text-sm text-slate-600 transition-colors">
+        <button className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg text-sm text-slate-600 transition-colors font-bold">
           <MapPin size={16} className="text-blue-500" />
-          <span>总校区</span>
+          <span>总部旗舰校</span>
           <ChevronDown size={14} />
         </button>
 
@@ -35,9 +39,19 @@ export const Header: React.FC = () => {
           </span>
         </button>
 
-        <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-full transition-colors">
+        <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-full transition-colors" title="帮助中心">
           <HelpCircle size={20} />
         </button>
+
+        {onLogout && (
+          <button 
+            onClick={onLogout}
+            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-2" 
+            title="退出登录"
+          >
+            <LogOut size={20} />
+          </button>
+        )}
       </div>
     </header>
   );
