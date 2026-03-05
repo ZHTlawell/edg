@@ -40,7 +40,7 @@ export interface Course {
   status: CourseStatus;
   updateTime: string;
   instructor: string;
-  description: string;
+  description?: string;
 }
 
 export type ClassStatus = 'pending' | 'ongoing' | 'closed';
@@ -49,6 +49,7 @@ export interface Class {
   id: string;
   name: string;
   campus: string;
+  courseId: string; // 关联课程 ID
   courseName: string;
   teacherName: string;
   capacity: number;
@@ -71,4 +72,61 @@ export interface Student {
   lastStudyTime: string;
   createdAt: string;
   birthday?: string;
+  balanceAmount?: number;
+  balanceLessons?: number;
+}
+
+export type AttendStatus = 'present' | 'leave' | 'absent' | 'late';
+
+export interface AttendanceRecord {
+  id: string;
+  lessonId: string;
+  studentId: string;
+  courseId: string;
+  classId: string;
+  campusId: string;
+  status: AttendStatus;
+  deductHours: number;
+  deductStatus: 'pending' | 'completed' | 'failed';
+  remark?: string;
+  createdAt: string;
+}
+
+export interface AssetAccount {
+  id: string;
+  studentId: string;
+  courseId: string;
+  campusId: string;
+  totalQty: number;
+  remainingQty: number;
+  lockedQty: number;
+  status: 'active' | 'exhausted' | 'frozen';
+  updatedAt: string;
+}
+
+export interface AssetLedger {
+  id: string;
+  accountId: string;
+  studentId: string;
+  businessType: 'BUY' | 'CONSUME' | 'REFUND';
+  changeQty: number;
+  balanceSnapshot: number;
+  refId: string; // 关联考勤记录 ID 或订单 ID
+  occurTime: string;
+}
+
+export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
+
+export interface Order {
+  id: string;
+  studentId: string;
+  courseId: string;
+  classId: string;
+  campusId: string;
+  lessons: number; // 购买课时
+  amount: number; // 支付金额
+  paymentMethod: string;
+  status: OrderStatus;
+  notes?: string;
+  createdAt: string;
 }

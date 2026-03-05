@@ -1,17 +1,17 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  User, 
-  BookOpen, 
-  Wallet, 
-  Plus, 
-  Search, 
-  ChevronRight, 
-  Calendar, 
-  ChevronDown, 
-  CreditCard, 
-  Smartphone, 
-  Banknote, 
+import {
+  User,
+  BookOpen,
+  Wallet,
+  Plus,
+  Search,
+  ChevronRight,
+  Calendar,
+  ChevronDown,
+  CreditCard,
+  Smartphone,
+  Banknote,
   Building2,
   AlertCircle,
   Save,
@@ -29,19 +29,10 @@ interface OrderCreationProps {
   onSuccess: (orderId: string) => void;
 }
 
-// Mock Data for linkages
-const MOCK_STUDENTS = [
-  { id: 'S1001', name: '张美玲', phone: '13812345678', campus: '总校区', status: 'active', parentName: '张建军', parentPhone: '13812345679' },
-  { id: 'S1002', name: '王大卫', phone: '13988887777', campus: '浦东校区', status: 'potential', parentName: '王晓梅', parentPhone: '13988887778' }
-];
-
-const MOCK_COURSES = [
-  { id: 'C1', name: '高级UI/UX设计实战', unitPrice: 150, levels: ['初级', '中级', '高级'] },
-  { id: 'C2', name: '全栈开发：React架构', unitPrice: 200, levels: ['进阶', '大师'] },
-  { id: 'C3', name: '商业数据分析大师班', unitPrice: 180, levels: ['全等级'] }
-];
+import { useStore } from '../store';
 
 export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess }) => {
+  const { students, courses, campuses, createOrder } = useStore();
   // --- Form State ---
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [campus, setCampus] = useState('总校区');
@@ -51,7 +42,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
   const [lessons, setLessons] = useState(20);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
-  
+
   // --- Finance State ---
   const [discountType, setDiscountType] = useState<'none' | 'coupon' | 'percent' | 'amount'>('none');
   const [discountValue, setDiscountValue] = useState(0);
@@ -61,13 +52,20 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
   const [showParentInfo, setShowParentInfo] = useState(false);
 
   // --- Derived State ---
-  const student = useMemo(() => MOCK_STUDENTS.find(s => s.id === selectedStudentId), [selectedStudentId]);
-  const course = useMemo(() => MOCK_COURSES.find(c => c.id === courseId), [courseId]);
+  const student = useMemo(() => students.find(s => s.id === selectedStudentId), [students, selectedStudentId]);
+  const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
+
+  // Note: Standardize unit prices, fallback to 150
+  const courseUnitPrice = useMemo(() => {
+    if (!course) return 150;
+    const priceStr = course.price.replace(/[^\d.]/g, '');
+    return parseFloat(priceStr) / (course.totalLessons || 1) || 150;
+  }, [course]);
 
   const originalPrice = useMemo(() => {
     if (!course) return 0;
-    return lessons * course.unitPrice;
-  }, [course, lessons]);
+    return lessons * courseUnitPrice;
+  }, [course, lessons, courseUnitPrice]);
 
   const discountAmount = useMemo(() => {
     if (discountType === 'none') return 0;
@@ -95,9 +93,23 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
       alert('请先完成学员与课程的选择');
       return;
     }
-    // Simulate order ID generation
-    const generatedOrderId = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
-    onSuccess(generatedOrderId);
+
+    // 映射当前校区 ID
+    const campusId = campuses.find(c => c.name === campus)?.id || 'C001';
+
+    // 执行 Store 动作，完成订单创建与资产流转
+    const orderId = createOrder({
+      studentId: selectedStudentId,
+      courseId: courseId,
+      classId: classId,
+      campusId: campusId,
+      lessons: lessons,
+      amount: payableAmount,
+      paymentMethod: paymentMethod,
+      notes: notes
+    });
+
+    onSuccess(orderId);
   };
 
   return (
@@ -120,7 +132,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Left Form Column */}
         <div className="flex-1 space-y-8 w-full">
-          
+
           {/* A: Student Information Card */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
@@ -132,20 +144,20 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                 <Plus size={14} /> 注册新学员
               </button>
             </div>
-            
+
             <div className="p-8 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">学员选择 <span className="text-red-500">*</span></label>
                   <div className="relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <select 
+                    <select
                       value={selectedStudentId}
                       onChange={handleStudentSearch}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-slate-900 appearance-none cursor-pointer"
                     >
                       <option value="">点击搜索或选择学员...</option>
-                      {MOCK_STUDENTS.map(s => <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>)}
+                      {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>)}
                     </select>
                     <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
@@ -183,7 +195,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
               )}
 
               <div className="pt-4">
-                <button 
+                <button
                   onClick={() => setShowParentInfo(!showParentInfo)}
                   className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-1 transition-colors"
                 >
@@ -219,7 +231,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">意向校区 <span className="text-red-500">*</span></label>
-                  <select 
+                  <select
                     value={campus}
                     onChange={(e) => setCampus(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
@@ -232,19 +244,19 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">选择课程项目 <span className="text-red-500">*</span></label>
-                  <select 
+                  <select
                     value={courseId}
                     onChange={handleCourseChange}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
                   >
                     <option value="">请选择课程...</option>
-                    {MOCK_COURSES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">课程等级</label>
-                  <select 
+                  <select
                     value={level}
                     onChange={(e) => setLevel(e.target.value)}
                     disabled={!courseId}
@@ -257,7 +269,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">入读班级</label>
-                  <select 
+                  <select
                     value={classId}
                     onChange={(e) => setClassId(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
@@ -272,8 +284,8 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">购买课时量</label>
                   <div className="relative group">
                     <Calculator className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={lessons}
                       onChange={(e) => setLessons(parseInt(e.target.value) || 0)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-slate-900"
@@ -285,8 +297,8 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">预计开课日期</label>
                   <div className="relative group">
                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-slate-900"
@@ -296,7 +308,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
 
                 <div className="md:col-span-2 space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">备注说明</label>
-                  <textarea 
+                  <textarea
                     rows={2}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -344,8 +356,8 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                 {(discountType === 'percent' || discountType === 'amount') && (
                   <div className="flex items-center gap-4 animate-in slide-in-from-left-4 max-w-xs">
                     <div className="flex-1 relative group">
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         placeholder={discountType === 'percent' ? "输入折扣 (0-100)" : "输入减免金额"}
                         value={discountValue}
                         onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
@@ -394,9 +406,9 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                     <p className="text-xs text-slate-400 mt-0.5">开启后可生成多期账单计划</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-6">
-                  <button 
+                  <button
                     onClick={() => setIsInstallment(!isInstallment)}
                     className={`relative w-14 h-7 rounded-full transition-colors ${isInstallment ? 'bg-indigo-600' : 'bg-slate-200'}`}
                   >
@@ -408,8 +420,8 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                       <span className="text-xs font-bold text-slate-500">分期期数:</span>
                       <div className="flex bg-white rounded-xl border border-slate-200 p-1">
                         {[3, 6, 12].map(num => (
-                          <button 
-                            key={num} 
+                          <button
+                            key={num}
                             onClick={() => setInstallmentCount(num)}
                             className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${installmentCount === num ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
                           >{num}期</button>
@@ -427,7 +439,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
         <div className="w-full lg:w-[360px] space-y-6 sticky top-24">
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-slate-200 overflow-hidden relative">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -translate-y-16 translate-x-16"></div>
-            
+
             <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">费用结算预览</span>
               <Info size={16} className="opacity-40" />
@@ -442,7 +454,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                 <span className="font-medium opacity-60">课时包 ({lessons} 课时)</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 bg-white/10 rounded uppercase tracking-wider">自动计算</span>
               </div>
-              
+
               <div className="flex justify-between items-center text-sm text-red-400 font-bold">
                 <span className="font-medium opacity-80">优惠减免</span>
                 <span className="font-mono">-{discountAmount > 0 ? `¥ ${discountAmount.toFixed(2)}` : '¥ 0.00'}</span>
@@ -470,8 +482,8 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                 </div>
               )}
             </div>
-            
-            <button 
+
+            <button
               onClick={handleSubmit}
               className="w-full mt-10 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-[1.75rem] font-bold shadow-xl shadow-blue-900/40 transition-all flex items-center justify-center gap-3 active:scale-95"
             >
@@ -496,7 +508,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
 
       {/* Footer Fixed Actions (Secondary) */}
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-md border-t border-slate-100 px-8 flex items-center justify-between z-30 lg:left-64">
-        <button 
+        <button
           onClick={onBack}
           className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors"
         >
@@ -506,7 +518,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
           <button className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-bold transition-all">
             保存为草稿
           </button>
-          <button 
+          <button
             onClick={handleSubmit}
             className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-100 active:scale-95"
           >
@@ -515,7 +527,8 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}} />

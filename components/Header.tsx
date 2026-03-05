@@ -1,12 +1,18 @@
 
 import React from 'react';
 import { Search, Bell, HelpCircle, ChevronDown, MapPin, LogOut } from 'lucide-react';
+import { useStore } from '../store';
 
 interface HeaderProps {
   onLogout?: () => void;
+  onNavigate?: (id: string) => void;
+  userRole?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ onLogout, onNavigate, userRole }) => {
+  const { currentUser } = useStore();
+  const campusDisplay = userRole === 'campus_admin' ? (currentUser?.campus || '分校区') : '总部及全辖区';
+
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
       {/* Search Bar */}
@@ -23,12 +29,14 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
       {/* Actions */}
       <div className="flex items-center gap-4">
-        {/* Branch Selector */}
-        <button className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg text-sm text-slate-600 transition-colors font-bold">
-          <MapPin size={16} className="text-blue-500" />
-          <span>总部旗舰校</span>
-          <ChevronDown size={14} />
-        </button>
+        {/* Branch Selector - Hidden for campus_admin */}
+        {userRole !== 'campus_admin' && (
+          <button className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-sm text-slate-600 transition-colors font-bold hover:bg-slate-100">
+            <MapPin size={16} className="text-blue-500" />
+            <span>{campusDisplay}</span>
+            <ChevronDown size={14} />
+          </button>
+        )}
 
         <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
 
@@ -39,14 +47,18 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
           </span>
         </button>
 
-        <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-full transition-colors" title="帮助中心">
+        <button
+          onClick={() => onNavigate?.('help-center')}
+          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-full transition-colors"
+          title="帮助中心"
+        >
           <HelpCircle size={20} />
         </button>
 
         {onLogout && (
-          <button 
+          <button
             onClick={onLogout}
-            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-2" 
+            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-2"
             title="退出登录"
           >
             <LogOut size={20} />

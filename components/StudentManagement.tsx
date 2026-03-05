@@ -1,13 +1,13 @@
 
-import React, { useState, useMemo, useRef } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Download, 
-  Edit2, 
-  Eye, 
-  ChevronRight, 
-  Home, 
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import {
+  Plus,
+  Search,
+  Download,
+  Edit2,
+  Eye,
+  ChevronRight,
+  Home,
   Filter,
   CheckCircle2,
   Calendar as CalendarIcon,
@@ -18,6 +18,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { Student, StudentStatus } from '../types';
+import { useStore } from '../store';
 
 interface StudentManagementProps {
   onShowDetail?: (student: Student) => void;
@@ -46,7 +47,7 @@ const EduDatePicker: React.FC<{
   };
 
   return (
-    <div 
+    <div
       className={`relative group h-[56px] w-full cursor-pointer ${className}`}
       onClick={handleContainerClick}
     >
@@ -57,18 +58,19 @@ const EduDatePicker: React.FC<{
           {value || placeholder}
         </span>
       </div>
-      
+
       {/* 交互层：透明的原生 input，通过 CSS 确保点击区域覆盖全场 */}
-      <input 
+      <input
         ref={inputRef}
-        type="date" 
+        type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="edu-date-input absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         style={{ colorScheme: 'light' }}
       />
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         /* 关键修复：让原生日期触发区域撑满整个容器 */
         .edu-date-input::-webkit-calendar-picker-indicator {
           position: absolute;
@@ -86,22 +88,16 @@ const EduDatePicker: React.FC<{
   );
 };
 
-const INITIAL_SAMPLE_STUDENTS: Student[] = [
-  { id: 'S10001', name: '张美玲', gender: 'female', phone: '13812345678', campus: '总校区', status: 'active', className: '高级UI/UX设计', lastStudyTime: '2024-05-21 14:30', createdAt: '2024-01-10', birthday: '1998-11-15' },
-  { id: 'S10002', name: '王大卫', gender: 'male', phone: '13988887777', campus: '总校区', status: 'active', className: '全栈开发：React', lastStudyTime: '2024-05-20 09:15', createdAt: '2024-01-12', birthday: '1996-05-20' },
-  { id: 'S10003', name: '李思思', gender: 'female', phone: '15544443333', campus: '浦东校区', status: 'graduated', className: '商业数据分析', lastStudyTime: '2024-04-15 11:00', createdAt: '2023-11-20', birthday: '1999-03-12' },
-  { id: 'S10004', name: '赵小龙', gender: 'male', phone: '18600001111', campus: '总校区', status: 'inactive', className: 'Python基础', lastStudyTime: '2024-03-01 16:45', createdAt: '2024-02-05', birthday: '2000-08-05' },
-  { id: 'S10005', name: '陈晓燕', gender: 'female', phone: '13722223333', campus: '静安校区', status: 'active', className: '数字媒体艺术', lastStudyTime: '2024-05-21 10:20', createdAt: '2024-03-10', birthday: '1997-12-01' },
-];
-
 export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDetail }) => {
-  const [students, setStudents] = useState<Student[]>(INITIAL_SAMPLE_STUDENTS);
+  const { students, currentUser, addStudent, updateStudent, deleteStudent } = useStore();
+  const isCampusAdmin = currentUser?.role === 'campus_admin';
+  const myCampus = currentUser?.campus || '总校区';
+
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedCampus, setSelectedCampus] = useState<string>('all');
-  
+  const [selectedCampus, setSelectedCampus] = useState<string>(isCampusAdmin ? myCampus : 'all');
+
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [filterGender, setFilterGender] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
@@ -112,13 +108,19 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
 
+  useEffect(() => {
+    if (isCampusAdmin) {
+      setSelectedCampus(myCampus);
+    }
+  }, [isCampusAdmin, myCampus]);
+
   const filteredStudents = useMemo(() => {
     return students.filter(student => {
       const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.phone.includes(searchTerm);
       const matchesStatus = selectedStatus === 'all' || student.status === selectedStatus;
       const matchesCampus = selectedCampus === 'all' || student.campus === selectedCampus;
       const matchesGender = filterGender === 'all' || student.gender === filterGender;
-      
+
       let matchesDate = true;
       if (startDate) matchesDate = matchesDate && student.createdAt >= startDate;
       if (endDate) matchesDate = matchesDate && student.createdAt <= endDate;
@@ -130,7 +132,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedStatus('all');
-    setSelectedCampus('all');
+    setSelectedCampus(isCampusAdmin ? myCampus : 'all');
     setFilterGender('all');
     setStartDate('');
     setEndDate('');
@@ -144,7 +146,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
         name: '',
         gender: 'female',
         phone: '',
-        campus: '总校区',
+        campus: isCampusAdmin ? myCampus : '总校区',
         status: 'active',
         birthday: '',
       });
@@ -164,16 +166,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     }
 
     if (editingStudent.id) {
-      setStudents(prev => prev.map(s => s.id === editingStudent.id ? { ...s, ...editingStudent } as Student : s));
+      updateStudent({ ...editingStudent } as Student);
     } else {
-      const newStudent: Student = {
-        ...editingStudent as Student,
-        id: `S${Math.floor(10000 + Math.random() * 90000)}`,
-        className: '未分配',
-        lastStudyTime: '刚刚',
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setStudents(prev => [newStudent, ...prev]);
+      addStudent(editingStudent as any);
     }
 
     setShowToast(true);
@@ -185,7 +180,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
   const handleDeleteConfirm = () => {
     if (deletingStudent) {
-      setStudents(prev => prev.filter(s => s.id !== deletingStudent.id));
+      deleteStudent(deletingStudent.id);
       setDeletingStudent(null);
     }
   };
@@ -244,14 +239,14 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               <div className="flex items-center gap-4 border-l-[4px] border-blue-600 pl-4">
                 <h3 className="text-xl font-bold text-slate-900 tracking-tight">基本信息</h3>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">姓名 <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" 
-                    value={editingStudent?.name || ''} 
-                    onChange={e => setEditingStudent({...editingStudent, name: e.target.value})}
+                  <input
+                    type="text"
+                    value={editingStudent?.name || ''}
+                    onChange={e => setEditingStudent({ ...editingStudent, name: e.target.value })}
                     className={`w-full bg-slate-50/50 border ${formErrors.name ? 'border-red-500 ring-2 ring-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white'} rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black transition-all placeholder:text-slate-300 shadow-sm`}
                     placeholder="请输入真实姓名"
                   />
@@ -261,12 +256,12 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">性别</label>
                   <div className="flex bg-slate-100/50 p-1.5 rounded-2xl h-[56px] shadow-sm">
-                    <button 
-                      onClick={() => setEditingStudent({...editingStudent, gender: 'male'})}
+                    <button
+                      onClick={() => setEditingStudent({ ...editingStudent, gender: 'male' })}
                       className={`flex-1 rounded-xl text-sm font-bold transition-all ${editingStudent?.gender === 'male' ? 'bg-white shadow text-blue-600' : 'text-slate-400'}`}
                     >男</button>
-                    <button 
-                      onClick={() => setEditingStudent({...editingStudent, gender: 'female'})}
+                    <button
+                      onClick={() => setEditingStudent({ ...editingStudent, gender: 'female' })}
                       className={`flex-1 rounded-xl text-sm font-bold transition-all ${editingStudent?.gender === 'female' ? 'bg-white shadow text-pink-600' : 'text-slate-400'}`}
                     >女</button>
                   </div>
@@ -274,7 +269,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">出生日期</label>
-                  <EduDatePicker 
+                  <EduDatePicker
                     value={editingStudent?.birthday || ''}
                     onChange={(val) => setEditingStudent(prev => ({ ...prev, birthday: val }))}
                   />
@@ -282,31 +277,33 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">联系电话 <span className="text-red-500">*</span></label>
-                  <input 
-                    type="tel" 
+                  <input
+                    type="tel"
                     value={editingStudent?.phone || ''}
-                    onChange={e => setEditingStudent({...editingStudent, phone: e.target.value})}
+                    onChange={e => setEditingStudent({ ...editingStudent, phone: e.target.value })}
                     className={`w-full bg-slate-50/50 border ${formErrors.phone ? 'border-red-500 ring-2 ring-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 focus:bg-white'} rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black transition-all placeholder:text-slate-300 shadow-sm`}
                     placeholder="11位手机号码"
                   />
                   {formErrors.phone && <p className="text-xs text-red-500 font-bold ml-2">{formErrors.phone}</p>}
                 </div>
 
-                <div className="col-span-1 md:col-span-2 space-y-2.5">
-                  <label className="text-sm font-bold text-slate-600 ml-1">所属校区</label>
-                  <div className="relative">
-                    <select 
-                      value={editingStudent?.campus}
-                      onChange={e => setEditingStudent({...editingStudent, campus: e.target.value})}
-                      className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer shadow-sm"
-                    >
-                      <option value="总校区">总部旗舰校区</option>
-                      <option value="浦东校区">浦东分校区</option>
-                      <option value="静安校区">静安分校区</option>
-                    </select>
-                    <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                {!isCampusAdmin && (
+                  <div className="col-span-1 md:col-span-2 space-y-2.5">
+                    <label className="text-sm font-bold text-slate-600 ml-1">所属校区</label>
+                    <div className="relative">
+                      <select
+                        value={editingStudent?.campus}
+                        onChange={e => setEditingStudent({ ...editingStudent, campus: e.target.value })}
+                        className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-3.5 px-5 outline-none text-base font-bold text-black focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer shadow-sm"
+                      >
+                        <option value="总校区">总部旗舰校区</option>
+                        <option value="浦东校区">浦东分校区</option>
+                        <option value="静安校区">静安分校区</option>
+                      </select>
+                      <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="space-y-2.5">
                   <label className="text-sm font-bold text-slate-600 ml-1">来源渠道</label>
@@ -326,14 +323,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
                 {['potential', 'trial', 'active', 'inactive', 'graduated', 'dropped'].map((st) => (
-                  <button 
+                  <button
                     key={st}
-                    onClick={() => setEditingStudent({...editingStudent, status: st as StudentStatus})}
-                    className={`px-4 py-4 rounded-[1.25rem] border-2 text-[11px] font-bold uppercase tracking-widest transition-all ${
-                      editingStudent?.status === st 
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-200 scale-105' 
+                    onClick={() => setEditingStudent({ ...editingStudent, status: st as StudentStatus })}
+                    className={`px-4 py-4 rounded-[1.25rem] border-2 text-[11px] font-bold uppercase tracking-widest transition-all ${editingStudent?.status === st
+                      ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-200 scale-105'
                       : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {getStatusLabel(st as StudentStatus)}
                   </button>
@@ -343,13 +339,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
           </div>
 
           <div className="p-8 md:p-10 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-6">
-            <button 
+            <button
               onClick={() => setViewMode('list')}
               className="px-8 py-3.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-all active:scale-95"
             >
               取消
             </button>
-            <button 
+            <button
               onClick={handleSave}
               className="px-14 py-4 bg-blue-600 text-white text-base font-bold rounded-[1.5rem] shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-[0.98] ring-4 ring-transparent hover:ring-blue-50"
             >
@@ -412,7 +408,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             <Download size={18} />
             批量导出
           </button>
-          <button 
+          <button
             onClick={() => handleOpenForm()}
             className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 active:scale-95"
           >
@@ -435,26 +431,28 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-black placeholder:text-slate-400"
             />
           </div>
-          
+
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <select 
-                value={selectedCampus} 
-                onChange={(e) => setSelectedCampus(e.target.value)} 
-                className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer"
-              >
-                <option value="all">全量校区</option>
-                <option value="总校区">总部旗舰校区</option>
-                <option value="浦东校区">浦东分校校区</option>
-                <option value="静安校区">静安分校校区</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
+            {!isCampusAdmin && (
+              <div className="relative">
+                <select
+                  value={selectedCampus}
+                  onChange={(e) => setSelectedCampus(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer shadow-sm"
+                >
+                  <option value="all">全量校区</option>
+                  <option value="总校区">总部旗舰校区</option>
+                  <option value="浦东校区">浦东分校区</option>
+                  <option value="静安校区">静安分校区</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            )}
 
             <div className="relative">
-              <select 
-                value={selectedStatus} 
-                onChange={(e) => setSelectedStatus(e.target.value)} 
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer"
               >
                 <option value="all">全量状态</option>
@@ -468,7 +466,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
 
-            <button 
+            <button
               onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
               className={`flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl text-sm font-bold transition-all active:scale-95 ${isFilterPanelOpen ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
             >
@@ -498,21 +496,21 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
               <div className="space-y-2 group">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">开始日期</label>
-                <EduDatePicker 
-                  value={startDate} 
-                  onChange={setStartDate} 
-                  className="!h-14 !rounded-[1.25rem]" 
-                  placeholder="年 / 月 / 日" 
+                <EduDatePicker
+                  value={startDate}
+                  onChange={setStartDate}
+                  className="!h-14 !rounded-[1.25rem]"
+                  placeholder="年 / 月 / 日"
                 />
               </div>
 
               <div className="space-y-2 group">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">截止日期</label>
-                <EduDatePicker 
-                  value={endDate} 
-                  onChange={setEndDate} 
-                  className="!h-14 !rounded-[1.25rem]" 
-                  placeholder="年 / 月 / 日" 
+                <EduDatePicker
+                  value={endDate}
+                  onChange={setEndDate}
+                  className="!h-14 !rounded-[1.25rem]"
+                  placeholder="年 / 月 / 日"
                 />
               </div>
             </div>
@@ -529,7 +527,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                 <th className="px-8 py-5 w-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">#</th>
                 <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">学员详情</th>
                 <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">联系电话</th>
-                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">所属校区</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isCampusAdmin ? '所在班级' : '所属校区'}</th>
                 <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">状态</th>
                 <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right pr-12">教务操作</th>
               </tr>
@@ -550,7 +548,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                     </div>
                   </td>
                   <td className="px-8 py-5 text-sm text-slate-600 font-bold tracking-tight">{maskPhone(student.phone)}</td>
-                  <td className="px-8 py-5 text-sm text-slate-500 font-medium">{student.campus}</td>
+                  <td className="px-8 py-5 text-sm text-slate-500 font-medium">{isCampusAdmin ? student.className : student.campus}</td>
                   <td className="px-8 py-5">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusStyle(student.status)}`}>
                       {getStatusLabel(student.status)}
@@ -591,7 +589,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}} />

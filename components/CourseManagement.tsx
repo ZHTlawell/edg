@@ -1,11 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Edit3, 
-  Trash2, 
-  Download, 
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  Plus,
+  Search,
+  Edit3,
+  Trash2,
+  Download,
   Filter,
   ChevronRight,
   Home,
@@ -19,77 +19,28 @@ import {
 } from 'lucide-react';
 import { Course, CourseStatus } from '../types';
 import { CourseFormModal } from './CourseFormModal';
-
-const INITIAL_COURSES: Course[] = [
-  {
-    id: '1',
-    code: 'C2024001',
-    name: '高级UI/UX设计实战',
-    description: '深度讲解现代产品设计流程与工具使用。',
-    instructor: '李老师',
-    totalLessons: 32,
-    price: '¥4,800.00',
-    status: 'enabled',
-    category: '设计',
-    level: '高级',
-    campus: '总校区',
-    updateTime: '2024-05-20 14:30'
-  },
-  {
-    id: '2',
-    code: 'C2024002',
-    name: '全栈开发：从入门到架构',
-    description: '涵盖前端React与后端Node.js的全栈开发知识。',
-    instructor: '张教授',
-    totalLessons: 48,
-    price: '¥6,200.00',
-    status: 'enabled',
-    category: '编程',
-    level: '中级',
-    campus: '浦东校区',
-    updateTime: '2024-05-18 09:15'
-  },
-  {
-    id: '3',
-    code: 'C2024003',
-    name: '商业数据分析大师班',
-    description: '使用Python与Tableau进行深度商业洞察。',
-    instructor: '陈首席',
-    totalLessons: 24,
-    price: '¥3,500.00',
-    status: 'disabled',
-    category: '数据',
-    level: '初级',
-    campus: '静安校区',
-    updateTime: '2024-04-10 11:00'
-  },
-  {
-    id: '4',
-    code: 'C2024004',
-    name: 'Python 自动化办公',
-    description: '零基础快速上手提升工作效率。',
-    instructor: '刘老师',
-    totalLessons: 12,
-    price: '¥1,200.00',
-    status: 'enabled',
-    category: '编程',
-    level: '初级',
-    campus: '总校区',
-    updateTime: '2024-05-22 10:00'
-  }
-];
+import { useStore } from '../store';
 
 export const CourseManagement: React.FC = () => {
-  const [courses, setCourses] = useState<Course[]>(INITIAL_COURSES);
+  const { courses, currentUser, setCourses } = useStore();
+  const isCampusAdmin = currentUser?.role === 'campus_admin';
+  const myCampus = currentUser?.campus || '总校区';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterLevel, setFilterLevel] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterCampus, setFilterCampus] = useState('all');
-  
+  const [filterCampus, setFilterCampus] = useState(isCampusAdmin ? myCampus : 'all');
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+
+  useEffect(() => {
+    if (isCampusAdmin) {
+      setFilterCampus(myCampus);
+    }
+  }, [isCampusAdmin, myCampus]);
 
   const filteredCourses = useMemo(() => {
     return courses.filter(c => {
@@ -132,15 +83,15 @@ export const CourseManagement: React.FC = () => {
     setFilterType('all');
     setFilterLevel('all');
     setFilterStatus('all');
-    setFilterCampus('all');
+    setFilterCampus(isCampusAdmin ? myCampus : 'all');
   };
 
   const handleSave = (course: Course) => {
     if (editingCourse) {
       setCourses(courses.map(c => c.id === course.id ? course : c));
     } else {
-      const newCourse: Course = { 
-        ...course, 
+      const newCourse: Course = {
+        ...course,
         id: Date.now().toString(),
         code: `C${new Date().getFullYear()}${Math.floor(100 + Math.random() * 900)}`,
         updateTime: new Date().toLocaleString()
@@ -168,7 +119,7 @@ export const CourseManagement: React.FC = () => {
             <Download size={18} />
             导出数据
           </button>
-          <button 
+          <button
             onClick={() => { setEditingCourse(null); setIsModalOpen(true); }}
             className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
           >
@@ -195,7 +146,7 @@ export const CourseManagement: React.FC = () => {
 
           {/* Type Select */}
           <div className="relative">
-            <select 
+            <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer"
@@ -211,7 +162,7 @@ export const CourseManagement: React.FC = () => {
 
           {/* Level Select */}
           <div className="relative">
-            <select 
+            <select
               value={filterLevel}
               onChange={(e) => setFilterLevel(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer"
@@ -224,20 +175,22 @@ export const CourseManagement: React.FC = () => {
             <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
 
-          {/* Campus Select */}
-          <div className="relative">
-            <select 
-              value={filterCampus}
-              onChange={(e) => setFilterCampus(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer"
-            >
-              <option value="all">全量适用校区</option>
-              <option value="总校区">总部旗舰校</option>
-              <option value="浦东校区">浦东分校</option>
-              <option value="静安校区">静安分校</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
+          {/* Campus Select - Hidden for campus_admin */}
+          {!isCampusAdmin && (
+            <div className="relative">
+              <select
+                value={filterCampus}
+                onChange={(e) => setFilterCampus(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer shadow-sm"
+              >
+                <option value="all">全量适用校区</option>
+                <option value="总校区">总部旗舰校</option>
+                <option value="浦东校区">浦东分校</option>
+                <option value="静安校区">静安分校</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-2">
@@ -245,24 +198,24 @@ export const CourseManagement: React.FC = () => {
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">状态筛选:</span>
               <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button 
+                <button
                   onClick={() => setFilterStatus('all')}
                   className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >全部</button>
-                <button 
+                <button
                   onClick={() => setFilterStatus('enabled')}
                   className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'enabled' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >启用中</button>
-                <button 
+                <button
                   onClick={() => setFilterStatus('disabled')}
                   className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'disabled' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >已停用</button>
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={resetFilters}
               className="flex items-center gap-2 px-6 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
             >
@@ -302,11 +255,11 @@ export const CourseManagement: React.FC = () => {
             <thead>
               <tr className="bg-slate-50/50">
                 <th className="px-6 py-4 w-12 text-center">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     onChange={handleSelectAll}
                     checked={selectedIds.length === filteredCourses.length && filteredCourses.length > 0}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                 </th>
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">课程编号</th>
@@ -324,11 +277,11 @@ export const CourseManagement: React.FC = () => {
                 filteredCourses.map((course) => (
                   <tr key={course.id} className={`hover:bg-blue-50/10 transition-colors group ${selectedIds.includes(course.id) ? 'bg-blue-50/20' : ''}`}>
                     <td className="px-6 py-5 text-center">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={selectedIds.includes(course.id)}
                         onChange={() => handleSelectOne(course.id)}
-                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                       />
                     </td>
                     <td className="px-6 py-5">
@@ -378,14 +331,14 @@ export const CourseManagement: React.FC = () => {
                         <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="查看详情">
                           <Eye size={18} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => { setEditingCourse(course); setIsModalOpen(true); }}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" 
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
                           title="编辑"
                         >
                           <Edit3 size={18} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleToggleStatus(course.id)}
                           className={`p-2 transition-all rounded-lg ${course.status === 'enabled' ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
                           title={course.status === 'enabled' ? '停用' : '启用'}
@@ -440,7 +393,7 @@ export const CourseManagement: React.FC = () => {
       </div>
 
       {isModalOpen && (
-        <CourseFormModal 
+        <CourseFormModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}

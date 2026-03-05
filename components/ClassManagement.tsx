@@ -1,10 +1,10 @@
 
-import React, { useState, useMemo, useRef } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Calendar, 
-  Download, 
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import {
+  Plus,
+  Search,
+  Calendar,
+  Download,
   Filter,
   ChevronRight,
   Home,
@@ -19,10 +19,10 @@ import {
   RotateCcw,
   CheckCircle2,
   MoreHorizontal,
-  // Added missing Eye icon import
   Eye
 } from 'lucide-react';
 import { Class, ClassStatus } from '../types';
+import { useStore } from '../store';
 
 /**
  * 通用日期选择组件 (复用逻辑)
@@ -45,9 +45,9 @@ const EduDatePicker: React.FC<{
         <Calendar size={16} className="text-slate-400 mr-2 group-focus-within:text-blue-500 transition-colors" />
         <span className={`text-sm font-bold ${value ? 'text-slate-900' : 'text-slate-300'}`}>{value || placeholder}</span>
       </div>
-      <input 
+      <input
         ref={inputRef}
-        type="date" 
+        type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -57,20 +57,24 @@ const EduDatePicker: React.FC<{
   );
 };
 
-const INITIAL_CLASSES: Class[] = [
-  { id: 'C-001', name: 'UI设计精英1班', campus: '总校区', courseName: '高级UI/UX设计实战', teacherName: '李建国', capacity: 30, enrolled: 28, schedule: '每周一、三 14:00-16:00', status: 'ongoing', createdAt: '2024-03-12' },
-  { id: 'C-002', name: '前端开发周末班', campus: '浦东校区', courseName: '全栈开发：React', teacherName: '张教授', capacity: 25, enrolled: 12, schedule: '每周六 09:00-12:00', status: 'pending', createdAt: '2024-05-10' },
-  { id: 'C-003', name: '数据分析研修班', campus: '静安校区', courseName: '商业数据分析', teacherName: '陈首席', capacity: 20, enrolled: 20, schedule: '每周二、四 18:30-20:30', status: 'ongoing', createdAt: '2024-02-15' },
-  { id: 'C-004', name: 'Python基础春季班', campus: '总校区', courseName: 'Python自动化办公', teacherName: '刘老师', capacity: 30, enrolled: 30, schedule: '每周五 19:00-21:00', status: 'closed', createdAt: '2023-12-01' },
-];
-
 export const ClassManagement: React.FC = () => {
-  const [classes] = useState<Class[]>(INITIAL_CLASSES);
-  const [filterCampus, setFilterCampus] = useState('all');
+  const { classes, currentUser } = useStore();
+  const isCampusAdmin = currentUser?.role === 'campus_admin';
+  const isTeacher = currentUser?.role === 'teacher';
+  const myCampus = currentUser?.campus || '总校区';
+  const myName = currentUser?.username === 'Teacher001' ? '李建国' : (currentUser?.username || '');
+
+  const [filterCampus, setFilterCampus] = useState(isCampusAdmin ? myCampus : 'all');
   const [filterCourse, setFilterCourse] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  useEffect(() => {
+    if (isCampusAdmin) {
+      setFilterCampus(myCampus);
+    }
+  }, [isCampusAdmin, myCampus]);
 
   const getStatusLabel = (status: ClassStatus) => {
     switch (status) {
@@ -82,11 +86,12 @@ export const ClassManagement: React.FC = () => {
 
   const filteredClasses = useMemo(() => {
     return classes.filter(c => {
-      const matchesCampus = filterCampus === 'all' || c.campus === filterCampus;
+      const matchesCampus = isTeacher || filterCampus === 'all' || c.campus === filterCampus;
       const matchesStatus = filterStatus === 'all' || c.status === filterStatus;
-      return matchesCampus && matchesStatus;
+      const matchesTeacher = !isTeacher || (c.teacherName && c.teacherName.includes(myName));
+      return matchesCampus && matchesStatus && matchesTeacher;
     });
-  }, [classes, filterCampus, filterStatus]);
+  }, [classes, filterCampus, filterStatus, isTeacher, myName]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -100,41 +105,48 @@ export const ClassManagement: React.FC = () => {
 
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">班级管理</h1>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{isTeacher ? '我的班级' : '班级管理'}</h1>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
             <Download size={18} /> 导出
           </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-50 transition-all shadow-sm active:scale-95">
-            <Calendar size={18} /> 排课
-          </button>
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95">
-            <Plus size={18} /> 创建班级
-          </button>
+          {!isTeacher && (
+            <>
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-50 transition-all shadow-sm active:scale-95">
+                <Calendar size={18} /> 排课
+              </button>
+              <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95" title={isCampusAdmin ? `将在 ${myCampus} 创建班级` : ""}>
+                <Plus size={18} /> 创建班级
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Filter Card */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          <div className="relative">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">所属校区</label>
-            <select 
-              value={filterCampus}
-              onChange={(e) => setFilterCampus(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
-            >
-              <option value="all">全量校区</option>
-              <option value="总校区">总部旗舰校</option>
-              <option value="浦东校区">浦东分校</option>
-              <option value="静安校区">静安分校</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-4 top-[34px] text-slate-400 pointer-events-none" />
-          </div>
+          {/* Campus Select - Hidden for campus_admin */}
+          {!isCampusAdmin && (
+            <div className="relative">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">所属校区</label>
+              <select
+                value={filterCampus}
+                onChange={(e) => setFilterCampus(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer shadow-sm"
+              >
+                <option value="all">全量校区</option>
+                <option value="总校区">总部旗舰校</option>
+                <option value="浦东校区">浦东分校</option>
+                <option value="静安校区">静安分校</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-4 top-[34px] text-slate-400 pointer-events-none" />
+            </div>
+          )}
 
           <div className="relative">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">关联课程</label>
-            <select 
+            <select
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
             >
               <option value="all">所有课程项目</option>
@@ -146,7 +158,7 @@ export const ClassManagement: React.FC = () => {
 
           <div className="relative">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">授课教师</label>
-            <select 
+            <select
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
             >
               <option value="all">所有讲师</option>
@@ -158,7 +170,7 @@ export const ClassManagement: React.FC = () => {
 
           <div className="relative">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">班级状态</label>
-            <select 
+            <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
@@ -202,14 +214,14 @@ export const ClassManagement: React.FC = () => {
           <table className="w-full text-left border-collapse min-w-[1100px]">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">班级名称</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">所属校区</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">关联课程/教师</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">容量/已报名</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{isTeacher ? '我的班级' : '班级名称'}</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{isTeacher ? '所属课系' : '所属校区'}</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{isTeacher ? '学员情况' : '关联课程/教师'}</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{isTeacher ? '教学进度' : '容量/已报名'}</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">上课安排</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">状态</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">创建时间</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">教务操作</th>
+                {!isTeacher && <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">创建时间</th>}
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -254,8 +266,8 @@ export const ClassManagement: React.FC = () => {
                             {cls.enrolled} / {cls.capacity}
                           </span>
                           <div className="w-16 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full ${isFull ? 'bg-red-400' : 'bg-blue-500'}`} 
+                            <div
+                              className={`h-full rounded-full ${isFull ? 'bg-red-400' : 'bg-blue-500'}`}
                               style={{ width: `${(cls.enrolled / cls.capacity) * 100}%` }}
                             ></div>
                           </div>
@@ -270,8 +282,8 @@ export const ClassManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-5 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold border inline-block min-w-[64px] ${status.style}`}>
-                        {status.label}
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold border inline-block min-w-[64px] ${status?.style}`}>
+                        {status?.label}
                       </span>
                     </td>
                     <td className="px-6 py-5 text-xs text-slate-400 font-mono">
