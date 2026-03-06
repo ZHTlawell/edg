@@ -19,7 +19,7 @@ import { Course } from '../types';
 import { PurchaseConfirmationModal } from './PurchaseConfirmationModal';
 
 export const CourseMarketplace: React.FC = () => {
-    const { courses, currentUser, createOrder, students, assetAccounts } = useStore();
+    const { courses, currentUser, createOrder, students, assetAccounts, addToast } = useStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('全部');
 
@@ -59,7 +59,7 @@ export const CourseMarketplace: React.FC = () => {
 
     const handlePurchaseClick = (course: Course) => {
         if (!currentUser?.bindStudentId) {
-            alert('无法获取学员身份，请重新登录。');
+            addToast('无法获取学员身份，请重新登录。', 'error');
             return;
         }
 
@@ -70,28 +70,33 @@ export const CourseMarketplace: React.FC = () => {
         setIsConfirmModalOpen(true);
     };
 
-    const handleConfirmPurchase = () => {
+    const handleConfirmPurchase = async () => {
         if (!selectedCourse || !currentUser?.bindStudentId) return;
 
         const amount = parseFloat(selectedCourse.price.replace(/[^\d.]/g, ''));
-        createOrder({
-            studentId: currentUser.bindStudentId,
-            courseId: selectedCourse.id,
-            classId: 'C-TBD',
-            campusId: currentUser.campus || '总校区',
-            lessons: selectedCourse.totalLessons,
-            amount: amount,
-            paymentMethod: '余额支付',
-            notes: '学员自助购买'
-        });
+        try {
+            await createOrder({
+                studentId: currentUser.bindStudentId,
+                courseId: selectedCourse.id,
+                classId: 'C-TBD',
+                campusId: currentUser.campus || '总校区',
+                lessons: selectedCourse.totalLessons,
+                amount: amount,
+                paymentMethod: '余额支付',
+                notes: '学员自助购买'
+            });
 
-        const completedCourse = selectedCourse;
-        setIsConfirmModalOpen(false);
-        setSelectedCourse(null);
+            const completedCourse = selectedCourse;
+            setIsConfirmModalOpen(false);
+            setSelectedCourse(null);
 
-        // Show success state
-        setPurchaseSuccess(completedCourse);
-        setTimeout(() => setPurchaseSuccess(null), 5000); // Clear success after 5s
+            // Show success state
+            setPurchaseSuccess(completedCourse);
+            setTimeout(() => setPurchaseSuccess(null), 5000); // Clear success after 5s
+        } catch (error) {
+            setIsConfirmModalOpen(false);
+            setSelectedCourse(null);
+        }
     };
 
     return (

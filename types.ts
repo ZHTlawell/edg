@@ -40,7 +40,25 @@ export interface Course {
   status: CourseStatus;
   updateTime: string;
   instructor: string;
+  instructor_id?: string;
+  campus_id?: string;
   description?: string;
+}
+
+export interface Teacher {
+  id: string;
+  name: string;
+  department?: string;
+}
+
+export interface Schedule {
+  id: string;
+  class_id: string;
+  start_time: string;
+  end_time: string;
+  classroom?: string;
+  status: string;
+  attendances?: any[];
 }
 
 export type ClassStatus = 'pending' | 'ongoing' | 'closed';
@@ -48,15 +66,16 @@ export type ClassStatus = 'pending' | 'ongoing' | 'closed';
 export interface Class {
   id: string;
   name: string;
-  campus: string;
-  courseId: string; // 关联课程 ID
-  courseName: string;
-  teacherName: string;
   capacity: number;
   enrolled: number;
-  schedule: string; // 每周几 + 时间段
+  campus_id: string;
   status: ClassStatus;
-  createdAt: string;
+  course_id: string;
+  course?: Course;
+  teacher_id: string;
+  teacher?: Teacher;
+  students?: any[];
+  schedules?: Schedule[];
 }
 
 export type StudentStatus = 'potential' | 'trial' | 'active' | 'inactive' | 'graduated' | 'dropped';
@@ -66,13 +85,15 @@ export interface Student {
   name: string;
   gender: 'male' | 'female';
   phone: string;
-  campus: string;
+  campus?: string; // 校区名称
+  campus_id?: string;
   status: StudentStatus;
-  className: string;
+  className?: string; // Derived or linked
   lastStudyTime: string;
   createdAt: string;
   birthday?: string;
   balanceAmount?: number;
+  balance?: number; // Real cash balance from backend
   balanceLessons?: number;
 }
 
@@ -80,11 +101,11 @@ export type AttendStatus = 'present' | 'leave' | 'absent' | 'late';
 
 export interface AttendanceRecord {
   id: string;
-  lessonId: string;
-  studentId: string;
-  courseId: string;
-  classId: string;
-  campusId: string;
+  lesson_id: string;
+  student_id: string;
+  course_id: string;
+  class_id: string;
+  campus_id: string;
   status: AttendStatus;
   deductHours: number;
   deductStatus: 'pending' | 'completed' | 'failed';
@@ -94,20 +115,23 @@ export interface AttendanceRecord {
 
 export interface AssetAccount {
   id: string;
-  studentId: string;
-  courseId: string;
-  campusId: string;
-  totalQty: number;
-  remainingQty: number;
-  lockedQty: number;
-  status: 'active' | 'exhausted' | 'frozen';
+  student_id: string;
+  course_id: string;
+  campus_id: string;
+  total_qty: number;
+  remaining_qty: number;
+  locked_qty: number;
+  refunded_qty: number;
+  refunded_amount: number;
+  status: 'ACTIVE' | 'DEPLETED' | 'REFUNDED';
   updatedAt: string;
+  course?: Course;
 }
 
 export interface AssetLedger {
   id: string;
-  accountId: string;
-  studentId: string;
+  account_id: string;
+  student_id: string;
   businessType: 'BUY' | 'CONSUME' | 'REFUND';
   changeQty: number;
   balanceSnapshot: number;
@@ -115,18 +139,67 @@ export interface AssetLedger {
   occurTime: string;
 }
 
-export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
+export type OrderStatus = 'PENDING_PAYMENT' | 'PAID' | 'PARTIAL_REFUNDED' | 'REFUNDED' | 'CANCELLED';
 
 export interface Order {
   id: string;
-  studentId: string;
-  courseId: string;
-  classId: string;
-  campusId: string;
-  lessons: number; // 购买课时
-  amount: number; // 支付金额
-  paymentMethod: string;
+  student_id: string;
+  course_id: string;
+  amount: number;
+  total_qty: number;
+  order_source: 'student' | 'admin';
+  operator_id?: string;
   status: OrderStatus;
-  notes?: string;
   createdAt: string;
+  course?: Course;
+}
+
+export interface PaymentRecord {
+  id: string;
+  order_id: string;
+  amount: number;
+  channel: string; // Wechat, Alipay, Cash, etc.
+  status: 'SUCCESS' | 'FAILED';
+  operator_id?: string;
+  createdAt: string;
+}
+
+export interface RefundRecord {
+  id: string;
+  order_id: string;
+  student_id: string;
+  amount: number;
+  reason: string;
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  applicant_id: string;
+  approver_id?: string;
+  createdAt: string;
+  updatedAt: string;
+  student?: Student;
+  order?: Order;
+}
+
+export interface Homework {
+  id: string;
+  title: string;
+  content: string;
+  course_id: string;
+  class_id: string;
+  teacher_id: string;
+  deadline: string;
+  attachmentName?: string;
+  attachmentUrl?: string;
+  createdAt: string;
+  status: 'active' | 'closed';
+}
+
+export interface HomeworkSubmission {
+  id: string;
+  homework_id: string;
+  student_id: string;
+  content: string;
+  status: 'submitted' | 'graded';
+  score?: number;
+  feedback?: string;
+  submittedAt: string;
 }

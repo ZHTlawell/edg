@@ -32,7 +32,7 @@ interface OrderCreationProps {
 import { useStore } from '../store';
 
 export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess }) => {
-  const { students, courses, campuses, createOrder } = useStore();
+  const { students, courses, campuses, createOrder, addToast } = useStore();
   // --- Form State ---
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [campus, setCampus] = useState('总校区');
@@ -90,7 +90,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
 
   const handleSubmit = () => {
     if (!selectedStudentId || !courseId) {
-      alert('请先完成学员与课程的选择');
+      addToast('请先完成学员与课程的选择', 'warning');
       return;
     }
 

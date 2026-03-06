@@ -54,8 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     { id: 'dashboard', label: '工作台概览', icon: <LayoutDashboard size={20} /> },
     {
       id: 'campus-group', label: '校区组织', icon: <School size={20} />, children: [
-        { id: 'campus-list', label: '校区管理' },
-        { id: 'admin-list', label: '人员分配' }
+        { id: 'campus-list', label: '校区管理' }
       ]
     },
     {
@@ -70,7 +69,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
         { id: 'classes', label: '班级管理' }
       ]
     },
-    { id: 'payments', label: '报名缴费', icon: <CreditCard size={20} /> },
+    {
+      id: 'finance-group', label: '财务中心', icon: <CreditCard size={20} />, children: [
+        { id: 'payments', label: '报名缴费' },
+        { id: 'refund-management', label: '退费管理' }
+      ]
+    },
     { id: 'teaching', label: '教学调度', icon: <GraduationCap size={20} /> },
     {
       id: 'stats-group', label: '统计报表', icon: <BarChart3 size={20} />, children: [
@@ -86,10 +90,46 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     }
   ];
 
+  const campusMenu: MenuItem[] = [
+    { id: 'dashboard', label: '工作台首页', icon: <LayoutDashboard size={20} /> },
+    {
+      id: 'campus-group', label: '教务组织', icon: <School size={20} />, children: [
+        { id: 'teacher-approval', label: '教师审核' }
+      ]
+    },
+    {
+      id: 'student-group', label: '学员管理', icon: <Users size={20} />, children: [
+        { id: 'students', label: '学员档案' }
+      ]
+    },
+    {
+      id: 'course-group', label: '课程与班级管理', icon: <BookOpen size={20} />, children: [
+        { id: 'courses', label: '课程库' },
+        { id: 'classes', label: '班级管理' }
+      ]
+    },
+    { id: 'teaching', label: '教务排课', icon: <CalendarDays size={20} /> },
+    { id: 'attendance-module', label: '考勤', icon: <ClipboardCheck size={20} /> },
+    {
+      id: 'admission-group', label: '招生缴费', icon: <CreditCard size={20} />, children: [
+        { id: 'payments', label: '报名缴费' },
+        { id: 'refund-management', label: '退费管理' }
+      ]
+    },
+    {
+      id: 'stats-group', label: '统计报表', icon: <BarChart3 size={20} />, children: [
+        { id: 'stats', label: '统计看板' },
+        { id: 'report-details', label: '报表明细' },
+        { id: 'finance-report', label: '财务报表' }
+      ]
+    }
+  ];
+
   const teacherMenu: MenuItem[] = [
     { id: 'teaching', label: '今日教学', icon: <LayoutDashboard size={20} /> },
     { id: 'schedule', label: '我的课表', icon: <CalendarDays size={20} /> },
     { id: 'classes', label: '班级学员', icon: <Users size={20} /> },
+    { id: 'teacher-homework', label: '作业分发', icon: <ClipboardCheck size={20} /> },
     { id: 'resources', label: '学习资源', icon: <BookOpen size={20} /> },
     { id: 'my-stats', label: '教学统计', icon: <BarChart3 size={20} /> }
   ];
@@ -98,6 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     { id: 'student-dashboard', label: '学生首页', icon: <LayoutDashboard size={20} /> },
     { id: 'student-schedule', label: '我的课表', icon: <CalendarDays size={20} /> },
     { id: 'student-learning', label: '在线学习', icon: <MonitorPlay size={20} /> },
+    { id: 'student-homework', label: '我的作业', icon: <ClipboardCheck size={20} /> },
     { id: 'student-market', label: '精品市场', icon: <ShoppingBag size={20} /> },
     { id: 'student-orders', label: '订单与课时', icon: <Wallet size={20} /> },
     { id: 'student-notifications', label: '通知中心', icon: <MessageSquareText size={20} /> }
@@ -105,18 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
 
   const menuItems = useMemo(() => {
     if (userRole === 'admin') return adminMenu;
-    if (userRole === 'campus_admin') {
-      // For campus admin, remove 'campus-list' (校区管理) from 'campus-group'
-      return adminMenu.map(item => {
-        if (item.id === 'campus-group') {
-          return {
-            ...item,
-            children: item.children?.filter(child => child.id !== 'campus-list')
-          };
-        }
-        return item;
-      });
-    }
+    if (userRole === 'campus_admin') return campusMenu;
     return userRole === 'teacher' ? teacherMenu : studentMenu;
   }, [userRole]);
   const themeColor = userRole === 'admin' ? 'blue' : userRole === 'campus_admin' ? 'cyan' : (userRole === 'teacher' ? 'indigo' : 'emerald');

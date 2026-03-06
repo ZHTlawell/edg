@@ -1,27 +1,28 @@
 
 import React, { useState, useMemo } from 'react';
-import { 
-  ArrowLeft, 
-  ChevronRight, 
-  Info, 
-  Search, 
-  Users, 
-  CheckCircle2, 
-  Clock, 
-  XCircle, 
-  UserPlus, 
-  History, 
-  Save, 
-  Send, 
-  AlertCircle, 
-  MapPin, 
-  User as UserIcon, 
+import {
+  ArrowLeft,
+  ChevronRight,
+  Info,
+  Search,
+  Users,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  UserPlus,
+  History,
+  Save,
+  Send,
+  AlertCircle,
+  MapPin,
+  User as UserIcon,
   DoorOpen,
   Calendar,
   Filter,
   MoreVertical,
   MinusCircle
 } from 'lucide-react';
+import { useStore } from '../store';
 
 interface AttendanceRegistrationProps {
   lessonId: string;
@@ -39,19 +40,45 @@ interface StudentAttendance {
   remarks: string;
 }
 
-const MOCK_STUDENTS: StudentAttendance[] = [
-  { id: 'S001', name: '张美玲', phone: '138****5678', status: 'present', deduction: 1, remarks: '' },
-  { id: 'S002', name: '王大卫', phone: '139****7777', status: 'present', deduction: 1, remarks: '' },
-  { id: 'S003', name: '李思思', phone: '155****3333', status: 'leave', deduction: 0, remarks: '生病请假' },
-  { id: 'S004', name: '赵小龙', phone: '186****1111', status: 'present', deduction: 1, remarks: '' },
-  { id: 'S005', name: '陈晓燕', phone: '137****3333', status: 'absent', deduction: 1, remarks: '无故缺席，已电联家长' },
-  { id: 'S006', name: '周杰瑞', phone: '131****9999', status: 'late', deduction: 1, remarks: '交通堵塞迟到15min' },
-  { id: 'S007', name: '林青青', phone: '135****4444', status: 'present', deduction: 1, remarks: '' },
-  { id: 'S008', name: '孙悟空', phone: '177****5555', status: 'present', deduction: 1, remarks: '' },
-];
-
 export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ lessonId, onBack }) => {
-  const [attendanceList, setAttendanceList] = useState<StudentAttendance[]>(MOCK_STUDENTS);
+  const { classes, students, courses, submitAttendance, addToast } = useStore();
+
+  // Find context: lesson -> class -> course
+  const classContext = useMemo(() => {
+    for (const cls of classes || []) {
+      const lesson = cls.schedules?.find(s => s.id === lessonId);
+      if (lesson) {
+        const course = (courses || []).find(c => c.id === cls.course_id);
+        return { class: cls, lesson, course };
+      }
+    }
+    return null;
+  }, [classes, lessonId, courses]);
+
+  // Find students in this class
+  const classStudents = useMemo(() => {
+    if (!classContext) return [];
+    // Demo logic: matching by className or backend relation if available
+    // In our store, students have balanceLessons and className. 
+    // Let's assume we filter students who are in this class.
+    return (students || []).filter(s => s.className === classContext.class.name);
+  }, [students, classContext]);
+
+  const [attendanceList, setAttendanceList] = useState<StudentAttendance[]>([]);
+
+  // Initialize attendance list from students
+  React.useEffect(() => {
+    if (classStudents.length > 0) {
+      setAttendanceList(classStudents.map(s => ({
+        id: s.id,
+        name: s.name,
+        phone: s.phone,
+        status: 'present',
+        deduction: 1,
+        remarks: ''
+      })));
+    }
+  }, [classStudents]);
   const [searchTerm, setSearchTerm] = useState('');
   const [onlyShowAbnormal, setOnlyShowAbnormal] = useState(false);
 
@@ -122,7 +149,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">考勤登记</h1>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 rounded-2xl px-5 py-2.5 flex items-center gap-4 shadow-sm">
             <div className="flex flex-col">
@@ -132,9 +159,9 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
             <div className="w-px h-8 bg-slate-100"></div>
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
-                {[1,2,3].map(i => (
+                {[1, 2, 3].map(i => (
                   <div key={i} className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 overflow-hidden shadow-sm">
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i+10}`} alt="" />
+                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`} alt="" />
                   </div>
                 ))}
               </div>
@@ -149,38 +176,38 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">班级名称</p>
-            <p className="text-sm font-bold text-slate-900">24春季UI精品1班</p>
+            <p className="text-sm font-bold text-slate-900">{classContext?.class.name || '加载中...'}</p>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">课程项目</p>
-            <p className="text-sm font-bold text-slate-900">高级UI/UX设计实战</p>
+            <p className="text-sm font-bold text-slate-900">{classContext?.course?.name || '加载中...'}</p>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">授课教师</p>
             <div className="flex items-center gap-2">
               <UserIcon size={14} className="text-blue-500" />
-              <p className="text-sm font-bold text-slate-900">李老师 (教研组)</p>
+              <p className="text-sm font-bold text-slate-900">{classContext?.course?.instructor || '加载中...'}</p>
             </div>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">授课教室</p>
             <div className="flex items-center gap-2">
               <DoorOpen size={14} className="text-emerald-500" />
-              <p className="text-sm font-bold text-slate-900">A区-302多媒体室</p>
+              <p className="text-sm font-bold text-slate-900">{classContext?.lesson.classroom || '默认教室'}</p>
             </div>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">上课日期</p>
             <div className="flex items-center gap-2">
               <Calendar size={14} className="text-slate-400" />
-              <p className="text-sm font-bold text-slate-900">2024-05-23</p>
+              <p className="text-sm font-bold text-slate-900">{classContext?.lesson.start_time.split('T')[0] || '...'}</p>
             </div>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">上课时段</p>
             <div className="flex items-center gap-2">
               <Clock size={14} className="text-slate-400" />
-              <p className="text-sm font-bold text-slate-900">14:00 - 16:30</p>
+              <p className="text-sm font-bold text-slate-900">{classContext?.lesson.start_time.split('T')[1]?.substring(0, 5) || ''} - {classContext?.lesson.end_time.split('T')[1]?.substring(0, 5) || ''}</p>
             </div>
           </div>
         </div>
@@ -195,8 +222,8 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
               <div className="flex items-center gap-4 flex-1 max-w-md">
                 <div className="relative flex-1 group">
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="按姓名或学号搜索..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -204,7 +231,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
                   />
                 </div>
                 <div className="flex items-center gap-2 ml-2">
-                  <button 
+                  <button
                     onClick={() => setOnlyShowAbnormal(!onlyShowAbnormal)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[11px] font-bold transition-all border ${onlyShowAbnormal ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'}`}
                   >
@@ -214,14 +241,14 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
               </div>
 
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => batchUpdate('present')}
                   className="px-4 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[11px] font-bold hover:bg-emerald-100 transition-all shadow-sm flex items-center gap-2"
                 >
                   <CheckCircle2 size={14} /> 一键全到
                 </button>
                 <div className="w-px h-6 bg-slate-200 mx-1"></div>
-                <button 
+                <button
                   onClick={() => batchUpdate('leave')}
                   className="px-4 py-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl text-[11px] font-bold hover:bg-slate-50 transition-all shadow-sm"
                 >
@@ -257,19 +284,19 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
                       </td>
                       <td className="px-8 py-6">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button 
+                          <button
                             onClick={() => updateStatus(student.id, 'present')}
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${getStatusBtnStyle(student.status, 'present')}`}
                           >到课</button>
-                          <button 
+                          <button
                             onClick={() => updateStatus(student.id, 'leave')}
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${getStatusBtnStyle(student.status, 'leave')}`}
                           >请假</button>
-                          <button 
+                          <button
                             onClick={() => updateStatus(student.id, 'absent')}
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${getStatusBtnStyle(student.status, 'absent')}`}
                           >缺勤</button>
-                          <button 
+                          <button
                             onClick={() => updateStatus(student.id, 'late')}
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${getStatusBtnStyle(student.status, 'late')}`}
                           >迟到</button>
@@ -277,23 +304,23 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
                       </td>
                       <td className="px-8 py-6 text-center">
                         <div className="inline-flex items-center gap-3 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-                          <button 
+                          <button
                             className="p-1 hover:bg-white rounded-lg text-slate-400"
-                            onClick={() => setAttendanceList(prev => prev.map(s => s.id === student.id ? {...s, deduction: Math.max(0, s.deduction - 0.5)} : s))}
+                            onClick={() => setAttendanceList(prev => prev.map(s => s.id === student.id ? { ...s, deduction: Math.max(0, s.deduction - 0.5) } : s))}
                           ><MinusCircle size={14} /></button>
                           <span className="text-xs font-bold text-slate-700 font-mono w-8">{student.deduction.toFixed(1)}</span>
-                          <button 
+                          <button
                             className="p-1 hover:bg-white rounded-lg text-slate-400"
-                            onClick={() => setAttendanceList(prev => prev.map(s => s.id === student.id ? {...s, deduction: s.deduction + 0.5} : s))}
+                            onClick={() => setAttendanceList(prev => prev.map(s => s.id === student.id ? { ...s, deduction: s.deduction + 0.5 } : s))}
                           ><PlusCircle size={14} /></button>
                         </div>
                       </td>
                       <td className="px-8 py-6">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="补充备注..."
                           value={student.remarks}
-                          onChange={(e) => setAttendanceList(prev => prev.map(s => s.id === student.id ? {...s, remarks: e.target.value} : s))}
+                          onChange={(e) => setAttendanceList(prev => prev.map(s => s.id === student.id ? { ...s, remarks: e.target.value } : s))}
                           className="w-full bg-transparent border-b border-transparent focus:border-blue-300 outline-none text-xs text-slate-500 font-medium py-1 transition-all"
                         />
                       </td>
@@ -317,7 +344,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
             <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Users size={18} className="text-blue-500" /> 考勤实时统计
             </h4>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 rounded-3xl p-5 border border-slate-100 space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">应到人数</p>
@@ -383,10 +410,21 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
           <button className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
             <Save size={18} /> 保存草稿
           </button>
-          <button 
+          <button
             className="flex items-center gap-2 px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-100 active:scale-95 group"
-            onClick={() => {
-              alert('考勤提交成功！系统已生成考勤流水，等待财务/教务执行课消确认。');
+            onClick={async () => {
+              if (!classContext) return;
+              await submitAttendance(
+                lessonId,
+                classContext.course_id || classContext.class.course_id,
+                classContext.class.id,
+                classContext.class.campus_id,
+                attendanceList.map(a => ({
+                  student_id: a.id,
+                  status: a.status as any,
+                  deductHours: a.deduction
+                }))
+              );
               onBack();
             }}
           >
@@ -395,7 +433,8 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -408,6 +447,6 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
 // Internal icon for +/- deduction
 const PlusCircle: React.FC<{ size?: number }> = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
   </svg>
 );

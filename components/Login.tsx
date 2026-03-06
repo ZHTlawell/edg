@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   KeyRound,
   ArrowLeft,
-  Mail
+  Mail,
+  UserPlus
 } from 'lucide-react';
 import { useStore } from '../store';
 
@@ -23,10 +24,15 @@ interface LoginProps {
 
 type UserRole = 'admin' | 'campus_admin' | 'teacher' | 'student';
 
+import { Registration } from './Registration';
+import { StudentRegistration } from './StudentRegistration';
+import { TeacherRegistration } from './TeacherRegistration';
+
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const { login } = useStore();
+  const { login, addToast } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [activeRole, setActiveRole] = useState<UserRole>('admin');
+  const [isRegistering, setIsRegistering] = useState<false | 'campus_admin' | 'teacher' | 'student'>(false);
 
   // Login Form States
   const [account, setAccount] = useState('');
@@ -47,28 +53,54 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   }, [countdown]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    if (!account || !password) {
+      addToast('请输入账号和密码', 'warning');
+      return;
+    }
 
-    // Simulate authentication process
-    setTimeout(() => {
-      login(account || 'Admin', activeRole);
+    setIsLoading(true);
+    try {
+      await login(account, password);
       setIsLoading(false);
       onLogin(activeRole);
-    }, 1200);
+    } catch (error) {
+      setIsLoading(false);
+    }
   };
+
+  if (isRegistering) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#F8FAFC] p-6">
+        <div className={`w-full ${isRegistering === 'teacher' ? 'max-w-[900px]' : 'max-w-[480px]'} bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden relative p-10 md:p-12 transition-all duration-500`}>
+          {isRegistering === 'student' ? (
+            <StudentRegistration onBack={() => setIsRegistering(false)} />
+          ) : isRegistering === 'teacher' ? (
+            <TeacherRegistration onBack={() => setIsRegistering(false)} />
+          ) : (
+            <Registration
+              role={isRegistering as 'campus_admin'}
+              onBack={() => setIsRegistering(false)}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ... rest of the component ...
 
   const handleResetPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (verifyCode !== '1234') {
-      alert('验证码输入错误，请输入右侧固定的测试验证码：1234');
+      addToast('验证码输入错误，请输入右侧固定的测试验证码：1234', 'error');
       return;
     }
     setIsResetLoading(true);
     setTimeout(() => {
       setIsResetLoading(false);
-      alert('密码重置成功！请使用新密码重新登录。');
+      addToast('密码重置成功！请使用新密码重新登录。', 'success');
       setIsForgotPassword(false);
       setResetAccount('');
       setVerifyCode('');
@@ -370,6 +402,45 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     </>
                   )}
                 </button>
+
+                {activeRole === 'campus_admin' && (
+                  <div className="pt-4 border-t border-slate-50 mt-8">
+                    <button
+                      type="button"
+                      onClick={() => setIsRegistering('campus_admin')}
+                      className="w-full bg-cyan-50 text-cyan-600 font-bold py-4 rounded-2xl transition-all hover:bg-cyan-100 flex items-center justify-center gap-2 border border-cyan-100 group"
+                    >
+                      <School size={18} className="group-hover:scale-110 transition-transform" />
+                      <span>还没有账号? 申请注册校区</span>
+                    </button>
+                  </div>
+                )}
+
+                {activeRole === 'teacher' && (
+                  <div className="pt-4 border-t border-slate-50 mt-8">
+                    <button
+                      type="button"
+                      onClick={() => setIsRegistering('teacher')}
+                      className="w-full bg-indigo-50 text-indigo-600 font-bold py-4 rounded-2xl transition-all hover:bg-indigo-100 flex items-center justify-center gap-2 border border-indigo-100 group"
+                    >
+                      <UserPlus size={18} className="group-hover:scale-110 transition-transform" />
+                      <span>还没有账号? 教师自主注册</span>
+                    </button>
+                  </div>
+                )}
+
+                {activeRole === 'student' && (
+                  <div className="pt-4 border-t border-slate-50 mt-8">
+                    <button
+                      type="button"
+                      onClick={() => setIsRegistering('student')}
+                      className="w-full bg-emerald-50 text-emerald-600 font-bold py-4 rounded-2xl transition-all hover:bg-emerald-100 flex items-center justify-center gap-2 border border-emerald-100 group"
+                    >
+                      <UserPlus size={18} className="group-hover:scale-110 transition-transform" />
+                      <span>还没有账号? 立即自主注册</span>
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           )}
@@ -377,8 +448,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="mt-12 pt-8 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2024 EDUADMIN SYSTEMS</p>
             <div className="flex items-center gap-6">
-              <button type="button" onClick={(e) => { e.preventDefault(); alert('使用协议功能开发中，敬请期待。'); }} className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest bg-transparent border-0 p-0 cursor-pointer">使用协议</button>
-              <button type="button" onClick={(e) => { e.preventDefault(); alert('隐私声明功能开发中，敬请期待。'); }} className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest bg-transparent border-0 p-0 cursor-pointer">隐私声明</button>
+              <button type="button" onClick={(e) => { e.preventDefault(); addToast('使用协议功能开发中，敬请期待。', 'info'); }} className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest bg-transparent border-0 p-0 cursor-pointer">使用协议</button>
+              <button type="button" onClick={(e) => { e.preventDefault(); addToast('隐私声明功能开发中，敬请期待。', 'info'); }} className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest bg-transparent border-0 p-0 cursor-pointer">隐私声明</button>
             </div>
           </div>
         </div>

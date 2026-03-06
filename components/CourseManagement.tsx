@@ -20,9 +20,10 @@ import {
 import { Course, CourseStatus } from '../types';
 import { CourseFormModal } from './CourseFormModal';
 import { useStore } from '../store';
+import api from '../utils/api';
 
 export const CourseManagement: React.FC = () => {
-  const { courses, currentUser, setCourses } = useStore();
+  const { courses, currentUser, setCourses, addToast, fetchCourses } = useStore();
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const myCampus = currentUser?.campus || '总校区';
 
@@ -86,19 +87,23 @@ export const CourseManagement: React.FC = () => {
     setFilterCampus(isCampusAdmin ? myCampus : 'all');
   };
 
-  const handleSave = (course: Course) => {
-    if (editingCourse) {
-      setCourses(courses.map(c => c.id === course.id ? course : c));
-    } else {
-      const newCourse: Course = {
-        ...course,
-        id: Date.now().toString(),
-        code: `C${new Date().getFullYear()}${Math.floor(100 + Math.random() * 900)}`,
-        updateTime: new Date().toLocaleString()
-      };
-      setCourses([newCourse, ...courses]);
-    }
+  const handleSave = async (course: Course) => {
     setIsModalOpen(false);
+
+    // Save to server
+    try {
+      await api.post('/api/academic/courses', {
+        name: course.name,
+        category: course.category,
+        price: parseFloat(course.price.replace(/[^\d.-]/g, '')),
+        total_lessons: course.totalLessons,
+        instructor_id: (course as any).instructor_id
+      });
+      addToast('课程发布成功', 'success');
+      fetchCourses();
+    } catch (e: any) {
+      addToast(e.message || '发布失败', 'error');
+    }
   };
 
   return (
@@ -328,6 +333,13 @@ export const CourseManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => { /* In a real app, navigate to ClassManagement with course pre-selected */ window.alert(`即将为课程《${course.name}》创建新班级`); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold hover:bg-blue-600 hover:text-white transition-all mr-2"
+                        >
+                          <Plus size={12} />
+                          快速开班
+                        </button>
                         <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="查看详情">
                           <Eye size={18} />
                         </button>

@@ -1,7 +1,7 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, Course, Class as ClassInfo, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order } from './types';
+import { Student, Course, Class as ClassInfo, Teacher, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order, Homework, HomeworkSubmission } from './types';
+import api from './utils/api';
 
 // 基础数据字典类型
 export type Campus = { id: string; name: string };
@@ -17,6 +17,13 @@ export type User = {
     bindStudentId?: string
 };
 
+export type ToastType = 'success' | 'info' | 'warning' | 'error';
+export interface ToastMessage {
+    id: string;
+    message: string;
+    type: ToastType;
+}
+
 // 模拟数据库结构
 interface AppState {
     campuses: Campus[];
@@ -27,11 +34,29 @@ interface AppState {
     attendanceRecords: AttendanceRecord[];
     assetAccounts: AssetAccount[];
     assetLedgers: AssetLedger[];
+    homeworks: Homework[];
+    homeworkSubmissions: HomeworkSubmission[];
     currentUser: User | null;
+    teachers: Teacher[];
+    toasts: ToastMessage[];
 
     // Actions
-    login: (username: string, role: User['role']) => void;
+    login: (username: string, password: string) => Promise<void>;
+    register: (data: any) => Promise<void>;
+    registerCampusAdmin: (data: any) => Promise<void>;
+    registerTeacher: (data: any) => Promise<void>;
+    fetchPendingUsers: (role: 'campus-admins' | 'teachers', campusId?: string) => Promise<any[]>;
+    approveUser: (userId: string) => Promise<void>;
+    rejectUser: (userId: string) => Promise<void>;
     logout: () => void;
+
+    // Remote Sync Actions
+    initData: () => Promise<void>;
+    fetchCourses: () => Promise<void>;
+    fetchClasses: (campusId?: string) => Promise<void>;
+    fetchMyAssets: () => Promise<void>;
+    fetchStudents: () => Promise<void>;
+    fetchTeachers: (campusId?: string) => Promise<void>;
 
     setStudents: (students: Student[]) => void;
     setCourses: (courses: Course[]) => void;
@@ -42,21 +67,33 @@ interface AppState {
     deleteStudent: (id: string) => void;
 
     // Attendance Actions
-    submitAttendance: (lessonId: string, courseId: string, classId: string, campusId: string, records: { studentId: string, status: AttendStatus, deductHours: number }[]) => void;
-    confirmConsumption: (lessonId: string) => void;
+    submitAttendance: (lesson_id: string, course_id: string, class_id: string, campus_id: string, records: { student_id: string, status: AttendStatus, deductHours: number }[]) => Promise<void>;
+    confirmConsumption: (lesson_id: string) => void;
 
     // Order & Asset Actions
-    createOrder: (orderData: Omit<Order, 'id' | 'status' | 'createdAt'>) => string;
-    requestRefund: (refundData: { studentId: string; courseId: string; lessons: number; amount?: number; orderId?: string; notes?: string }) => void;
+    createOrder: (orderData: { studentId?: string; courseId: string; amount: number; totalQty?: number }) => Promise<string>;
+    processPayment: (paymentData: { orderId: string; amount: number; channel: string; campusId: string }) => Promise<void>;
+    applyRefund: (refundData: { orderId: string; reason: string }) => Promise<void>;
+    approveRefund: (refundId: string, isApproved: boolean) => Promise<void>;
+    getPendingRefunds: () => Promise<any[]>;
 
     // Warning Helpers
-    getLowBalanceAssetAccounts: (threshold?: number) => (AssetAccount & { studentName: string; courseName: string })[];
+    getLowBalanceAssetAccounts: (threshold?: number) => (AssetAccount & { student_name: string; course_name: string })[];
 
     // Transfer Actions
-    transferClass: (studentId: string, newClassId: string) => void;
+    transferClass: (student_id: string, account_id: string, new_class_id: string) => void;
 
     // Export Helpers
-    getExportData: (type: 'orders' | 'attendance' | 'assets', filters?: { campus?: string; keyword?: string }) => any[];
+    getExportData: (type: 'orders' | 'attendance' | 'assets', filters?: { campus_id?: string; keyword?: string }) => any[];
+
+    // Homework Actions
+    publishHomework: (homeworkData: { title: string; content: string; class_id: string; deadline: string; teacher_id: string; attachmentName?: string; attachmentUrl?: string }) => Promise<string>;
+    submitHomework: (submissionData: { homework_id: string; student_id: string; content: string }) => Promise<string>;
+    gradeHomework: (submission_id: string, score: number, feedback: string, teacher_id: string) => Promise<void>;
+
+    // Toast Actions
+    addToast: (message: string, type: ToastType) => void;
+    removeToast: (id: string) => void;
 }
 
 const RENEWAL_WARNING_THRESHOLD = 3;
@@ -83,32 +120,219 @@ export const useStore = create<AppState>()(
                 { id: '4', code: 'C2024004', name: 'Python 自动化办公', category: '编程', level: '初级', price: '¥1,200.00', totalLessons: 12, status: 'enabled', campus: '总校区', instructor: '刘老师', updateTime: '2024-05-22 10:00' }
             ],
             classes: [
-                { id: 'C-001', name: 'UI设计精英1班', campus: '总校区', courseId: '1', courseName: '高级UI/UX设计实战', teacherName: '李建国', capacity: 30, enrolled: 28, schedule: '每周一、三 14:00-16:00', status: 'ongoing', createdAt: '2024-03-12' },
-                { id: 'C-002', name: '前端开发周末班', campus: '浦东校区', courseId: '2', courseName: '全栈开发：React', teacherName: '张教授', capacity: 25, enrolled: 12, schedule: '每周六 09:00-12:00', status: 'pending', createdAt: '2024-05-10' },
-                { id: 'C-003', name: '数据分析研修班', campus: '静安校区', courseId: '3', courseName: '商业数据分析', teacherName: '陈首席', capacity: 20, enrolled: 20, schedule: '每周二、四 18:30-20:30', status: 'ongoing', createdAt: '2024-02-15' },
-                { id: 'C-004', name: 'Python基础 spring 班', campus: '总校区', courseId: '4', courseName: 'Python自动化办公', teacherName: '刘老师', capacity: 30, enrolled: 30, schedule: '每周五 19:00-21:00', status: 'closed', createdAt: '2023-12-01' },
+                { id: 'C-001', name: 'UI设计精英1班', campus_id: '总校区', course_id: '1', teacher_id: 'T001', capacity: 30, enrolled: 28, status: 'ongoing' },
+                { id: 'C-002', name: '前端开发周末班', campus_id: '浦东校区', course_id: '2', teacher_id: 'T002', capacity: 25, enrolled: 12, status: 'pending' },
+                { id: 'C-003', name: '数据分析研修班', campus_id: '静安校区', course_id: '3', teacher_id: 'T003', capacity: 20, enrolled: 20, status: 'ongoing' },
+                { id: 'C-004', name: 'Python基础 spring 班', campus_id: '总校区', course_id: '4', teacher_id: 'T004', capacity: 30, enrolled: 30, status: 'closed' },
             ],
             orders: [],
             attendanceRecords: [],
             assetLedgers: [],
             assetAccounts: [
-                { id: 'ACC001', studentId: 'S10001', courseId: '1', campusId: 'C001', totalQty: 32, remainingQty: 20, lockedQty: 0, status: 'active', updatedAt: '2024-05-21' },
-                { id: 'ACC002', studentId: 'S10002', courseId: '2', campusId: 'C001', totalQty: 48, remainingQty: 12, lockedQty: 0, status: 'active', updatedAt: '2024-05-21' }
+                { id: 'ACC001', student_id: 'S10001', course_id: '1', campus_id: 'C001', total_qty: 32, remaining_qty: 20, locked_qty: 0, refunded_qty: 0, refunded_amount: 0, status: 'ACTIVE', updatedAt: '2024-05-21' },
+                { id: 'ACC002', student_id: 'S10002', course_id: '2', campus_id: 'C001', total_qty: 48, remaining_qty: 12, locked_qty: 0, refunded_qty: 0, refunded_amount: 0, status: 'ACTIVE', updatedAt: '2024-05-21' }
             ],
+            homeworks: [
+                { id: 'HW1001', title: '第一阶段核心组件实战', content: '请完成一个带有状态流转的订单卡片组件，要求使用 TailwindCSS 实现响应式。', course_id: '1', class_id: 'C-001', teacher_id: 'T001', deadline: '2024-05-25 23:59', status: 'active', createdAt: '2024-05-21 15:00' }
+            ],
+            homeworkSubmissions: [],
+            teachers: [],
+            toasts: [],
             currentUser: null,
 
-            login: (username, role) => {
-                const user: User = {
-                    id: 'U_' + Date.now(),
-                    username,
-                    role,
-                    campus: role === 'campus_admin' ? '总校区' : undefined,
-                    bindStudentId: role === 'student' ? 'S10001' : undefined
-                };
-                set({ currentUser: user });
+            login: async (username, password) => {
+                try {
+                    const res = await api.post('/api/auth/login', { username, password });
+                    const { access_token, user } = res.data;
+
+                    localStorage.setItem('token', access_token);
+
+                    const currentUser: User = {
+                        id: user.sub,
+                        username: user.username,
+                        role: user.role.toLowerCase(),
+                        campus: user.campusId,
+                        bindStudentId: user.role === 'STUDENT' ? user.studentId : undefined
+                    };
+
+                    set({ currentUser });
+                    get().addToast('登录成功', 'success');
+
+                    // 登录后自动初始化数据
+                    await get().initData();
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
             },
 
-            logout: () => set({ currentUser: null }),
+            register: async (data) => {
+                try {
+                    await api.post('/api/auth/register/student', data);
+                    get().addToast('注册成功，请登录', 'success');
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            registerCampusAdmin: async (data) => {
+                try {
+                    await api.post('/api/auth/register/campus', data);
+                } catch (error: any) {
+                    get().addToast(error.message || '注册失败', 'error');
+                    throw error;
+                }
+            },
+
+            registerTeacher: async (data) => {
+                try {
+                    await api.post('/api/auth/register/teacher', data);
+                } catch (error: any) {
+                    get().addToast(error.message || '注册失败', 'error');
+                    throw error;
+                }
+            },
+
+            fetchPendingUsers: async (role, campusId) => {
+                try {
+                    const url = role === 'campus-admins'
+                        ? '/api/users/pending/campus-admins'
+                        : `/api/users/pending/teachers${campusId ? `?campusId=${campusId}` : ''}`;
+                    const res = await api.get(url);
+                    return res.data;
+                } catch (error: any) {
+                    get().addToast(error.message || '获取审核列表失败', 'error');
+                    return [];
+                }
+            },
+
+            approveUser: async (userId) => {
+                try {
+                    await api.post(`/api/users/${userId}/approve`);
+                    get().addToast('审核已通过', 'success');
+                } catch (error: any) {
+                    get().addToast(error.message || '操作失败', 'error');
+                    throw error;
+                }
+            },
+
+            rejectUser: async (userId) => {
+                try {
+                    await api.post(`/api/users/${userId}/reject`);
+                    get().addToast('已拒绝申请', 'info');
+                } catch (error: any) {
+                    get().addToast(error.message || '操作失败', 'error');
+                    throw error;
+                }
+            },
+
+            logout: () => {
+                localStorage.removeItem('token');
+                set({ currentUser: null });
+                get().addToast('已安全退出', 'info');
+            },
+
+            initData: async () => {
+                const user = get().currentUser;
+                if (!user) return;
+
+                await Promise.all([
+                    get().fetchCourses(),
+                    get().fetchClasses()
+                ]);
+
+                if (user.role === 'student') {
+                    await get().fetchMyAssets();
+                }
+
+                if (['admin', 'campus_admin'].includes(user.role)) {
+                    await Promise.all([
+                        get().fetchStudents(),
+                        get().fetchTeachers()
+                    ]);
+                }
+            },
+
+            fetchCourses: async () => {
+                try {
+                    const res = await api.get('/api/academic/courses');
+                    set({ courses: res.data });
+                } catch (error: any) {
+                    console.error('Fetch courses failed', error);
+                }
+            },
+
+            fetchClasses: async (campusId) => {
+                try {
+                    const res = await api.get('/api/academic/classes', { params: { campusId } });
+                    set({ classes: res.data });
+                } catch (error: any) {
+                    console.error('Fetch classes failed', error);
+                }
+            },
+
+            fetchMyAssets: async () => {
+                try {
+                    const res = await api.get('/api/finance/my-assets');
+                    const { balance, accounts } = res.data;
+                    set({ assetAccounts: accounts });
+
+                    // 如果是学员，根据名下资产反推 EduStudent.id 并存入 currentUser
+                    if (Array.isArray(accounts) && accounts.length > 0) {
+                        const firstAsset = accounts[0];
+                        const state = get();
+                        if (state.currentUser && state.currentUser.role === 'student') {
+                            set({
+                                currentUser: {
+                                    ...state.currentUser,
+                                    bindStudentId: firstAsset.student_id
+                                }
+                            });
+                            console.log('Updated bindStudentId from assets:', firstAsset.student_id);
+                        }
+                    }
+                } catch (error: any) {
+                    console.error('Fetch assets failed', error);
+                }
+            },
+
+            fetchStudents: async () => {
+                try {
+                    const res = await api.get('/api/users/students');
+                    // Map backendEduStudent to frontend Student type
+                    const mappedStudents: Student[] = res.data.map((bs: any) => ({
+                        id: bs.id,
+                        name: bs.name,
+                        phone: bs.phone || '',
+                        gender: bs.gender === 'FEMALE' ? 'female' : 'male',
+                        balance: bs.balance,
+                        className: bs.classes?.[0]?.class?.name || '未分班',
+                        balanceAmount: bs.balance || 0,
+                        balanceLessons: bs.accounts?.reduce((sum: number, acc: any) => sum + acc.remaining_qty, 0) || 0,
+                        createdAt: bs.createdAt.split('T')[0],
+                        lastStudyTime: '最近学习',
+                        status: bs.status === 'ACTIVE' ? 'active' : 'paused'
+                    }));
+                    set({ students: mappedStudents });
+                } catch (error: any) {
+                    console.error('Fetch students failed', error);
+                }
+            },
+            fetchTeachers: async (campusId) => {
+                try {
+                    const res = await api.get('/api/auth/teachers', { params: { campusId } });
+                    // Map backend EduTeacher to frontend Teacher type
+                    const mappedTeachers: Teacher[] = res.data.map((bt: any) => ({
+                        id: bt.id,
+                        name: bt.name,
+                        department: bt.department
+                    }));
+                    set({ teachers: mappedTeachers });
+                } catch (error: any) {
+                    console.error('Fetch teachers failed', error);
+                }
+            },
 
             setStudents: (students) => set({ students }),
             setCourses: (courses) => set({ courses }),
@@ -140,245 +364,92 @@ export const useStore = create<AppState>()(
                 }));
             },
 
-            submitAttendance: (lessonId, courseId, classId, campusId, records) => {
-                set((state) => {
-                    const newRecords: AttendanceRecord[] = records.map(r => ({
-                        id: 'ATT' + Date.now() + Math.random().toString(36).substr(2, 5),
-                        lessonId,
-                        studentId: r.studentId,
-                        courseId,
-                        classId,
-                        campusId,
-                        status: r.status,
-                        deductHours: r.deductHours,
-                        deductStatus: 'pending',
-                        createdAt: new Date().toISOString()
-                    }));
-                    return {
-                        attendanceRecords: [...state.attendanceRecords, ...newRecords]
+            submitAttendance: async (lesson_id, course_id, class_id, campus_id, records) => {
+                try {
+                    const data = {
+                        lesson_id,
+                        attendances: records.map(r => ({
+                            student_id: r.student_id,
+                            status: r.status.toUpperCase(),
+                            deductAmount: r.deductHours
+                        }))
                     };
-                });
+                    await api.post('/api/teaching/attendance', data);
+                    get().addToast('考勤登记已同步至后端', 'success');
+                    // 重新拉取数据以刷新状态
+                    await get().fetchMyAssets();
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                }
             },
 
             confirmConsumption: (lessonId) => {
-                set((state) => {
-                    const records = state.attendanceRecords.filter(r => r.lessonId === lessonId && r.deductStatus === 'pending');
-                    if (records.length === 0) return state;
-
-                    const newAccounts = [...state.assetAccounts];
-                    const newLedgers = [...state.assetLedgers];
-                    const newAttendanceRecords = [...state.attendanceRecords];
-
-                    records.forEach(record => {
-                        const account = newAccounts.find(acc => acc.studentId === record.studentId && acc.courseId === record.courseId);
-                        if (account && account.remainingQty >= record.deductHours && record.deductHours > 0) {
-                            account.remainingQty -= record.deductHours;
-                            account.updatedAt = new Date().toISOString();
-
-                            const ledger: AssetLedger = {
-                                id: 'LED' + Date.now() + Math.random().toString(36).substr(2, 5),
-                                accountId: account.id,
-                                studentId: record.studentId,
-                                businessType: 'CONSUME',
-                                changeQty: -record.deductHours,
-                                balanceSnapshot: account.remainingQty,
-                                refId: record.id,
-                                occurTime: new Date().toISOString()
-                            };
-                            newLedgers.push(ledger);
-
-                            // Update record status
-                            const recordIdx = newAttendanceRecords.findIndex(r => r.id === record.id);
-                            if (recordIdx !== -1) {
-                                newAttendanceRecords[recordIdx] = { ...newAttendanceRecords[recordIdx], deductStatus: 'completed' };
-                            }
-                        } else if (record.deductHours === 0) {
-                            // No deduction needed (e.g. leave)
-                            const recordIdx = newAttendanceRecords.findIndex(r => r.id === record.id);
-                            if (recordIdx !== -1) {
-                                newAttendanceRecords[recordIdx] = { ...newAttendanceRecords[recordIdx], deductStatus: 'completed' };
-                            }
-                        } else {
-                            // Failed deduction (insufficient balance)
-                            const recordIdx = newAttendanceRecords.findIndex(r => r.id === record.id);
-                            if (recordIdx !== -1) {
-                                newAttendanceRecords[recordIdx] = { ...newAttendanceRecords[recordIdx], deductStatus: 'failed' };
-                            }
-                        }
-                    });
-
-                    return {
-                        assetAccounts: newAccounts,
-                        assetLedgers: newLedgers,
-                        attendanceRecords: newAttendanceRecords
-                    };
-                });
+                // 已合并至 submitAttendance 事务中，此处转为前端提示
+                get().addToast('消课逻辑已通过考勤自动触发', 'info');
             },
 
-            createOrder: (orderData) => {
-                const orderId = 'ORD' + Date.now();
-                const newOrder: Order = {
-                    ...orderData,
-                    id: orderId,
-                    status: 'paid', // 模拟支付完成
-                    createdAt: new Date().toISOString()
-                };
-
-                set((state) => {
-                    const newAccounts = [...state.assetAccounts];
-                    const newLedgers = [...state.assetLedgers];
-                    const newStudents = [...state.students];
-                    const newClasses = [...state.classes];
-
-                    // 1. 资产账户处理
-                    let account = newAccounts.find(acc => acc.studentId === orderData.studentId && acc.courseId === orderData.courseId);
-                    if (!account) {
-                        account = {
-                            id: 'ACC' + Date.now(),
-                            studentId: orderData.studentId,
-                            courseId: orderData.courseId,
-                            campusId: orderData.campusId,
-                            totalQty: 0,
-                            remainingQty: 0,
-                            lockedQty: 0,
-                            status: 'active',
-                            updatedAt: new Date().toISOString()
-                        };
-                        newAccounts.push(account);
-                    }
-
-                    account.totalQty += orderData.lessons;
-                    account.remainingQty += orderData.lessons;
-                    account.updatedAt = new Date().toISOString();
-
-                    // 2. 审计流水记录
-                    const ledger: AssetLedger = {
-                        id: 'LED' + Date.now(),
-                        accountId: account.id,
-                        studentId: orderData.studentId,
-                        businessType: 'BUY',
-                        changeQty: orderData.lessons,
-                        balanceSnapshot: account.remainingQty,
-                        refId: orderId,
-                        occurTime: new Date().toISOString()
-                    };
-                    newLedgers.push(ledger);
-
-                    // 3. 自动入班逻辑 (Auto-Enrollment)
-                    // 寻找该课程下首个正在研读且有余位的班级
-                    const targetClassIdx = newClasses.findIndex(c =>
-                        c.courseId === orderData.courseId &&
-                        c.status === 'ongoing' &&
-                        c.enrolled < c.capacity
-                    );
-
-                    let assignedClassName = '';
-                    if (targetClassIdx !== -1) {
-                        newClasses[targetClassIdx] = {
-                            ...newClasses[targetClassIdx],
-                            enrolled: newClasses[targetClassIdx].enrolled + 1
-                        };
-                        assignedClassName = newClasses[targetClassIdx].name;
-                    }
-
-                    // 4. 同步更新学生状态与班级
-                    const studentIdx = newStudents.findIndex(s => s.id === orderData.studentId);
-                    if (studentIdx !== -1) {
-                        newStudents[studentIdx] = {
-                            ...newStudents[studentIdx],
-                            balanceLessons: (newStudents[studentIdx].balanceLessons || 0) + orderData.lessons,
-                            status: 'active',
-                            // 如果自动匹配到了班级，则更新学生的 className
-                            className: assignedClassName || newStudents[studentIdx].className
-                        };
-                    }
-
-                    return {
-                        orders: [newOrder, ...state.orders],
-                        assetAccounts: newAccounts,
-                        assetLedgers: newLedgers,
-                        students: newStudents,
-                        classes: newClasses
-                    };
-                });
-
-                return orderId;
+            createOrder: async (orderData) => {
+                try {
+                    const res = await api.post('/api/finance/order', orderData);
+                    return res.data.id;
+                } catch (error: any) {
+                    get().addToast(error.message || '下单失败', 'error');
+                    throw error;
+                }
             },
 
-            requestRefund: (refundData) => {
-                const { studentId, courseId, lessons, orderId } = refundData;
-
-                set((state) => {
-                    const newAccounts = [...state.assetAccounts];
-                    const newLedgers = [...state.assetLedgers];
-                    const newStudents = [...state.students];
-                    const newOrders = [...state.orders];
-
-                    // 1. 查找资产账户
-                    const accountIdx = newAccounts.findIndex(acc => acc.studentId === studentId && acc.courseId === courseId);
-                    if (accountIdx === -1) {
-                        console.error('退费失败：找不到资产账户');
-                        return state;
-                    }
-
-                    const account = newAccounts[accountIdx];
-                    if (account.remainingQty < lessons) {
-                        console.error('退费失败：剩余课时不足');
-                        return state;
-                    }
-
-                    // 2. 核减资产
-                    account.remainingQty -= lessons;
-                    account.updatedAt = new Date().toISOString();
-
-                    // 3. 记录审计流水
-                    const ledger: AssetLedger = {
-                        id: 'LED' + Date.now() + 'REF',
-                        accountId: account.id,
-                        studentId: studentId,
-                        businessType: 'REFUND',
-                        changeQty: -lessons,
-                        balanceSnapshot: account.remainingQty,
-                        refId: orderId || 'MANUAL',
-                        occurTime: new Date().toISOString()
-                    };
-                    newLedgers.unshift(ledger);
-
-                    // 4. 同步更新学生余额
-                    const studentIdx = newStudents.findIndex(s => s.id === studentId);
-                    if (studentIdx !== -1) {
-                        newStudents[studentIdx] = {
-                            ...newStudents[studentIdx],
-                            balanceLessons: (newStudents[studentIdx].balanceLessons || 0) - lessons
-                        };
-                    }
-
-                    // 5. 如果有订单 ID，更新订单状态
-                    if (orderId) {
-                        const orderIdx = newOrders.findIndex(o => o.id === orderId);
-                        if (orderIdx !== -1) {
-                            newOrders[orderIdx] = { ...newOrders[orderIdx], status: 'refunded' };
-                        }
-                    }
-
-                    return {
-                        assetAccounts: newAccounts,
-                        assetLedgers: newLedgers,
-                        students: newStudents,
-                        orders: newOrders
-                    };
-                });
+            processPayment: async (paymentData) => {
+                try {
+                    await api.post('/api/finance/pay', paymentData);
+                    get().addToast('支付成功', 'success');
+                    await get().fetchMyAssets();
+                } catch (error: any) {
+                    get().addToast(error.message || '支付失败', 'error');
+                    throw error;
+                }
             },
 
-            transferClass: (studentId, newClassId) => {
+            applyRefund: async (refundData) => {
+                try {
+                    await api.post('/api/finance/refund/apply', refundData);
+                    get().addToast('退费申请已提交', 'success');
+                    await get().fetchMyAssets();
+                } catch (error: any) {
+                    get().addToast(error.message || '申请退费失败', 'error');
+                    throw error;
+                }
+            },
+
+            approveRefund: async (refundId, isApproved) => {
+                try {
+                    await api.post('/api/finance/refund/approve', { refundId, isApproved });
+                    get().addToast(`退费已${isApproved ? '通过' : '驳回'}并处理`, 'success');
+                    await get().fetchStudents();
+                } catch (error: any) {
+                    get().addToast(error.message || '审批退费失败', 'error');
+                    throw error;
+                }
+            },
+
+            getPendingRefunds: async () => {
+                try {
+                    const res = await api.get('/api/finance/refund/pending');
+                    return res.data;
+                } catch (error: any) {
+                    get().addToast(error.message || '获取退费列表失败', 'error');
+                    throw error;
+                }
+            },
+
+            transferClass: (student_id, account_id, new_class_id) => {
                 set((state) => {
                     const newStudents = [...state.students];
-                    const studentIdx = newStudents.findIndex(s => s.id === studentId);
+                    const studentIdx = newStudents.findIndex(s => s.id === student_id);
 
                     if (studentIdx === -1) return state;
 
                     const student = newStudents[studentIdx];
-                    const targetClass = state.classes.find(c => c.id === newClassId);
+                    const targetClass = state.classes.find(c => c.id === new_class_id);
 
                     if (!targetClass) {
                         console.error('转班失败：目标班级不存在');
@@ -395,12 +466,12 @@ export const useStore = create<AppState>()(
                     const newLedgers = [...state.assetLedgers];
                     const transferLedger: AssetLedger = {
                         id: 'LED' + Date.now() + 'TRANS',
-                        accountId: 'GLOBAL', // 跨班异动通常标记为全局
-                        studentId: studentId,
+                        account_id: account_id,
+                        student_id: student_id,
                         businessType: 'BUY', // 暂借用 BUY 记录资产流入/流转
                         changeQty: 0,
                         balanceSnapshot: student.balanceLessons || 0,
-                        refId: `TRANS-TO-${newClassId}`,
+                        refId: `TRANS-TO-${new_class_id}`,
                         occurTime: new Date().toISOString()
                     };
                     newLedgers.unshift(transferLedger);
@@ -414,32 +485,32 @@ export const useStore = create<AppState>()(
 
             getExportData: (type, filters) => {
                 const state = get();
-                const { campus, keyword } = filters || {};
+                const { campus_id, keyword } = filters || {};
 
                 if (type === 'orders') {
                     return state.orders
                         .filter(o => {
-                            if (campus && o.campusId !== campus) return false;
+                            if (campus_id && (o as any).campus_id !== campus_id) return false;
                             if (keyword) {
-                                const student = state.students.find(s => s.id === o.studentId);
-                                const course = state.courses.find(c => c.id === o.courseId);
+                                const student = state.students.find(s => s.id === o.student_id);
+                                const course = state.courses.find(c => c.id === o.course_id);
                                 return student?.name.includes(keyword) || o.id.includes(keyword) || course?.name.includes(keyword);
                             }
                             return true;
                         })
                         .map(o => ({
                             ...o,
-                            studentName: state.students.find(s => s.id === o.studentId)?.name || '未知',
-                            courseName: state.courses.find(c => c.id === o.courseId)?.name || '未知',
-                            campusName: o.campusId // 假设 campusId 存储的就是校区名称或可映射
+                            studentName: state.students.find(s => s.id === o.student_id)?.name || '未知',
+                            courseName: state.courses.find(c => c.id === o.course_id)?.name || '未知',
+                            campusName: (o as any).campus_id // 假设 campus_id 存储的就是校区名称或可映射
                         }));
                 }
 
                 if (type === 'attendance') {
                     return state.attendanceRecords.map(r => ({
                         ...r,
-                        studentName: state.students.find(s => s.id === r.studentId)?.name || '未知',
-                        courseName: state.courses.find(c => c.id === r.courseId)?.name || '未知'
+                        studentName: state.students.find(s => s.id === r.student_id)?.name || '未知',
+                        courseName: state.courses.find(c => c.id === r.course_id)?.name || '未知'
                     }));
                 }
 
@@ -447,18 +518,72 @@ export const useStore = create<AppState>()(
             },
 
             getLowBalanceAssetAccounts: (threshold = RENEWAL_WARNING_THRESHOLD) => {
-                const state = get();
-                return state.assetAccounts
-                    .filter(acc => acc.remainingQty <= threshold && acc.status === 'active')
-                    .map(acc => ({
-                        ...acc,
-                        studentName: state.students.find(s => s.id === acc.studentId)?.name || '未知学员',
-                        courseName: state.courses.find(c => c.id === acc.courseId)?.name || '未知课程'
+                const { assetAccounts, students, courses } = get();
+                return assetAccounts
+                    .filter(acc => acc.remaining_qty <= threshold && acc.status === 'ACTIVE')
+                    .map(acc => {
+                        const student = students.find(s => s.id === acc.student_id);
+                        const course = courses.find(c => c.id === acc.course_id);
+                        return {
+                            ...acc,
+                            student_name: student?.name || '未知学员',
+                            course_name: course?.name || '未知课程'
+                        };
+                    });
+            },
+
+            publishHomework: async (homeworkData) => {
+                try {
+                    const res = await api.post('/api/teaching/homeworks', homeworkData);
+                    get().addToast('作业发布成功', 'success');
+                    return res.data.id;
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            submitHomework: async (submissionData) => {
+                try {
+                    const res = await api.post('/api/teaching/homeworks/submit', submissionData);
+                    get().addToast('作业已提交', 'success');
+                    return res.data.id;
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            gradeHomework: async (submissionId, score, feedback, teacherId) => {
+                try {
+                    await api.post('/api/teaching/homeworks/grade', { submissionId, score, feedback, teacherId });
+                    get().addToast('评分完成', 'success');
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                }
+            },
+
+            addToast: (message, type) => {
+                const id = 'toast_' + Date.now() + Math.random().toString(36).substr(2, 5);
+                set((state) => ({
+                    toasts: [...(state.toasts || []), { id, message, type }]
+                }));
+                // Auto remove after 3s
+                setTimeout(() => {
+                    set((state) => ({
+                        toasts: (state.toasts || []).filter(t => t.id !== id)
                     }));
+                }, 3000);
+            },
+
+            removeToast: (id) => {
+                set((state) => ({
+                    toasts: (state.toasts || []).filter(t => t.id !== id)
+                }));
             }
         }),
         {
-            name: 'eduadmin-storage',
+            name: 'eduadmin-storage-v2', // Bumped version to clear corrupted cache and ensure new properties exist
         }
     )
 );

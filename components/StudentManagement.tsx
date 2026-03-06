@@ -15,7 +15,15 @@ import {
   ChevronDown,
   Trash2,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Users as UsersIcon,
+  LineChart,
+  PieChart,
+  BarChart3,
+  History,
+  UserPlus,
+  FileSpreadsheet,
+  AlertCircle
 } from 'lucide-react';
 import { Student, StudentStatus } from '../types';
 import { useStore } from '../store';
@@ -97,6 +105,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedCampus, setSelectedCampus] = useState<string>(isCampusAdmin ? myCampus : 'all');
+  const [activeTab, setActiveTab] = useState<'all' | 'alert' | 'unpaid' | 'suspended'>('all');
 
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [filterGender, setFilterGender] = useState<string>('all');
@@ -116,18 +125,23 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
   const filteredStudents = useMemo(() => {
     return students.filter(student => {
-      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.phone.includes(searchTerm);
+      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.phone.includes(searchTerm) || (student.className || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = selectedStatus === 'all' || student.status === selectedStatus;
       const matchesCampus = selectedCampus === 'all' || student.campus === selectedCampus;
       const matchesGender = filterGender === 'all' || student.gender === filterGender;
+
+      let matchesTab = true;
+      if (activeTab === 'alert') matchesTab = student.balanceLessons <= 5;
+      else if (activeTab === 'unpaid') matchesTab = student.balanceAmount <= 0;
+      else if (activeTab === 'suspended') matchesTab = student.status === 'inactive';
 
       let matchesDate = true;
       if (startDate) matchesDate = matchesDate && student.createdAt >= startDate;
       if (endDate) matchesDate = matchesDate && student.createdAt <= endDate;
 
-      return matchesSearch && matchesStatus && matchesCampus && matchesGender && matchesDate;
+      return matchesSearch && matchesStatus && matchesCampus && matchesGender && matchesDate && matchesTab;
     });
-  }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, students]);
+  }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, students, activeTab]);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -398,96 +412,163 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       </nav>
 
       {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">学员列表</h1>
-          <p className="text-sm text-slate-500 font-medium">全校区教务档案中心，支持多维度学业追踪。</p>
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div className="space-y-1.5">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">学员档案与状态监控</h1>
+          <p className="text-base text-slate-500 font-medium tracking-tight">实时管理校区学员课程余量、缴费状态及考勤活跃度</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-5 py-3 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-            <Download size={18} />
-            批量导出
-          </button>
           <button
             onClick={() => handleOpenForm()}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 active:scale-95"
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 active:scale-95 group"
           >
-            <Plus size={18} />
-            录入新学员
+            <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+            <span>录入新学员</span>
+          </button>
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-6 py-3.5 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+            <FileSpreadsheet size={18} className="text-slate-400" />
+            <span>批量导入</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+      {/* Stats Cards Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 tracking-tight">
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group border-b-4 border-b-blue-500/10">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-[1.25rem] group-hover:scale-110 transition-transform duration-500">
+              <UsersIcon size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">在读学员</p>
+              <h3 className="text-2xl font-black text-slate-900">1,284</h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group border-b-4 border-b-amber-500/10">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-amber-50 text-amber-600 rounded-[1.25rem] group-hover:scale-110 transition-transform duration-500">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">课时预警</p>
+              <h3 className="text-2xl font-black text-slate-900">42</h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group border-b-4 border-b-red-500/10">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-red-50 text-red-600 rounded-[1.25rem] group-hover:scale-110 transition-transform duration-500">
+              <History size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">本月欠费</p>
+              <h3 className="text-2xl font-black text-slate-900">15</h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group border-b-4 border-b-emerald-500/10">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-[1.25rem] group-hover:scale-110 transition-transform duration-500">
+              <UserPlus size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">本月新招</p>
+              <h3 className="text-2xl font-black text-emerald-600">+86</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Bar & Tabs */}
+      <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="flex-1 relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
             <input
               type="text"
-              placeholder="搜索学员、手机号..."
+              placeholder="搜索学员姓名、手机号、班级..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-black placeholder:text-slate-400"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-black placeholder:text-slate-400 shadow-sm"
             />
           </div>
 
           <div className="flex items-center gap-3">
-            {!isCampusAdmin && (
-              <div className="relative">
-                <select
-                  value={selectedCampus}
-                  onChange={(e) => setSelectedCampus(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer shadow-sm"
-                >
-                  <option value="all">全量校区</option>
-                  <option value="总校区">总部旗舰校区</option>
-                  <option value="浦东校区">浦东分校区</option>
-                  <option value="静安校区">静安分校区</option>
-                </select>
-                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            )}
+            <div className="relative">
+              <select
+                className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer shadow-sm min-w-[140px]"
+              >
+                <option value="all">全部分类</option>
+                <option value="ui">UI/UX设计</option>
+                <option value="python">Python开发</option>
+                <option value="data">数据分析</option>
+              </select>
+              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
 
             <div className="relative">
               <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer"
+                className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer shadow-sm min-w-[160px]"
               >
-                <option value="all">全量状态</option>
-                <option value="potential">潜在</option>
-                <option value="trial">试听</option>
-                <option value="active">在读</option>
-                <option value="inactive">停课</option>
-                <option value="graduated">结业</option>
-                <option value="dropped">流失</option>
+                <option value="all">剩余课时区间</option>
+                <option value="0-5">0 - 5 课时</option>
+                <option value="6-10">6 - 10 课时</option>
+                <option value="10+">10 课时以上</option>
               </select>
               <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
 
             <button
               onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-              className={`flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl text-sm font-bold transition-all active:scale-95 ${isFilterPanelOpen ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              className={`flex items-center justify-center gap-2 px-6 py-3.5 border rounded-2xl text-sm font-bold transition-all active:scale-95 ${isFilterPanelOpen ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'}`}
             >
-              <Filter size={18} /> 深度筛选
+              <Filter size={18} className={isFilterPanelOpen ? 'text-blue-600' : 'text-slate-400'} />
+              <span className="text-blue-600">高级筛选</span>
             </button>
           </div>
         </div>
 
-        {/* Advanced Filter Panel */}
+        {/* Tabs Section */}
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-1">
+          {[
+            { id: 'all', label: '全部学员', count: 1284 },
+            { id: 'alert', label: '课时预警', count: 42 },
+            { id: 'unpaid', label: '本月待缴', count: 15 },
+            { id: 'suspended', label: '休学/停课', count: 8 },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-6 py-3 rounded-t-xl text-sm font-bold transition-all relative ${activeTab === tab.id ? 'text-blue-600 bg-blue-50/30' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <span>{tab.label}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                {tab.count}
+              </span>
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full"></div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Advanced Filter Panel (Kept with updated styling) */}
         {isFilterPanelOpen && (
-          <div className="pt-4 mt-4 border-t border-slate-50 animate-in slide-in-from-top-4 duration-300">
+          <div className="pt-2 animate-in slide-in-from-top-4 duration-300">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
-              <div className="absolute -top-1 right-0">
+              <div className="absolute -top-10 right-0">
                 <button onClick={resetFilters} className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1.5 group">
                   <RotateCcw size={12} className="group-hover:rotate-180 transition-transform duration-500" /> 重置条件
                 </button>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 ml-1">学员性别</label>
-                <div className="flex bg-slate-50 p-1.5 rounded-[1.25rem] border border-slate-200 h-14">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">学员性别</label>
+                <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 h-14 shadow-sm">
                   <button onClick={() => setFilterGender('all')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>不限</button>
                   <button onClick={() => setFilterGender('male')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'male' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>男</button>
                   <button onClick={() => setFilterGender('female')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'female' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>女</button>
@@ -495,21 +576,21 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               </div>
 
               <div className="space-y-2 group">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">开始日期</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">开始日期</label>
                 <EduDatePicker
                   value={startDate}
                   onChange={setStartDate}
-                  className="!h-14 !rounded-[1.25rem]"
+                  className="!h-14 !rounded-2xl"
                   placeholder="年 / 月 / 日"
                 />
               </div>
 
               <div className="space-y-2 group">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">截止日期</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">截止日期</label>
                 <EduDatePicker
                   value={endDate}
                   onChange={setEndDate}
-                  className="!h-14 !rounded-[1.25rem]"
+                  className="!h-14 !rounded-2xl"
                   placeholder="年 / 月 / 日"
                 />
               </div>
@@ -523,13 +604,14 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
-              <tr className="bg-slate-50/30 border-b border-slate-50">
+              <tr className="bg-slate-50/50 border-b border-slate-100">
                 <th className="px-8 py-5 w-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">#</th>
-                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">学员详情</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">学员姓名</th>
                 <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">联系电话</th>
-                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isCampusAdmin ? '所在班级' : '所属校区'}</th>
-                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">状态</th>
-                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right pr-12">教务操作</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">所属班级</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">剩余课时</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">缴费状态</th>
+                <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right pr-12">管理操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -547,22 +629,41 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-5 text-sm text-slate-600 font-bold tracking-tight">{maskPhone(student.phone)}</td>
-                  <td className="px-8 py-5 text-sm text-slate-500 font-medium">{isCampusAdmin ? student.className : student.campus}</td>
+                  <td className="px-8 py-5 text-sm text-slate-600 font-bold tracking-tight family-mono">{student.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1 $2 $3')}</td>
                   <td className="px-8 py-5">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusStyle(student.status)}`}>
-                      {getStatusLabel(student.status)}
+                    <span className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100/50">
+                      {student.className || '未分班'}
                     </span>
                   </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-base font-black ${student.balanceLessons <= 5 ? 'text-red-500' : 'text-slate-900'}`}>
+                        {student.balanceLessons}
+                      </span>
+                      {student.balanceLessons <= 5 && (
+                        <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md animate-pulse">
+                          (预警)
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${student.balanceAmount > 0 ? 'bg-emerald-500' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${student.balanceAmount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        {student.balanceAmount > 0 ? '正常' : '欠费'}
+                      </span>
+                    </div>
+                  </td>
                   <td className="px-8 py-5 text-right pr-10">
-                    <div className="flex items-center justify-end gap-6">
-                      <button onClick={() => onShowDetail?.(student)} className="text-black hover:text-blue-600 transition-all active:scale-90" title="详情">
-                        <Eye size={20} />
+                    <div className="flex items-center justify-end gap-5">
+                      <button onClick={() => onShowDetail?.(student)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all active:scale-90" title="详情">
+                        <Eye size={18} />
                       </button>
-                      <button onClick={() => handleOpenForm(student)} className="text-black hover:text-blue-600 transition-all active:scale-90" title="编辑">
+                      <button onClick={() => handleOpenForm(student)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all active:scale-90" title="编辑">
                         <Edit2 size={18} />
                       </button>
-                      <button onClick={() => setDeletingStudent(student)} className="text-black hover:text-red-600 transition-all active:scale-90" title="删除">
+                      <button onClick={() => setDeletingStudent(student)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90" title="删除">
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -586,6 +687,104 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Pagination & Summary */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-2">
+        <p className="text-sm text-slate-400 font-bold tracking-tight">
+          显示 1 到 10，共 <span className="text-slate-900 font-black">{filteredStudents.length.toLocaleString()}</span> 条数据
+        </p>
+        <div className="flex items-center gap-2">
+          <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+            <ChevronRight size={20} className="rotate-180" />
+          </button>
+          {[1, 2, 3, '...', 128].map((p, i) => (
+            <button
+              key={i}
+              className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${p === 1 ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-400 hover:bg-white hover:text-slate-900'}`}
+            >
+              {p}
+            </button>
+          ))}
+          <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+            <ChevronRight size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Statistics Section (Bottom Charts) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+        <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-8">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+              <PieChart size={20} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">学员科目分布统计</h3>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center justify-around gap-8 py-4">
+            {/* Donut Chart Simulation with CSS */}
+            <div className="relative w-48 h-48 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#E2E8F0" strokeWidth="16" />
+                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#2563EB" strokeWidth="16" strokeDasharray="502" strokeDashoffset="211" />
+                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#60A5FA" strokeWidth="16" strokeDasharray="502" strokeDashoffset="351" />
+                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#22D3EE" strokeWidth="16" strokeDasharray="502" strokeDashoffset="426" />
+                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#CBD5E1" strokeWidth="16" strokeDasharray="502" strokeDashoffset="476" />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">总计</p>
+                <h4 className="text-2xl font-black text-slate-900">1,284</h4>
+              </div>
+            </div>
+
+            <div className="space-y-4 min-w-[160px]">
+              {[
+                { label: '英语培训', color: 'bg-blue-600', percent: '42%' },
+                { label: '数学思维', color: 'bg-blue-400', percent: '28%' },
+                { label: '艺术特长', color: 'bg-cyan-400', percent: '15%' },
+                { label: '其他类别', color: 'bg-slate-300', percent: '15%' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between gap-4 group cursor-default">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+                    <span className="text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">{item.label}</span>
+                  </div>
+                  <span className="text-sm font-black text-slate-900">{item.percent}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-8">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <BarChart3 size={20} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">学员年龄分布统计</h3>
+          </div>
+
+          <div className="h-48 flex items-end justify-between px-4 pb-2 border-b border-slate-100 relative">
+            {[45, 75, 95, 60, 30].map((h, i) => (
+              <div key={i} className="flex flex-col items-center gap-4 group flex-1">
+                <div
+                  className="w-12 bg-blue-500 rounded-t-xl group-hover:bg-blue-600 transition-all duration-500 relative cursor-pointer"
+                  style={{ height: `${h}%` }}
+                >
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-bold">
+                    {Math.round(h * 12.8)} 人
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between px-4">
+            {['4-6岁', '7-9岁', '10-12岁', '13-15岁', '16岁+'].map((label, i) => (
+              <span key={i} className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex-1 text-center">{label}</span>
+            ))}
+          </div>
         </div>
       </div>
 

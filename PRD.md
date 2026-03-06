@@ -60,3 +60,31 @@
 
 ## 7. 权限与数据范围 (RBAC + Data Scope)
 建议采用：总部（全局）/校区（本校区）/教师（授课班级）/家长（绑定学员）的范围模型进行隔离和展示限制。
+
+## 8. 后端重构技术实现细节 (Technical Implementation Details)
+
+为配合毕业设计答辩及系统真实可用性要求，系统将从纯前端单机版重构为 **Node.js + TypeScript (Express/NestJS) + 关系型数据库** 的全栈架构。以下是按功能模块划分的底层技术实现细节记录表（持续更新）：
+
+### 8.1 账号注册与鉴权模块 (Identity & Authentication)
+**业务诉求**：采用 B 端经典模式。内部员工（总部/校区/教师）不支持自助注册，必须由上级创建；外部客户（学员/家长）支持自助注册。
+**技术实现细节**：
+- **数据库表结构**：
+  - `sys_user`: `id`, `username`, `password_hash`, `role` (ADMIN/CAMPUS/TEACHER/STUDENT), `status`.
+- **API 接口设计**：
+  - `POST /api/auth/register/student`: C端公开接口，无需 Token，限额注册 `STUDENT` 角色。
+  - `POST /api/admin/users`: B端受保护接口，需验证请求头的 `Bearer Token` 是否为 `ADMIN` 或 `CAMPUS` 角色。由管理员传入账号、密码明文（后端加盐 Hash 存储）、指定角色。
+  - `POST /api/auth/login`: 通用登录接口，校验 Hash，签发包含 `userId` 和 `role` 的 JWT 令牌。客户端存储于 Cookie 或 LocalStorage。
+
+### 8.2 财务退费场景模块 (Refund & Finance)
+**业务诉求**：学员购课后，因故需要退费。退费需要精准核算当前剩余可用课时，并在财务报表与课消流水中留痕，保证资产负债表与利润表的逻辑严密。
+**技术实现细节**：
+- **数据库级防篡改设计**：
+  - `fin_asset_account` 账户表：包含 `total_qty` (总购买), `remaining_qty` (当前可用), `locked_qty` (退费冻结中，可选)。
+  - `fin_asset_ledger` 流水表：当退费发生时，插入一条 `type = 'REFUND'` 的流水，详实记录本次扣减的课时数量，以及变更后的 `balance_snapshot`。
+- **事务一致性 (Database Transaction)**：
+  - `POST /api/finance/refund`: 开启数据库事务（`BEGIN`）。
+  1. 校验账户表中的 `remaining_qty` 是否 $\ge$ 申请退费的课时数。若余额不足，抛出 400 异常，事务回滚（`ROLLBACK`）。
+  2. 账户表中扣除对应的 `remaining_qty`（使用 `UPDATE fin_asset_account SET remaining_qty = remaining_qty - ? WHERE id = ? AND remaining_qty >= ?` 预防并发超退的死锁问题，即乐观锁思想）。
+  3. 插入 `fin_asset_ledger` 流水。
+  4. 将原 `fin_order` 的状态更为 `PARTIAL_REFUNDED` 或 `REFUNDED`。
+  5. 提交事务（`COMMIT`）。

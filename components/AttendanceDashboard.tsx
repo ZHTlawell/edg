@@ -1,5 +1,5 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useStore } from '../store';
 import {
   Users,
   UserCheck,
@@ -22,16 +22,52 @@ interface AttendanceDashboardProps {
   onRegister: (lessonId: string) => void;
 }
 
-const ATTENDANCE_RECORDS = [
-  { id: 'REC001', className: 'UI精英1班', teacher: '李老师', date: '2024-05-23', time: '14:00 - 16:30', expected: 28, present: 26, leave: 1, absent: 1, status: 'completed' },
-  { id: 'REC002', className: '前端架构班', teacher: '张教授', date: '2024-05-23', time: '09:00 - 11:30', expected: 15, present: 15, leave: 0, absent: 0, status: 'completed' },
-  { id: 'REC003', className: '数据分析研修', teacher: '陈首席', date: '2024-05-23', time: '18:30 - 21:00', expected: 20, present: 0, leave: 2, absent: 0, status: 'pending' },
-  { id: 'REC004', className: '全栈开发周三', teacher: '王老师', date: '2024-05-22', time: '09:00 - 11:00', expected: 22, present: 20, leave: 1, absent: 1, status: 'completed' },
-  { id: 'REC005', className: 'UI精英1班', teacher: '李老师', date: '2024-05-21', time: '10:00 - 12:00', expected: 28, present: 28, leave: 0, absent: 0, status: 'completed' },
-];
-
 export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegister }) => {
+  const { attendanceRecords, classes, courses, students } = useStore();
   const [filterCampus, setFilterCampus] = useState('all');
+
+  // Compute stats from real records
+  const stats = useMemo(() => {
+    const total = attendanceRecords.length;
+    if (total === 0) return { rate: '0.0', present: 0, leave: 0, absent: 0 };
+    const present = attendanceRecords.filter(r => r.status === 'present' || r.status === 'late').length;
+    const leave = attendanceRecords.filter(r => r.status === 'leave').length;
+    const absent = attendanceRecords.filter(r => r.status === 'absent').length;
+    const rate = ((present / total) * 100).toFixed(1);
+    return { rate, present, leave, absent };
+  }, [attendanceRecords]);
+
+  // Map raw records to grouped lesson summaries for the table
+  const displayRecords = useMemo(() => {
+    if (attendanceRecords.length === 0) return [];
+
+    // Group by lesson_id
+    const groups: Record<string, any> = {};
+    attendanceRecords.forEach(r => {
+      if (!groups[r.lesson_id]) {
+        const cls = classes.find(c => c.id === r.class_id);
+        const course = courses.find(c => c.id === r.course_id);
+        groups[r.lesson_id] = {
+          id: r.lesson_id,
+          className: cls?.name || '未知班级',
+          teacher: course?.instructor || '教师',
+          date: r.createdAt.split('T')[0],
+          time: '14:00 - 16:30', // Mock time for now or get from schedule
+          expected: 1,
+          present: 0,
+          leave: 0,
+          absent: 0,
+          status: 'completed'
+        };
+      }
+      groups[r.lesson_id].expected++;
+      if (r.status === 'present' || r.status === 'late') groups[r.lesson_id].present++;
+      else if (r.status === 'leave') groups[r.lesson_id].leave++;
+      else if (r.status === 'absent') groups[r.lesson_id].absent++;
+    });
+
+    return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
+  }, [attendanceRecords, classes, courses]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -136,7 +172,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {ATTENDANCE_RECORDS.map((rec) => (
+                  {displayRecords.map((rec) => (
                     <tr key={rec.id} className="hover:bg-blue-50/5 transition-all group">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">

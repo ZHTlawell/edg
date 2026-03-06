@@ -32,80 +32,70 @@ import { AttendanceModal } from './AttendanceModal';
 type ScheduleStatus = 'pending' | 'ongoing' | 'completed' | 'canceled';
 type ViewMode = 'calendar' | 'list';
 
-interface Lesson {
-  id: string;
-  date: string;
-  time: string;
-  className: string;
-  courseName: string;
-  teacherName: string;
-  classroom: string;
-  expected: number;
-  attended: number;
-  usageStatus: 'confirmed' | 'unconfirmed';
-  status: ScheduleStatus;
-}
-
-const MOCK_LESSONS: Lesson[] = [
-  { id: 'L101', date: '2024-05-20', time: '09:00 - 11:30', className: 'UI精英1班', courseName: '高级UI/UX设计实战', teacherName: '李老师', classroom: 'A301', expected: 28, attended: 26, usageStatus: 'confirmed', status: 'completed' },
-  { id: 'L102', date: '2024-05-20', time: '14:00 - 16:30', className: '前端架构班', courseName: 'React核心架构', teacherName: '张教授', classroom: 'B202', expected: 15, attended: 0, usageStatus: 'unconfirmed', status: 'pending' },
-  { id: 'L103', date: '2024-05-21', time: '10:00 - 12:00', className: 'UI精英1班', courseName: '高级UI/UX设计实战', teacherName: '李老师', classroom: 'A301', expected: 28, attended: 28, usageStatus: 'confirmed', status: 'ongoing' },
-  { id: 'L104', date: '2024-05-21', time: '18:30 - 20:30', className: '数据分析研修', courseName: '商业数据分析', teacherName: '陈首席', classroom: 'C101', expected: 20, attended: 18, usageStatus: 'confirmed', status: 'completed' },
-  { id: 'L105', date: '2024-05-22', time: '09:00 - 11:00', className: '全栈开发周三', courseName: 'Node.js后端实战', teacherName: '王老师', classroom: 'D404', expected: 22, attended: 0, usageStatus: 'unconfirmed', status: 'pending' },
-  { id: 'L106', date: '2024-05-22', time: '14:00 - 16:00', className: 'UI精英1班', courseName: '高级UI/UX设计实战', teacherName: '李老师', classroom: 'A301', expected: 28, attended: 0, usageStatus: 'unconfirmed', status: 'canceled' },
-];
-
 interface ScheduleManagementProps {
-  onEnterAttendance?: (lessonId: string) => void;
-  onEnterConsumption?: (lessonId: string) => void;
+  onEnterAttendance?: (lesson: any) => void;
+  onEnterConsumption?: (lesson: any) => void;
 }
 
 export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterAttendance: _unused, onEnterConsumption: _unused_c }) => {
-  const { currentUser, attendanceRecords, confirmConsumption, assetAccounts, students, courses } = useStore();
+  /* Use real store data */
+  const { currentUser, attendanceRecords, confirmConsumption, assetAccounts, students, courses, classes } = useStore();
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [attendanceLesson, setAttendanceLesson] = useState<Lesson | null>(null);
-
-  const currentStudent = useMemo(() => {
-    if (currentUser?.role === 'student' && currentUser.bindStudentId) {
-      return students.find(s => s.id === currentUser.bindStudentId);
-    }
-    return null;
-  }, [currentUser, students]);
-
-  const purchasedCourseIds = useMemo(() => {
-    return assetAccounts
-      .filter(acc => acc.studentId === currentUser?.bindStudentId)
-      .map(acc => acc.courseId);
-  }, [assetAccounts, currentUser]);
+  const [attendanceLesson, setAttendanceLesson] = useState<any>(null);
 
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const isTeacher = currentUser?.role === 'teacher';
   const isStudent = currentUser?.role === 'student';
-  const myName = isTeacher
-    ? (currentUser?.username === 'Teacher001' ? '李老师' : currentUser?.username)
-    : (isStudent ? (currentStudent?.name || '张美玲') : '');
 
-  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
-  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
 
   const displayLessons = useMemo(() => {
-    if (isTeacher) return MOCK_LESSONS.filter(l => l.teacherName === myName || (myName === 'Teacher001' && l.teacherName === '李老师'));
-    if (isStudent) {
-      // 获取已购课程的名称列表
-      const purchasedCourseNames = assetAccounts
-        .filter(acc => acc.studentId === currentUser?.bindStudentId)
-        .map(acc => courses.find(c => c.id === acc.courseId)?.name)
-        .filter(Boolean);
+    // Transform classes.schedules into Lesson[]
+    const allLessons: any[] = [];
+    classes.forEach(cls => {
+      if (cls.schedules) {
+        cls.schedules.forEach(sched => {
+          allLessons.push({
+            id: sched.id,
+            date: (sched.start_time || '').split(/[T ]/)[0] || '',
+            time: (() => {
+              const start = (sched.start_time || '').split(/[T ]/)[1];
+              const end = (sched.end_time || '').split(/[T ]/)[1];
+              if (start && end) {
+                return `${start.substring(0, 5)} - ${end.substring(0, 5)}`;
+              }
+              return '00:00 - 00:00';
+            })(),
+            className: cls.name,
+            courseName: cls.course?.name || '未知课程',
+            teacherName: cls.teacher?.name || '未知教师',
+            classroom: sched.classroom || '未分配',
+            expected: cls.enrolled || 0,
+            attended: sched.attendances?.length || 0,
+            usageStatus: sched.status === 'COMPLETED' ? 'confirmed' : 'unconfirmed',
+            status: sched.status.toLowerCase(),
+            course_id: cls.course_id,
+            class_id: cls.id
+          });
+        });
+      }
+    });
 
-      // 动态过滤：匹配课程名称、学生所属班级或保底默认班级
-      return MOCK_LESSONS.filter(l =>
-        purchasedCourseNames.includes(l.courseName) ||
-        (currentStudent?.className && l.className.includes(currentStudent.className)) ||
-        l.className.includes('UI精英1班')
-      );
+    if (isTeacher) {
+      const teacherProfile = (currentUser as any)?.teacherProfile;
+      return allLessons.filter(l => l.teacherName === teacherProfile?.name);
     }
-    return MOCK_LESSONS;
-  }, [isTeacher, isStudent, myName, assetAccounts, courses, currentUser, currentStudent]);
+    if (isStudent && currentUser?.bindStudentId) {
+      // Filter by student's enrolled classes
+      const studentEnrollments = classes.filter(cls =>
+        cls.students?.some((s: any) => s.student_id === currentUser.bindStudentId)
+      ).map(cls => cls.name);
+      return allLessons.filter(l => studentEnrollments.includes(l.className));
+    }
+
+    return allLessons;
+  }, [classes, currentUser, isTeacher, isStudent]);
 
   const getStatusConfig = (status: ScheduleStatus) => {
     switch (status) {
@@ -409,8 +399,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                       </td>
                       <td className="px-8 py-6">
                         <div className="flex items-center justify-end gap-4">
-                          {attendanceRecords.some(r => r.lessonId === lesson.id) ? (
-                            attendanceRecords.find(r => r.lessonId === lesson.id)?.deductStatus === 'pending' ? (
+                          {attendanceRecords.some(r => r.lesson_id === lesson.id) ? (
+                            attendanceRecords.find(r => r.lesson_id === lesson.id)?.deductStatus === 'pending' ? (
                               <button
                                 onClick={() => confirmConsumption(lesson.id)}
                                 className="flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 transition-all active:scale-95"

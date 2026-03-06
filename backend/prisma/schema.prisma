@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ==========================================
+// 1. 权限与人员中枢 (Identity & Access)
+// ==========================================
+
+model SysUser {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  password_hash String
+  role          String    // ADMIN, CAMPUS_ADMIN, TEACHER, STUDENT
+  campus_id     String?   // 所属校区 (CAMPUS_ADMIN审批通过后赋值)
+  campusName    String?   // 申请时填写的机构/校区名称
+  address       String?   // 校区详细地址
+  status        String    @default("ACTIVE") // ACTIVE, PENDING_APPROVAL, DISABLED
+  createdAt     DateTime  @default(now())
+
+  studentProfile EduStudent?
+  teacherProfile EduTeacher?
+}
+
+model EduStudent {
+  id        String   @id @default(uuid())
+  name      String
+  gender    String?
+  phone     String?  @unique
+  balance   Float    @default(0)
+  status    String   @default("ACTIVE")
+  
+  user_id   String   @unique
+  user      SysUser  @relation(fields: [user_id], references: [id])
+
+  classes      EduStudentInClass[]
+  orders       FinOrder[]
+  accounts     FinAssetAccount[]
+  attendances  TeachAttendance[]
+  submissions  TeachHomeworkSubmission[]
+  refunds      FinRefundRecord[]
+  createdAt    DateTime @default(now())
+}
+
+model EduTeacher {
+  id          String   @id @default(uuid())
+  name        String
+  department  String?
+
+  user_id     String   @unique
+  user        SysUser  @relation(fields: [user_id], references: [id])
+
+  classes     EdClass[]
+  homeworks   TeachHomework[]
+  courses     EdCourse[]
+}
+
+// ==========================================
+// 2. 教务与课程核心 (Academic & Scheduling)
+// ==========================================
+
+model EdCourse {
+  id             String   @id @default(uuid())
+  name           String
+  category       String
+  price          Float
+  total_lessons  Int
+  status         String   @default("ENABLED") // ENABLED, DISABLED
+
+  is_standard    Boolean  @default(false)
+  standard_id    String?
+  duration       Int      @default(45)
+
+  campus_id      String?  // 归属校区 (可选，总部课程为 null)
+  instructor_id  String?  // 默认推荐讲师
+  instructor     EduTeacher? @relation(fields: [instructor_id], references: [id])
+
+  classes        EdClass[]
+  orders         FinOrder[]
+  accounts       FinAssetAccount[]
+}
+
+model EdClass {
+  id          String   @id @default(uuid())
+  name        String
+  capacity    Int
+  enrolled    Int      @default(0)
+  campus_id   String
+  status      String   @default("ONGOING") // PENDING, ONGOING, CLOSED
+
+  course_id   String
+  course      EdCourse @relation(fields: [course_id], references: [id])
+
+  teacher_id  String
+  teacher     EduTeacher @relation(fields: [teacher_id], references: [id])
+
+  students    EduStudentInClass[]
+  schedules   EdLessonSchedule[]
+  homeworks   TeachHomework[]
+}
+
+model EduStudentInClass {
+  student_id String
+  student    EduStudent @relation(fields: [student_id], references: [id])
+  class_id   String
+  class      EdClass    @relation(fields: [class_id], references: [id])
+  enrolledAt DateTime   @default(now())
+
+  @@id([student_id, class_id])
+}
+
+model EdLessonSchedule {
+  id          String   @id @default(uuid())
+  class_id    String
+  class       EdClass  @relation(fields: [class_id], references: [id])
+  
+  lesson_no   Int      @default(1)
+
+  start_time  DateTime
+  end_time    DateTime
+  classroom   String?
+  status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  is_consumed Boolean  @default(false)
+
+  attendances TeachAttendance[]
+
+  @@unique([class_id, lesson_no])
+}
+
+// ==========================================
+// 3. 金融与课消引擎 (Finance & Assets)
+// ==========================================
+
+model FinOrder {
+  id          String   @id @default(uuid())
+  student_id  String
+  student     EduStudent @relation(fields: [student_id], references: [id])
+
+  course_id   String
+  course      EdCourse @relation(fields: [course_id], references: [id])
+
+  amount      Float
+  total_qty   Int      @default(1) // Number of lessons purchased
+  order_source String  @default("student") // student, admin
+  operator_id  String? // ID of the user who placed the order (if by admin)
+  status      String   @default("PENDING_PAYMENT") // PENDING_PAYMENT, PAID, PARTIAL_REFUNDED, REFUNDED, CANCELLED
+  createdAt   DateTime @default(now())
+
+  payments    FinPaymentRecord[]
+  refunds     FinRefundRecord[]
+}
+
+model FinPaymentRecord {
+  id          String   @id @default(uuid())
+  order_id    String
+  order       FinOrder @relation(fields: [order_id], references: [id])
+  amount      Float
+  channel     String   // Wechat, Alipay, Cash, BankTransfer
+  status      String   @default("SUCCESS") // SUCCESS, FAILED
+  operator_id String?  // If admin registered the offline payment
+  createdAt   DateTime @default(now())
+}
+
+model FinRefundRecord {
+  id            String   @id @default(uuid())
+  order_id      String
+  order         FinOrder @relation(fields: [order_id], references: [id])
+  student_id    String
+  student       EduStudent @relation(fields: [student_id], references: [id])
+  amount        Float
+  reason        String
+  status        String   @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED
+  applicant_id  String   // ID of student or admin who applied
+  approver_id   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model FinAssetAccount {
+  id              String   @id @default(uuid())
+  
+  student_id      String
+  student         EduStudent @relation(fields: [student_id], references: [id])
+
+  course_id       String
+  course          EdCourse @relation(fields: [course_id], references: [id])
+
+  campus_id       String
+
+  total_qty       Float
+  remaining_qty   Float
+  locked_qty      Float    @default(0)
+  refunded_qty    Float    @default(0)
+  refunded_amount Float    @default(0)
+  status          String   @default("ACTIVE") // ACTIVE, DEPLETED, REFUNDED
+
+  ledgers         FinAssetLedger[]
+  updatedAt       DateTime @updatedAt
+}
+
+model FinAssetLedger {
+  id               String   @id @default(uuid())
+  account_id       String
+  account          FinAssetAccount @relation(fields: [account_id], references: [id])
+
+  type             String   // BUY, CONSUME, REFUND
+  change_qty       Float
+  balance_snapshot Float    // 变更后的余额
+  ref_id           String?  // 关联的订单ID或考勤单ID，用于审计追踪
+  
+  occurTime        DateTime @default(now())
+}
+
+// ==========================================
+// 4. 教学交互闭环 (Teaching & Interaction)
+// ==========================================
+
+model TeachAttendance {
+  id            String   @id @default(uuid())
+  
+  lesson_id     String
+  lesson        EdLessonSchedule @relation(fields: [lesson_id], references: [id])
+
+  student_id    String
+  student       EduStudent @relation(fields: [student_id], references: [id])
+
+  status        String   // PRESENT, ABSENT, LATE, LEAVE
+  deduct_status String   @default("PENDING") // PENDING, DEDUCTED, SKIPPED
+  deduct_amount Float    @default(0)
+}
+
+model TeachHomework {
+  id              String   @id @default(uuid())
+  title           String
+  content         String
+  deadline        DateTime
+  attachmentName  String?
+  attachmentUrl   String?
+
+  class_id        String
+  class           EdClass  @relation(fields: [class_id], references: [id])
+
+  teacher_id      String
+  teacher         EduTeacher @relation(fields: [teacher_id], references: [id])
+
+  submissions     TeachHomeworkSubmission[]
+  createdAt       DateTime @default(now())
+}
+
+model TeachHomeworkSubmission {
+  id          String   @id @default(uuid())
+  
+  homework_id String
+  homework    TeachHomework @relation(fields: [homework_id], references: [id])
+
+  student_id  String
+  student     EduStudent @relation(fields: [student_id], references: [id])
+
+  content     String
+  score       Float?
+  feedback    String?
+  status      String   @default("SUBMITTED") // SUBMITTED, GRADED
+
+  submittedAt DateTime @default(now())
+}
+
+// ==========================================
+// 5. 系统审计日志 (System Audit)
+// ==========================================
+
+model SysAuditLog {
+  id          String   @id @default(uuid())
+  action      String   // SCHEDULE_PUBLISH, SCHEDULE_VOID, RESCHEDULE
+  entity_type String
+  entity_id   String
+  operator_id String?
+  details     String?  // JSON representation of details
+  createdAt   DateTime @default(now())
+}
+

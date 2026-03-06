@@ -36,35 +36,40 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
    const { currentUser, students, assetAccounts, courses } = useStore();
 
    const currentStudent = React.useMemo(() => {
-      if (currentUser?.role === 'student' && currentUser.bindStudentId) {
-         return students.find(s => s.id === currentUser.bindStudentId);
+      if (currentUser?.role === 'student') {
+         // Try to find by bindStudentId (EduStudent.id) OR by currentUser.id (user_id)
+         return students.find(s => s.id === currentUser.bindStudentId || (s as any).user_id === currentUser.id);
       }
       return null;
    }, [currentUser, students]);
 
    const totalBalance = React.useMemo(() => {
-      return assetAccounts
-         .filter(acc => acc.studentId === currentUser?.bindStudentId)
-         .reduce((sum, acc) => sum + acc.remainingQty, 0);
+      return (Array.isArray(assetAccounts) ? assetAccounts : [])
+         .filter(acc => acc && (acc.student_id === currentUser?.bindStudentId || (acc as any).user_id === currentUser?.id))
+         .reduce((sum, acc) => sum + (acc.remaining_qty ?? (acc as any).remainingQty ?? 0), 0);
    }, [assetAccounts, currentUser]);
 
    // Learning progress based on asset accounts
    const progressItems = React.useMemo(() => {
-      return assetAccounts
-         .filter(acc => acc.studentId === currentUser?.bindStudentId)
+      return (Array.isArray(assetAccounts) ? assetAccounts : [])
+         .filter(acc => acc && (acc.student_id === currentUser?.bindStudentId || (acc as any).user_id === currentUser?.id))
          .map(acc => {
-            const course = courses.find(c => c.id === acc.courseId);
-            const progress = Math.round(((acc.totalQty - acc.remainingQty) / acc.totalQty) * 100);
+            const course = courses.find(c => c.id === acc.course_id);
+            const total = acc.total_qty || (acc as any).totalQty || 1;
+            const remaining = acc.remaining_qty ?? (acc as any).remainingQty ?? 0;
+            const progress = Math.round(((total - remaining) / total) * 100);
             return {
                name: course?.name || '未知课程',
-               progress: isNaN(progress) ? 0 : progress,
+               progress: isNaN(progress) ? 0 : Math.max(0, Math.min(100, progress)),
                color: progress > 50 ? 'bg-emerald-500' : 'bg-blue-500'
             };
          }).slice(0, 3);
    }, [assetAccounts, currentUser, courses]);
 
+   console.log('StudentDashboard rendering, currentStudent:', currentStudent, 'totalBalance:', totalBalance);
+
    return (
-      <div className="max-w-[1000px] mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="max-w-[1000px] mx-auto space-y-8 pb-20">
          {/* Welcome & Account Summary */}
          <div className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="flex items-center gap-8">
@@ -90,6 +95,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                <div className="text-center px-8 py-4 bg-emerald-50 rounded-3xl border border-emerald-100">
                   <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">剩余总课时</p>
                   <h3 className="text-3xl font-bold text-emerald-700 font-mono">{totalBalance} <span className="text-xs">H</span></h3>
+               </div>
+               <div className="h-12 w-px bg-slate-100 hidden md:block"></div>
+               <div className="text-center px-8 py-4 bg-amber-50 rounded-3xl border border-amber-100">
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">钱包余额</p>
+                  <h3 className="text-3xl font-bold text-amber-700 font-mono">¥ {(currentStudent as any)?.balance?.toFixed(2) || '0.00'}</h3>
                </div>
                <div className="h-12 w-px bg-slate-100 hidden md:block"></div>
                <button

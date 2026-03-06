@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { Search, Bell, HelpCircle, ChevronDown, MapPin, LogOut } from 'lucide-react';
-import { useStore } from '../store';
+import { Search, Bell, HelpCircle, ChevronDown, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   onLogout?: () => void;
@@ -10,9 +9,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onLogout, onNavigate, userRole }) => {
-  const { currentUser } = useStore();
-  const campusDisplay = userRole === 'campus_admin' ? (currentUser?.campus || '分校区') : '总部及全辖区';
-
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
       {/* Search Bar */}
@@ -27,16 +23,8 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, onNavigate, userRole }
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-4">
-        {/* Branch Selector - Hidden for campus_admin */}
-        {userRole !== 'campus_admin' && (
-          <button className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-sm text-slate-600 transition-colors font-bold hover:bg-slate-100">
-            <MapPin size={16} className="text-blue-500" />
-            <span>{campusDisplay}</span>
-            <ChevronDown size={14} />
-          </button>
-        )}
+
 
         <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
 

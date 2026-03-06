@@ -24,24 +24,28 @@ export const StudentLearningHome: React.FC<Props> = ({ onSelectCourse }) => {
   const [activeTab, setActiveTab] = useState<'learning' | 'completed'>('learning');
 
   const myCourses = useMemo(() => {
-    if (!currentUser?.bindStudentId) return [];
+    if (!currentUser) return [];
 
     // Get asset accounts for current student
-    const myAssets = assetAccounts.filter(acc => acc.studentId === currentUser.bindStudentId && acc.remainingQty > 0);
+    const myAssets = assetAccounts.filter(acc =>
+      acc && (acc.student_id === currentUser.bindStudentId || (acc as any).user_id === currentUser.id)
+    ).filter(acc => (acc.remaining_qty ?? (acc as any).remainingQty ?? 0) > 0);
 
     // Join with course details
     return myAssets.map(asset => {
-      const course = courses.find(c => c.id === asset.courseId);
+      const course = courses.find(c => c.id === asset.course_id);
+      const total = asset.total_qty || (asset as any).totalQty || 1;
+      const remaining = asset.remaining_qty ?? (asset as any).remainingQty ?? 0;
       return {
-        id: asset.courseId,
+        id: asset.course_id,
         title: course?.name || '未知课程',
         level: course?.level || '中级',
         category: course?.category || '设计',
-        remainingQty: asset.remainingQty,
-        totalQty: asset.totalQty,
+        remainingQty: remaining,
+        totalQty: total,
         // Mock progress for demo, in real life this would come from a StudyProgress table
-        progress: Math.floor(Math.random() * 40) + 20,
-        lastLesson: '第01课：课程导学与环境配置',
+        progress: Math.round(((total - remaining) / total) * 100),
+        lastLesson: '正在学习中',
         status: 'learning' as const
       };
     });

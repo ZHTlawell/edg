@@ -22,7 +22,6 @@ import { TeacherDashboard } from './components/TeacherDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 import { Login } from './components/Login';
 import { CampusManagement } from './components/CampusManagement';
-import { StaffAllocation } from './components/StaffAllocation';
 import { RolePermission } from './components/RolePermission';
 import { AuditLogs } from './components/AuditLogs';
 import { HelpCenter } from './components/HelpCenter';
@@ -31,6 +30,12 @@ import { TeacherStats } from './components/TeacherStats';
 import { StudentOrders } from './components/StudentOrders';
 import { StudentNotifications } from './components/StudentNotifications';
 import { CourseMarketplace } from './components/CourseMarketplace';
+import { TeacherHomeworkMgmt } from './components/TeacherHomeworkMgmt';
+import { StudentHomework } from './components/StudentHomework';
+import { TeacherApproval } from './components/TeacherApproval';
+import { RefundManagement } from './components/RefundManagement';
+import { FinanceReport } from './components/FinanceReport';
+import { ToastContainer } from './components/ToastContainer';
 import { Student } from './types';
 import { ClipboardList } from 'lucide-react';
 import { useStore } from './store';
@@ -92,130 +97,149 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   if (!isAuthenticated || !currentUser) {
-    return <Login onLogin={handleLogin} />;
+    return (
+      <>
+        <ToastContainer />
+        <Login onLogin={handleLogin} />
+      </>
+    );
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        toggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        activeId={activeView}
-        userRole={userRole}
-        onNavigate={(id) => {
-          setActiveView(id);
-          setSelectedStudent(null);
-          setSelectedOrderId(null);
-          setSelectedLessonId(null);
-          setSelectedCourseId(null);
-        }}
-      />
+    <>
+      <ToastContainer />
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          toggle={() => setIsSidebarOpen(!isSidebarOpen)}
+          activeId={activeView}
+          userRole={userRole}
+          onNavigate={(id) => {
+            setActiveView(id);
+            setSelectedStudent(null);
+            setSelectedOrderId(null);
+            setSelectedLessonId(null);
+            setSelectedCourseId(null);
+          }}
+        />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header onLogout={handleLogout} onNavigate={(id) => setActiveView(id)} userRole={userRole} />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header onLogout={handleLogout} onNavigate={(id) => setActiveView(id)} userRole={userRole} />
 
-        <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8 bg-[#F8FAFC]">
-          <div className="max-w-[1440px] mx-auto h-full">
-            {/* Core Dashboards by Role */}
-            {activeView === 'dashboard' && (userRole === 'admin' || userRole === 'campus_admin') && <Dashboard />}
-            {activeView === 'teaching' && userRole === 'teacher' && (
-              <TeacherDashboard
-                onEnterAttendance={handleEnterAttendance}
-                onViewSchedule={() => setActiveView('schedule')}
-              />
-            )}
-            {activeView === 'student-dashboard' && userRole === 'student' && (
-              <StudentDashboard
-                onRenew={() => setActiveView('student-orders')}
-                onLeave={() => setActiveView('student-notifications')}
-                onHomework={() => setActiveView('student-learning')}
-                onMaterials={() => setActiveView('student-learning')}
-                onContact={() => window.alert('客服热线: 400-123-4567')}
-                onEnterLearning={() => setActiveView('student-learning')}
-              />
-            )}
+          <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8 bg-[#F8FAFC]">
+            <div className="max-w-[1440px] mx-auto h-full">
+              {/* Core Dashboards by Role */}
+              {activeView === 'dashboard' && (userRole === 'admin' || userRole === 'campus_admin') && <Dashboard />}
+              {activeView === 'teaching' && userRole === 'teacher' && (
+                <TeacherDashboard
+                  onEnterAttendance={handleEnterAttendance}
+                  onViewSchedule={() => setActiveView('schedule')}
+                />
+              )}
+              {activeView === 'student-dashboard' && userRole === 'student' && (
+                <div className="p-4 border border-red-100/10">
+                  {console.log('App.tsx: Rendering StudentDashboard, userRole:', userRole, 'activeView:', activeView)}
+                  <React.Suspense fallback={<div>Loading...</div>}>
+                    <StudentDashboard
+                      onRenew={() => setActiveView('student-orders')}
+                      onLeave={() => setActiveView('student-notifications')}
+                      onHomework={() => setActiveView('student-homework')}
+                      onMaterials={() => setActiveView('student-learning')}
+                      onContact={() => window.alert('客服热线: 400-123-4567')}
+                      onEnterLearning={() => setActiveView('student-learning')}
+                    />
+                  </React.Suspense>
+                </div>
+              )}
 
-            {/* Student Learning Flow */}
-            {activeView === 'student-learning' && (
-              <StudentLearningHome onSelectCourse={(id) => {
-                setSelectedCourseId(id);
-                setActiveView('course-study');
-              }} />
-            )}
-            {activeView === 'course-study' && (
-              <CourseStudyView
-                onBack={() => setActiveView('student-learning')}
-                onStartQuiz={() => setActiveView('online-quiz')}
-              />
-            )}
-            {activeView === 'online-quiz' && (
-              <QuizView
-                chapterTitle="原子化设计规范与 Figma 核心工具"
-                onBack={() => setActiveView('course-study')}
-                onSubmit={() => {
-                  alert('测验已成功提交！得分：92/100，击败了 95% 的学员。');
+              {/* Student Learning Flow */}
+              {activeView === 'student-learning' && (
+                <StudentLearningHome onSelectCourse={(id) => {
+                  setSelectedCourseId(id);
                   setActiveView('course-study');
-                }}
-              />
-            )}
+                }} />
+              )}
+              {activeView === 'course-study' && (
+                <CourseStudyView
+                  onBack={() => setActiveView('student-learning')}
+                  onStartQuiz={() => setActiveView('online-quiz')}
+                />
+              )}
+              {activeView === 'online-quiz' && (
+                <QuizView
+                  chapterTitle="原子化设计规范与 Figma 核心工具"
+                  onBack={() => setActiveView('course-study')}
+                  onSubmit={() => {
+                    alert('测验已成功提交！得分：92/100，击败了 95% 的学员。');
+                    setActiveView('course-study');
+                  }}
+                />
+              )}
 
-            {/* Admin Modules */}
-            {activeView === 'campus-list' && <CampusManagement />}
-            {activeView === 'admin-list' && <StaffAllocation />}
-            {activeView === 'roles' && <RolePermission />}
-            {activeView === 'logs' && <AuditLogs />}
-            {activeView === 'help-center' && <HelpCenter />}
-            {activeView === 'courses' && <CourseManagement />}
-            {activeView === 'classes' && <ClassManagement />}
-            {activeView === 'teaching' && (userRole === 'admin' || userRole === 'campus_admin') && (
-              <ScheduleManagement onEnterAttendance={handleEnterAttendance} onEnterConsumption={handleEnterConsumption} />
-            )}
-            {activeView === 'schedule' && userRole === 'teacher' && (
-              <ScheduleManagement onEnterAttendance={handleEnterAttendance} />
-            )}
-            {activeView === 'stats' && <StatisticsOverview />}
-            {activeView === 'report-details' && <ReportDetails />}
-            {activeView === 'attendance-module' && <AttendanceDashboard onRegister={handleEnterAttendance} />}
-            {activeView === 'resources' && <ResourceLibrary />}
-            {activeView === 'my-stats' && <TeacherStats />}
-            {activeView === 'student-schedule' && userRole === 'student' && <ScheduleManagement />}
-            {activeView === 'student-orders' && userRole === 'student' && <StudentOrders />}
-            {activeView === 'student-notifications' && userRole === 'student' && <StudentNotifications />}
-            {activeView === 'student-market' && userRole === 'student' && <CourseMarketplace />}
+              {/* Admin Modules */}
+              {activeView === 'campus-list' && <CampusManagement />}
+              {activeView === 'roles' && <RolePermission />}
+              {activeView === 'logs' && <AuditLogs />}
+              {activeView === 'help-center' && <HelpCenter />}
+              {activeView === 'courses' && <CourseManagement />}
+              {activeView === 'classes' && <ClassManagement />}
+              {activeView === 'teaching' && (userRole === 'admin' || userRole === 'campus_admin') && (
+                <ScheduleManagement onEnterAttendance={handleEnterAttendance} onEnterConsumption={handleEnterConsumption} />
+              )}
+              {activeView === 'schedule' && userRole === 'teacher' && (
+                <ScheduleManagement onEnterAttendance={handleEnterAttendance} />
+              )}
+              {activeView === 'stats' && <StatisticsOverview />}
+              {activeView === 'report-details' && <ReportDetails />}
+              {activeView === 'attendance-module' && <AttendanceDashboard onRegister={handleEnterAttendance} />}
+              {activeView === 'resources' && <ResourceLibrary />}
+              {activeView === 'my-stats' && <TeacherStats />}
+              {activeView === 'student-schedule' && userRole === 'student' && <ScheduleManagement />}
+              {activeView === 'student-orders' && userRole === 'student' && <StudentOrders />}
+              {activeView === 'student-notifications' && userRole === 'student' && <StudentNotifications />}
+              {activeView === 'student-market' && userRole === 'student' && <CourseMarketplace />}
+              {activeView === 'teacher-homework' && userRole === 'teacher' && <TeacherHomeworkMgmt />}
+              {activeView === 'student-homework' && userRole === 'student' && <StudentHomework />}
+              {activeView === 'teacher-approval' && userRole === 'campus_admin' && (
+                <TeacherApproval onBack={() => setActiveView('dashboard')} />
+              )}
+              {activeView === 'refund-management' && <RefundManagement />}
+              {activeView === 'finance-report' && <FinanceReport />}
 
-            {/* Sub Views */}
-            {activeView === 'attendance-registration' && (
-              <AttendanceRegistration
-                lessonId={selectedLessonId || 'L101'}
-                onBack={() => setActiveView(userRole === 'teacher' ? 'teaching' : 'attendance-module')}
-              />
-            )}
-            {activeView === 'lesson-consumption' && (
-              <LessonConsumption lessonId={selectedLessonId || 'L101'} onBack={() => setActiveView('teaching')} />
-            )}
-            {activeView === 'payments' && (
-              <OrderCreation
-                onBack={() => setActiveView('dashboard')}
-                onSuccess={(orderId) => { setSelectedOrderId(orderId); setActiveView('order-detail'); }}
-              />
-            )}
-            {activeView === 'order-detail' && <OrderDetailView orderId={selectedOrderId || 'ORD-001'} onBack={() => setActiveView('payments')} />}
-            {activeView === 'students' && <StudentManagement onShowDetail={handleShowDetail} />}
-            {activeView === 'student-detail' && selectedStudent && <StudentDetailView student={selectedStudent} onBack={handleBackToList} />}
+              {/* Sub Views */}
+              {activeView === 'attendance-registration' && (
+                <AttendanceRegistration
+                  lessonId={selectedLessonId || 'L101'}
+                  onBack={() => setActiveView(userRole === 'teacher' ? 'teaching' : 'attendance-module')}
+                />
+              )}
+              {activeView === 'lesson-consumption' && (
+                <LessonConsumption lessonId={selectedLessonId || 'L101'} onBack={() => setActiveView('teaching')} />
+              )}
+              {activeView === 'payments' && (
+                <OrderCreation
+                  onBack={() => setActiveView('dashboard')}
+                  onSuccess={(orderId) => { setSelectedOrderId(orderId); setActiveView('order-detail'); }}
+                />
+              )}
+              {activeView === 'order-detail' && <OrderDetailView orderId={selectedOrderId || 'ORD-001'} onBack={() => setActiveView('payments')} />}
+              {activeView === 'students' && <StudentManagement onShowDetail={handleShowDetail} />}
+              {activeView === 'student-detail' && selectedStudent && <StudentDetailView student={selectedStudent} onBack={handleBackToList} />}
 
-            {/* Fallback */}
-            {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'admin-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market'].includes(activeView) && (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-white rounded-2xl border border-slate-100">
-                <ClipboardList size={48} className="opacity-10 mb-4" />
-                <p className="text-xl font-bold text-slate-600">模块开发中</p>
-                <button onClick={() => setActiveView((userRole === 'admin' || userRole === 'campus_admin') ? 'dashboard' : 'student-dashboard')} className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-xl font-bold">返回首页</button>
-              </div>
-            )}
-          </div>
-        </main>
+              {/* Fallback */}
+              {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market', 'teacher-homework', 'student-homework', 'teacher-approval', 'refund-management', 'finance-report'].includes(activeView) && (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-white rounded-2xl border border-slate-100">
+                  <ClipboardList size={48} className="opacity-10 mb-4" />
+                  <p className="text-xl font-bold text-slate-600">模块开发中</p>
+                  <button onClick={() => setActiveView((userRole === 'admin' || userRole === 'campus_admin') ? 'dashboard' : 'student-dashboard')} className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-xl font-bold">返回首页</button>
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
+
       </div>
-
-    </div>
+    </>
   );
 };
 

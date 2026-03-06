@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, AlertCircle, Calendar as CalendarIcon, Info, Layers, User as UserIcon, MapPin, DollarSign } from 'lucide-react';
+import { X, Save, AlertCircle, Calendar as CalendarIcon, Info, Layers, User as UserIcon, MapPin, DollarSign, Search } from 'lucide-react';
 import { Course, CourseStatus } from '../types';
 import { useStore } from '../store';
 
@@ -41,7 +41,7 @@ const ModalDatePicker: React.FC<{
 };
 
 export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
-  const { currentUser } = useStore();
+  const { currentUser, addToast } = useStore();
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const myCampus = currentUser?.campus || '总校区';
 
@@ -51,6 +51,7 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
     category: '设计',
     level: '初级',
     instructor: '',
+    instructor_id: '',
     totalLessons: 10,
     price: '',
     campus: isCampusAdmin ? myCampus : '总校区',
@@ -58,6 +59,20 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
     status: 'enabled',
     description: ''
   });
+
+  const { teachers, fetchTeachers } = useStore();
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [showTeacherList, setShowTeacherList] = useState(false);
+
+  const filteredTeachers = teachers.filter(t =>
+    t.name.toLowerCase().includes(teacherSearch.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (isOpen && (isCampusAdmin || currentUser?.role === 'admin')) {
+      fetchTeachers(isCampusAdmin ? currentUser?.campus : undefined);
+    }
+  }, [isOpen, isCampusAdmin, currentUser, fetchTeachers]);
 
   useEffect(() => {
     if (initialData) {
@@ -69,8 +84,8 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.instructor) {
-      alert('请确保必填项已正确填写');
+    if (!formData.name || !formData.instructor_id) {
+      addToast('请确保必传项已正确填写，包括主讲导师', 'warning');
       return;
     }
     onSave(formData as Course);
@@ -137,18 +152,50 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
               </select>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">主讲导师 <span className="text-red-500">*</span></label>
               <div className="relative group">
                 <UserIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 pointer-events-none" />
                 <input
-                  type="text" required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
-                  placeholder="导师姓名"
-                  value={formData.instructor}
-                  onChange={e => setFormData({ ...formData, instructor: e.target.value })}
+                  type="text"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-10 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
+                  placeholder="搜索并选择导师"
+                  value={teacherSearch || formData.instructor || ''}
+                  onChange={e => {
+                    setTeacherSearch(e.target.value);
+                    setShowTeacherList(true);
+                  }}
+                  onFocus={() => setShowTeacherList(true)}
                 />
+                <Search size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
               </div>
+
+              {showTeacherList && (
+                <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                  {filteredTeachers.length > 0 ? (
+                    filteredTeachers.map(teacher => (
+                      <button
+                        key={teacher.id}
+                        type="button"
+                        className="w-full text-left px-5 py-3 hover:bg-blue-50 transition-colors flex items-center justify-between group"
+                        onClick={() => {
+                          setFormData({ ...formData, instructor: teacher.name, instructor_id: teacher.id });
+                          setTeacherSearch(teacher.name);
+                          setShowTeacherList(false);
+                        }}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-700 group-hover:text-blue-600">{teacher.name}</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">{teacher.department || '教研部'}</span>
+                        </div>
+                        {formData.instructor_id === teacher.id && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-5 text-center text-slate-400 text-sm italic">未找到匹配的导师</div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

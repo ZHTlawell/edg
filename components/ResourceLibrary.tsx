@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     FileText,
     Video,
@@ -24,6 +24,20 @@ const MOCK_RESOURCES = [
 
 export const ResourceLibrary: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            alert(`模拟上传文件: ${file.name}\n大小: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+            // Reset input so the same file can be selected again
+            event.target.value = '';
+        }
+    };
 
     const getIcon = (type: string) => {
         switch (type) {
@@ -49,7 +63,17 @@ export const ResourceLibrary: React.FC = () => {
                     </h1>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept=".pdf,.zip,.png,.jpg,.jpeg,.docx"
+                        className="hidden"
+                    />
+                    <button
+                        onClick={handleUploadClick}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                    >
                         <Plus size={18} /> 上传新资源
                     </button>
                 </div>

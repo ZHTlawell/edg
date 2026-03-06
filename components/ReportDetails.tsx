@@ -40,7 +40,7 @@ interface ReportItem {
 // Removed MOCK_DATA in favor of useStore
 
 export const ReportDetails: React.FC = () => {
-  const { currentUser, orders, students, courses, getExportData } = useStore();
+  const { currentUser, orders, students, courses, getExportData, addToast } = useStore();
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
@@ -79,7 +79,7 @@ export const ReportDetails: React.FC = () => {
 
   const handleExport = () => {
     if (displayData.length === 0) {
-      alert('没有可导出的数据');
+      addToast('没有可导出的数据', 'warning');
       return;
     }
 
