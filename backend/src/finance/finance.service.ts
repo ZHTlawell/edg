@@ -251,19 +251,21 @@ export class FinanceService {
                 course: true
             }
         });
+    }
+
     /**
      * 查询退费申请单 (供管理员审核使用)
      */
-    async getRefundApplications(status ?: string) {
-            return this.prisma.finRefundRecord.findMany({
-                where: status ? { status } : undefined,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    student: true,
-                    order: {
-                        include: { course: true }
-                    }
+    async getRefundApplications(status?: string) {
+        return this.prisma.finRefundRecord.findMany({
+            where: status ? { status } : undefined,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                student: true,
+                order: {
+                    include: { course: true }
                 }
-            });
-        }
+            }
+        });
     }
+}

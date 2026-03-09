@@ -68,14 +68,19 @@ export interface Class {
   name: string;
   capacity: number;
   enrolled: number;
-  campus_id: string;
+  campus?: string; // Legacy
+  campus_id?: string;
   status: ClassStatus;
-  course_id: string;
+  courseName?: string; // Legacy
+  course_id?: string;
   course?: Course;
-  teacher_id: string;
+  teacherName?: string; // Legacy
+  teacher_id?: string;
   teacher?: Teacher;
+  schedule?: string; // Legacy
   students?: any[];
   schedules?: Schedule[];
+  createdAt?: string; // Legacy
 }
 
 export type StudentStatus = 'potential' | 'trial' | 'active' | 'inactive' | 'graduated' | 'dropped';
@@ -103,9 +108,13 @@ export interface AttendanceRecord {
   id: string;
   lesson_id: string;
   student_id: string;
+  studentId?: string; // Legacy
   course_id: string;
+  courseId?: string; // Legacy
   class_id: string;
+  classId?: string; // Legacy
   campus_id: string;
+  campusId?: string; // Legacy
   status: AttendStatus;
   deductHours: number;
   deductStatus: 'pending' | 'completed' | 'failed';
@@ -116,10 +125,15 @@ export interface AttendanceRecord {
 export interface AssetAccount {
   id: string;
   student_id: string;
+  studentId?: string; // Legacy
   course_id: string;
+  courseId?: string; // Legacy
   campus_id: string;
+  campusId?: string; // Legacy
   total_qty: number;
+  totalQty?: number; // Legacy
   remaining_qty: number;
+  remainingQty?: number; // Legacy
   locked_qty: number;
   refunded_qty: number;
   refunded_amount: number;
@@ -132,6 +146,7 @@ export interface AssetLedger {
   id: string;
   account_id: string;
   student_id: string;
+  studentId?: string; // Legacy
   businessType: 'BUY' | 'CONSUME' | 'REFUND';
   changeQty: number;
   balanceSnapshot: number;
@@ -144,14 +159,21 @@ export type OrderStatus = 'PENDING_PAYMENT' | 'PAID' | 'PARTIAL_REFUNDED' | 'REF
 export interface Order {
   id: string;
   student_id: string;
+  studentId?: string; // Legacy
   course_id: string;
+  courseId?: string; // Legacy
+  campus_id?: string;
+  campusId?: string; // Legacy
   amount: number;
   total_qty: number;
+  totalQty?: number; // Legacy
+  lessons?: number; // Legacy
   order_source: 'student' | 'admin';
   operator_id?: string;
   status: OrderStatus;
   createdAt: string;
   course?: Course;
+  paymentMethod?: string;
 }
 
 export interface PaymentRecord {

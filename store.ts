@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, Course, Class as ClassInfo, Teacher, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order, Homework, HomeworkSubmission } from './types';
+import { Student, Course, Class as ClassInfo, Teacher, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order, PaymentRecord, RefundRecord, Homework, HomeworkSubmission } from './types';
 import api from './utils/api';
 
 // 基础数据字典类型
 export type Campus = { id: string; name: string };
 
 // Re-exporting unified types
-export type { Student, Course, ClassInfo, Order };
+export type { Student, Course, ClassInfo, Order, PaymentRecord, RefundRecord };
 // Deprecating the old Attendance type in favor of AttendanceRecord from types.ts
 export type User = {
     id: string;
@@ -71,14 +71,14 @@ interface AppState {
     confirmConsumption: (lesson_id: string) => void;
 
     // Order & Asset Actions
-    createOrder: (orderData: { studentId?: string; courseId: string; amount: number; totalQty?: number }) => Promise<string>;
+    createOrder: (orderData: { studentId?: string; student_id?: string; courseId: string; course_id?: string; amount: number; totalQty?: number; total_qty?: number; classId?: string; notes?: string;[key: string]: any }) => Promise<string>;
     processPayment: (paymentData: { orderId: string; amount: number; channel: string; campusId: string }) => Promise<void>;
     applyRefund: (refundData: { orderId: string; reason: string }) => Promise<void>;
     approveRefund: (refundId: string, isApproved: boolean) => Promise<void>;
     getPendingRefunds: () => Promise<any[]>;
 
     // Warning Helpers
-    getLowBalanceAssetAccounts: (threshold?: number) => (AssetAccount & { student_name: string; course_name: string })[];
+    getLowBalanceAssetAccounts: (threshold?: number) => (AssetAccount & { student_name: string; studentName?: string; course_name: string; courseName?: string })[];
 
     // Transfer Actions
     transferClass: (student_id: string, account_id: string, new_class_id: string) => void;

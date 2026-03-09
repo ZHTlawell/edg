@@ -62,10 +62,10 @@ export const ReportDetails: React.FC = () => {
       campus: o.campusId,
       courseClass: courses.find(c => c.id === o.courseId)?.name || '未知课程',
       totalAmount: o.amount,
-      receivedAmount: o.status === 'paid' ? o.amount : 0,
+      receivedAmount: o.status === 'PAID' ? o.amount : 0,
       paymentMethod: o.paymentMethod,
-      status: o.status === 'refunded' ? 'refunded' : o.status === 'cancelled' ? 'canceled' : 'valid',
-      payStatus: o.status === 'paid' ? 'paid' : 'unpaid',
+      status: o.status === 'REFUNDED' ? 'refunded' : o.status === 'CANCELLED' ? 'canceled' : 'valid',
+      payStatus: o.status === 'PAID' ? 'paid' : 'unpaid',
       createdAt: o.createdAt
     }));
   }, [orders, students, courses, isCampusAdmin, currentUser?.campus, keyword]);

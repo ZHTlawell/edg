@@ -18,26 +18,26 @@ async function testTransferClassFlow() {
             {
                 id: newClassId,
                 name: 'UI设计进阶2班',
-                campus: '总校区',
-                courseId: '1',
+                campus_id: '总校区',
+                course_id: '1',
                 courseName: '高级UI/UX设计实战',
+                teacher_id: 'T10001',
                 teacherName: '陈老师',
                 capacity: 30,
                 enrolled: 0,
-                schedule: '测试时间',
-                status: 'pending',
+                status: 'ongoing',
                 createdAt: new Date().toISOString()
             }
         ]
     }));
 
-    useStore.getState().transferClass(studentId, newClassId);
+    useStore.getState().transferClass(studentId, 'ACC-001', newClassId);
 
     const updatedState = useStore.getState();
     const updatedStudent = updatedState.students.find(s => s.id === studentId);
-    console.log(`转班后状态: 班级已变更为 ${updatedStudent?.className}`);
+    console.log(`转班后状态: 班级已变更为 ${updatedStudent?.class_id}`);
 
-    if (updatedStudent?.className !== 'UI设计进阶2班') {
+    if (updatedStudent?.class_id !== newClassId) {
         throw new Error('转班失败：学生班级属性未更新');
     }
 

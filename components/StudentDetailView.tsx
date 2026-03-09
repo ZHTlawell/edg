@@ -62,7 +62,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
   const studentLedgers = useMemo(() => assetLedgers.filter(l => l.student_id === student.id).sort((a, b) => new Date(b.occurTime).getTime() - new Date(a.occurTime).getTime()), [assetLedgers, student.id]);
   const studentAssets = useMemo(() => assetAccounts.filter(acc => acc.student_id === student.id), [assetAccounts, student.id]);
 
-  const { requestRefund, transferClass, addToast } = useStore();
+  const { applyRefund, transferClass, addToast } = useStore();
 
   const [refundConfirm, setRefundConfirm] = useState<{ isOpen: boolean; order: Order | null }>({ isOpen: false, order: null });
   const [transferPrompt, setTransferPrompt] = useState<{ isOpen: boolean; course_id: string | null }>({ isOpen: false, course_id: null });
@@ -77,10 +77,9 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
       );
 
       if (targetAccount) {
-        await requestRefund({
-          account_id: targetAccount.id,
-          refundQty: order.lessons,
-          orderId: order.id
+        await applyRefund({
+          orderId: order.id,
+          reason: '管理员代申请退费'
         });
         addToast('退费申请已提交', 'success');
       } else {
@@ -402,13 +401,13 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                       <td className="px-8 py-6 text-emerald-600 font-bold font-mono text-base tracking-tighter">¥ {order.amount.toFixed(2)}</td>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-2 text-emerald-600 font-bold text-[10px] bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 w-fit uppercase tracking-wider">
-                          <CheckCircle2 size={14} /> {order.status === 'paid' ? '已支付' : order.status}
+                          <CheckCircle2 size={14} /> {order.status === 'PAID' ? '已支付' : order.status}
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right text-slate-500 font-bold">
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex items-center gap-2 text-xs"><CreditCard size={16} className="text-slate-300" /> {order.paymentMethod}</div>
-                          {order.status === 'paid' && (
+                          {order.status === 'PAID' && (
                             <button
                               onClick={() => handleRefund(order)}
                               className="text-[10px] text-red-500 hover:text-red-700 hover:underline uppercase tracking-wider"

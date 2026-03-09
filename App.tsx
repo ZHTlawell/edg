@@ -35,6 +35,7 @@ import { StudentHomework } from './components/StudentHomework';
 import { TeacherApproval } from './components/TeacherApproval';
 import { RefundManagement } from './components/RefundManagement';
 import { FinanceReport } from './components/FinanceReport';
+import { Payments } from './components/Payments';
 import { ToastContainer } from './components/ToastContainer';
 import { Student } from './types';
 import { ClipboardList } from 'lucide-react';
@@ -216,12 +217,7 @@ const App: React.FC = () => {
               {activeView === 'lesson-consumption' && (
                 <LessonConsumption lessonId={selectedLessonId || 'L101'} onBack={() => setActiveView('teaching')} />
               )}
-              {activeView === 'payments' && (
-                <OrderCreation
-                  onBack={() => setActiveView('dashboard')}
-                  onSuccess={(orderId) => { setSelectedOrderId(orderId); setActiveView('order-detail'); }}
-                />
-              )}
+              {activeView === 'payments' && (userRole === 'admin' || userRole === 'campus_admin') && <Payments />}
               {activeView === 'order-detail' && <OrderDetailView orderId={selectedOrderId || 'ORD-001'} onBack={() => setActiveView('payments')} />}
               {activeView === 'students' && <StudentManagement onShowDetail={handleShowDetail} />}
               {activeView === 'student-detail' && selectedStudent && <StudentDetailView student={selectedStudent} onBack={handleBackToList} />}

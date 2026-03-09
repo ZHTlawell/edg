@@ -49,8 +49,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     };
 
     const handleSave = () => {
-        const records = Object.entries(attendanceMap).map(([studentId, data]) => ({
-            studentId,
+        const records = Object.entries(attendanceMap).map(([student_id, data]) => ({
+            student_id,
             status: (data as any).status,
             deductHours: (data as any).deductHours
         }));
