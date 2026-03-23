@@ -20,7 +20,7 @@
             animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
         }
         .fade-in { 
-            opacity: 0; /* Important: start hidden */
+            /* opacity: 0; -- Removed to prevent stuck invisible states */
             animation-fill-mode: forwards;
         }
         .duration-500 { animation-duration: 500ms; }

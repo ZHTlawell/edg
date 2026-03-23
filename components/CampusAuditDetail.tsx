@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, Info, ShieldCheck, FileText, Eye, Phone, MapPin, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { ElmIcon } from './ElmIcon';
 
 interface AuditRecord {
     id: string;
@@ -23,7 +24,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
 
     const handleApprove = () => {
         setSubmitted(true);
-        alert('✅ 已通过审核！');
+        alert('已通过审核！');
     };
     const handleReject = () => {
         if (!remark.trim()) {
@@ -31,7 +32,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
             return;
         }
         setSubmitted(true);
-        alert('❌ 已取消申请（驳回）');
+        alert('已取消申请（驳回）');
     };
 
     // Simulated data based on record
@@ -101,7 +102,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
                         <div className="space-y-1 md:col-span-2">
                             <p className="text-xs text-slate-400 font-medium">详细地址</p>
                             <div className="flex items-start gap-1.5">
-                                <MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                                <ElmIcon name="location" size={16} />
                                 <p className="text-sm font-bold text-slate-800">{info.address}</p>
                             </div>
                         </div>
@@ -112,7 +113,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                     <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-100">
                         <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
-                            <ShieldCheck size={11} className="text-emerald-600" />
+                            <ElmIcon name="finished" size={16} />
                         </div>
                         <h2 className="font-bold text-slate-800 text-sm">最新资质文件</h2>
                     </div>
@@ -124,7 +125,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
                                 <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-950" />
                                 <div className="relative z-10 flex flex-col items-center gap-2 text-slate-500">
                                     <div className="w-16 h-16 rounded-full border-2 border-slate-600 flex items-center justify-center">
-                                        <ShieldCheck size={32} className="text-slate-500" />
+                                        <ElmIcon name="finished" size={16} />
                                     </div>
                                     <p className="text-xs">许可证图片</p>
                                 </div>
@@ -140,7 +141,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
                             <p className="text-xs text-slate-500 font-semibold">场地租赁合同</p>
                             <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
                                 <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                                    <FileText size={18} className="text-blue-500" />
+                                    <ElmIcon name="document" size={16} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-800 truncate">新租赁合同_2024-2027.pdf</p>
@@ -152,7 +153,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
                                 </button>
                             </div>
                             <div className="flex items-start gap-2 text-xs text-slate-400">
-                                <AlertCircle size={13} className="shrink-0 mt-0.5 text-amber-400" />
+                                <ElmIcon name="warning" size={16} />
                                 <span>请点击预览确认合同截止日期与办公地点一致</span>
                             </div>
                         </div>
@@ -188,7 +189,7 @@ export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, on
                         disabled={submitted}
                         className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                     >
-                        <CheckCircle size={16} />
+                        <ElmIcon name="circle-check" size={16} />
                         通过审核
                     </button>
                 </div>

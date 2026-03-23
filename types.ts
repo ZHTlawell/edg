@@ -43,12 +43,17 @@ export interface Course {
   instructor_id?: string;
   campus_id?: string;
   description?: string;
+  is_standard?: boolean;
+  standard_id?: string;
 }
 
 export interface Teacher {
   id: string;
   name: string;
   department?: string;
+  phone?: string;
+  campus?: string;
+  campus_id?: string;
 }
 
 export interface Schedule {
@@ -192,7 +197,7 @@ export interface RefundRecord {
   student_id: string;
   amount: number;
   reason: string;
-  status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING_APPROVAL' | 'PENDING_HQ_APPROVAL' | 'APPROVED' | 'REJECTED';
   applicant_id: string;
   approver_id?: string;
   createdAt: string;
@@ -224,4 +229,27 @@ export interface HomeworkSubmission {
   score?: number;
   feedback?: string;
   submittedAt: string;
+}
+
+export type AnnouncementStatus = 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
+export type AnnouncementScope = 'ALL' | 'SPECIFIC';
+
+export interface AnnouncementTarget {
+  id: string;
+  announcement_id: string;
+  campus_id: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  status: AnnouncementStatus;
+  scope: AnnouncementScope;
+  publisher_id: string;
+  publishTime?: string;
+  withdrawTime?: string;
+  createdAt: string;
+  updatedAt: string;
+  targets?: AnnouncementTarget[];
 }

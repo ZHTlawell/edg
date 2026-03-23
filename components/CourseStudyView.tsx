@@ -1,230 +1,390 @@
-
-import React, { useState } from 'react';
-import { 
-  ArrowLeft, 
-  ChevronRight, 
-  PlayCircle, 
-  FileText, 
-  Download, 
-  CheckCircle2, 
-  Clock, 
-  BookOpen, 
-  ArrowRight,
-  MonitorPlay,
-  Bookmark,
-  Share2,
-  HelpCircle,
-  // Added missing Zap icon import
-  Zap
+import { ElmIcon } from './ElmIcon';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+   ArrowLeft, BookOpen, Clock, Users2, CheckCircle2, Lock,
+   Play, FileText, Music, File, Download, ChevronRight, ChevronDown,
+   CircleDot, Circle, Award, X
 } from 'lucide-react';
+import api from '../utils/api';
+import { useStore } from '../store';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface LessonResource {
+   id: string; title: string; type: string; url: string;
+   file_name?: string; file_size?: number; sort_order: number;
+}
+interface Lesson {
+   id: string; title: string; duration?: number; sort_order: number;
+   resources: LessonResource[];
+   progress: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+   unlocked: boolean;
+   started_at?: string;
+   completed_at?: string;
+}
 interface Chapter {
-  id: string;
-  title: string;
-  duration: string;
-  status: 'locked' | 'unlearned' | 'learning' | 'completed';
+   id: string; title: string; sort_order: number; lessons: Lesson[];
+}
+interface CatalogData {
+   course: {
+      id: string; name: string; description?: string; cover_url?: string;
+      total_lessons: number; lesson_duration: number;
+      age_min?: number; age_max?: number;
+   };
+   progress: { total: number; completed: number };
+   chapters: Chapter[];
 }
 
-const MOCK_CHAPTERS: Chapter[] = [
-  { id: '1', title: '第1章：UI/UX 设计基础概念与趋势', duration: '45min', status: 'completed' },
-  { id: '2', title: '第2章：用户研究与竞品分析方法论', duration: '60min', status: 'completed' },
-  { id: '3', title: '第3章：原子化设计规范与 Figma 核心工具', duration: '90min', status: 'learning' },
-  { id: '4', title: '第4章：多终端响应式布局实战', duration: '120min', status: 'unlearned' },
-  { id: '5', title: '第5章：高级动效交互与原型演示', duration: '75min', status: 'unlearned' },
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const TYPE_MAP: Record<string, { icon: any; label: string; color: string; bg: string }> = {
+   VIDEO: { icon: Play, label: '视频', color: 'text-blue-600', bg: 'bg-blue-50' },
+   PPT: { icon: FileText, label: 'PPT', color: 'text-orange-600', bg: 'bg-orange-50' },
+   PDF: { icon: FileText, label: 'PDF', color: 'text-red-600', bg: 'bg-red-50' },
+   AUDIO: { icon: Music, label: '音频', color: 'text-purple-600', bg: 'bg-purple-50' },
+   OTHER: { icon: File, label: '附件', color: 'text-slate-600', bg: 'bg-slate-50' },
+};
 
-interface CourseStudyViewProps {
-  onBack: () => void;
-  onStartQuiz: (chapterId: string) => void;
-}
+const formatSize = (b?: number) => !b ? '' : b < 1048576 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1048576).toFixed(1)}MB`;
+const BASE = 'http://localhost:3001';
 
-export const CourseStudyView: React.FC<CourseStudyViewProps> = ({ onBack, onStartQuiz }) => {
-  const [activeChapterId, setActiveChapterId] = useState('3');
-  const activeChapter = MOCK_CHAPTERS.find(c => c.id === activeChapterId) || MOCK_CHAPTERS[2];
-
-  return (
-    <div className="max-w-[1440px] mx-auto animate-in fade-in duration-500 flex flex-col h-full bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden">
-      {/* Top Header */}
-      <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
-        <div className="flex items-center gap-6">
-          <button onClick={onBack} className="p-2.5 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-2xl transition-all">
-            <ArrowLeft size={22} />
-          </button>
-          <div className="h-10 w-px bg-slate-100"></div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">高级UI/UX设计实战全能课</h1>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">24春季1班 · 讲师：李建国</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-           <button className="p-3 text-slate-400 hover:bg-slate-50 rounded-2xl transition-all"><Bookmark size={20} /></button>
-           <button className="p-3 text-slate-400 hover:bg-slate-50 rounded-2xl transition-all"><Share2 size={20} /></button>
-           <button 
-             onClick={() => onStartQuiz(activeChapterId)}
-             className="ml-4 flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-xl hover:bg-black transition-all active:scale-95"
-           >
-             开始本章测验 <Zap size={16} className="text-amber-400" />
-           </button>
-        </div>
-      </div>
-
-      {/* Main Content Layout */}
-      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden h-[calc(100vh-200px)]">
-        {/* Left: Chapter Sidebar */}
-        <div className="w-full lg:w-[400px] border-r border-slate-100 flex flex-col bg-slate-50/30 overflow-y-auto custom-scrollbar">
-           <div className="p-8 pb-4">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">课程章节目录</h4>
-              <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 flex items-center justify-between">
-                 <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-blue-600 uppercase">整体进度</p>
-                    <p className="text-lg font-bold text-blue-700 font-mono tracking-tighter">75%</p>
-                 </div>
-                 <div className="w-24 h-2 bg-blue-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600" style={{ width: '75%' }}></div>
-                 </div>
-              </div>
-           </div>
-
-           <div className="p-4 space-y-2">
-              {MOCK_CHAPTERS.map((chapter) => (
-                <button
-                  key={chapter.id}
-                  onClick={() => setActiveChapterId(chapter.id)}
-                  className={`w-full flex items-center gap-4 p-5 rounded-[1.75rem] transition-all text-left group ${
-                    activeChapterId === chapter.id 
-                    ? 'bg-white shadow-xl shadow-slate-200 border border-slate-100' 
-                    : 'hover:bg-white hover:shadow-md border border-transparent'
-                  }`}
-                >
-                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold transition-colors ${
-                      chapter.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                      chapter.id === activeChapterId ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
-                   }`}>
-                      {chapter.status === 'completed' ? <CheckCircle2 size={20} /> : chapter.id}
-                   </div>
-                   <div className="flex-1 space-y-1">
-                      <p className={`text-sm font-bold leading-tight ${activeChapterId === chapter.id ? 'text-blue-600' : 'text-slate-600'}`}>{chapter.title}</p>
-                      <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400">
-                         <span className="flex items-center gap-1"><Clock size={12} /> {chapter.duration}</span>
-                         {chapter.status === 'learning' && <span className="text-blue-400 uppercase tracking-widest animate-pulse">正在学习</span>}
-                      </div>
-                   </div>
-                   <ChevronRight size={18} className={`text-slate-200 transition-transform ${activeChapterId === chapter.id ? 'text-blue-500 translate-x-1' : ''}`} />
-                </button>
-              ))}
-           </div>
-        </div>
-
-        {/* Right: Media & Details Area */}
-        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-white">
-           <div className="max-w-4xl mx-auto space-y-10">
-              {/* Media Player Placeholder */}
-              <div className="aspect-video bg-slate-900 rounded-[2.5rem] shadow-2xl relative overflow-hidden group border-[8px] border-slate-50">
-                 <div className="absolute inset-0 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1586717791821-3f44a563de4c?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center opacity-60"></div>
-                 <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"></div>
-                 <button className="relative z-10 w-24 h-24 bg-white/20 backdrop-blur-xl border border-white/30 rounded-full flex items-center justify-center text-white hover:scale-110 hover:bg-white hover:text-slate-900 transition-all shadow-2xl group">
-                    <MonitorPlay size={40} className="ml-1" />
-                 </button>
-                 <div className="absolute bottom-10 left-10 right-10 flex items-center justify-between text-white z-10">
-                    <div className="space-y-1">
-                       <p className="text-xs font-bold opacity-60 uppercase tracking-widest">当前观看章节</p>
-                       <h4 className="text-lg font-bold">{activeChapter.title}</h4>
-                    </div>
-                    <span className="text-xs font-mono font-bold bg-white/20 px-3 py-1 rounded-full border border-white/20 backdrop-blur-md">00:42 / {activeChapter.duration.replace('min', ':00')}</span>
-                 </div>
-              </div>
-
-              {/* Study Key Points & Resources */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                 <div className="space-y-8">
-                    <h5 className="text-sm font-bold text-slate-900 flex items-center gap-3">
-                       <BookOpen size={18} className="text-blue-500" /> 本章学习要点
-                    </h5>
-                    <ul className="space-y-5">
-                       {[
-                         '理解原子化组件的设计哲学与应用场景',
-                         '掌握 Figma 嵌套组件与变体(Variants)的高级用法',
-                         '建立可维护、可扩展的 UI 设计库(Design System)',
-                         '组件属性(Properties)的深度解析与逻辑配置',
-                       ].map((point, i) => (
-                         <li key={i} className="flex gap-4 p-5 bg-slate-50/50 rounded-2xl border border-slate-100 group hover:border-blue-100 transition-all">
-                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
-                            <span className="text-sm font-bold text-slate-700 leading-relaxed">{point}</span>
-                         </li>
-                       ))}
-                    </ul>
-                 </div>
-
-                 <div className="space-y-8">
-                    <h5 className="text-sm font-bold text-slate-900 flex items-center gap-3">
-                       <Download size={18} className="text-emerald-500" /> 课件与附件下载
-                    </h5>
-                    <div className="space-y-4">
-                       {[
-                         { name: '原子化组件系统案例.fig', size: '24.5 MB', type: 'figma' },
-                         { name: 'UI设计组件化思维导图.pdf', size: '4.2 MB', type: 'pdf' },
-                       ].map((file, i) => (
-                         <button key={i} className="w-full flex items-center justify-between p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-xl hover:shadow-slate-100 transition-all group">
-                            <div className="flex items-center gap-4 text-left">
-                               <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                  <FileText size={24} />
-                               </div>
-                               <div>
-                                  <p className="text-sm font-bold text-slate-800">{file.name}</p>
-                                  <p className="text-[10px] text-slate-400 font-bold uppercase">{file.size}</p>
-                               </div>
-                            </div>
-                            <Download size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
-                         </button>
-                       ))}
-                       <div className="p-8 bg-amber-50 rounded-3xl border border-amber-100 flex items-start gap-4">
-                          <HelpCircle size={20} className="text-amber-500 shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-800 font-medium leading-relaxed">提示：若下载缓慢，可尝试切换校区 CDN 加速。资料仅供内部学习使用，严禁外传。</p>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-      </div>
-
-      {/* Bottom Footer Navigation */}
-      <div className="px-10 py-6 border-t border-slate-100 bg-white flex items-center justify-between sticky bottom-0">
-         <div className="flex items-center gap-8">
+// ─── Resource Viewer ──────────────────────────────────────────────────────────
+const ResourceViewer: React.FC<{ resource: LessonResource; onClose: () => void }> = ({ resource, onClose }) => {
+   const url = resource.url.startsWith('/') ? `${BASE}${resource.url}` : resource.url;
+   const cfg = TYPE_MAP[resource.type] || TYPE_MAP.OTHER;
+   return (
+      <div className="fixed inset-0 z-[500] bg-black/80 flex flex-col" onClick={onClose}>
+         <div className="flex items-center justify-between px-6 py-3 bg-black/60 flex-shrink-0" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3">
-               <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                  <PlayCircle size={24} />
-               </div>
-               <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">当前章节进度</p>
-                  <p className="text-sm font-bold text-slate-900">42% 已学习</p>
-               </div>
+               <cfg.icon size={18} className="text-white/70" />
+               <span className="text-white font-bold truncate">{resource.title}</span>
+               <span className="text-white/40 text-xs">{cfg.label} {formatSize(resource.file_size) && `· ${formatSize(resource.file_size)}`}</span>
             </div>
-            <div className="h-8 w-px bg-slate-100"></div>
-            <div className="text-xs text-slate-400 font-medium italic">
-               上次学习：2024-05-23 10:20
+            <div className="flex items-center gap-3">
+               <a href={url} download={resource.file_name} onClick={e => e.stopPropagation()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all">
+                  <ElmIcon name="download" size={16} />下载
+               </a>
+               <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl"><ElmIcon name="close" size={16} /></button>
             </div>
          </div>
-
-         <div className="flex items-center gap-4">
-            <button className="px-8 py-3.5 border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all flex items-center gap-2">
-               上一章
-            </button>
-            <button className="px-8 py-3.5 bg-emerald-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-emerald-100 hover:bg-emerald-600 transition-all flex items-center gap-2">
-               标记本章已完成 <CheckCircle2 size={18} />
-            </button>
-            <button className="px-8 py-3.5 bg-blue-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center gap-2">
-               下一章 <ArrowRight size={18} />
-            </button>
+         <div className="flex-1 flex items-center justify-center overflow-hidden" onClick={e => e.stopPropagation()}>
+            {resource.type === 'VIDEO' && (
+               <video controls autoPlay className="max-h-full max-w-full" src={url}>不支持视频播放</video>
+            )}
+            {resource.type === 'PDF' && (
+               <iframe src={url} className="w-full h-full bg-white" title={resource.title} />
+            )}
+            {resource.type === 'AUDIO' && (
+               <div className="flex flex-col items-center gap-6">
+                  <div className="w-24 h-24 rounded-full bg-purple-500/20 flex items-center justify-center">
+                     <Music size={40} className="text-purple-300" />
+                  </div>
+                  <audio controls autoPlay src={url} className="w-80" />
+                  <p className="text-white/70 text-sm">{resource.title}</p>
+               </div>
+            )}
+            {(resource.type === 'PPT' || resource.type === 'OTHER') && (
+               <div className="flex flex-col items-center gap-5 text-center p-10">
+                  <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center"><cfg.icon size={36} className="text-white/60" /></div>
+                  <p className="text-white font-bold text-lg">{resource.title}</p>
+                  <p className="text-white/50 text-sm">{resource.type === 'PPT' ? 'PPT 文件需要下载后使用 PowerPoint / WPS 打开' : '点击下方按钮下载此文件'}</p>
+                  <a href={url} download={resource.file_name}
+                     className="flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl transition-all">
+                     <ElmIcon name="download" size={16} />下载 {resource.type}
+                  </a>
+               </div>
+            )}
          </div>
       </div>
+   );
+};
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-      `}} />
-    </div>
-  );
+// ─── Lesson Row ───────────────────────────────────────────────────────────────
+const LessonRow: React.FC<{
+   lesson: Lesson;
+   globalIndex: number;
+   isActive: boolean;
+   onClick: () => void;
+}> = ({ lesson, globalIndex, isActive, onClick }) => {
+   const progressIcon = () => {
+      if (!lesson.unlocked) return <Lock size={15} className="text-slate-300 flex-shrink-0" />;
+      if (lesson.progress === 'COMPLETED') return <ElmIcon name="circle-check" size={16} />;
+      if (lesson.progress === 'IN_PROGRESS') return <CircleDot size={15} className="text-indigo-500 flex-shrink-0" />;
+      return <Circle size={15} className="text-slate-300 flex-shrink-0" />;
+   };
+   const resCount = lesson.resources.length;
+   return (
+      <div
+         onClick={() => lesson.unlocked && onClick()}
+         className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all select-none border ${!lesson.unlocked
+               ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-50'
+               : isActive
+                  ? 'bg-indigo-50 border-indigo-200 cursor-pointer'
+                  : 'bg-white border-slate-50 hover:bg-slate-50 hover:border-slate-200 cursor-pointer'
+            }`}
+      >
+         <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-extrabold ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+            {globalIndex + 1}
+         </div>
+         <div className="flex-1 min-w-0">
+            <p className={`text-sm font-bold truncate ${isActive ? 'text-indigo-700' : !lesson.unlocked ? 'text-slate-400' : 'text-slate-700'}`}>
+               {lesson.title}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+               {lesson.duration && <span className="text-xs text-slate-400 flex items-center gap-1"><ElmIcon name="clock" size={16} />{lesson.duration}分钟</span>}
+               {resCount > 0 && <span className="text-xs text-slate-400">{resCount}个资源</span>}
+            </div>
+         </div>
+         {progressIcon()}
+      </div>
+   );
+};
+
+// ─── Main: CourseStudyView ─────────────────────────────────────────────────────
+interface Props {
+   courseId: string;
+   onBack: () => void;
+}
+
+export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
+   const [catalog, setCatalog] = useState<CatalogData | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState('');
+   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+   const [activeResource, setActiveResource] = useState<LessonResource | null>(null);
+   const [completing, setCompleting] = useState(false);
+   const { addToast } = useStore();
+
+   const load = useCallback(async () => {
+      try {
+         setLoading(true);
+         const r = await api.get(`/api/course-catalog/${courseId}`);
+         setCatalog(r.data);
+         // Auto-expand all chapters and select first unlocked lesson
+         const allChapterIds = new Set(r.data.chapters.map((c: Chapter) => c.id));
+         setExpandedChapters(allChapterIds);
+         for (const ch of r.data.chapters) {
+            const first = ch.lessons.find((l: Lesson) => l.unlocked && l.progress !== 'COMPLETED');
+            if (first) { setActiveLessonId(first.id); break; }
+         }
+      } catch (e: any) {
+         setError(e.response?.data?.message || '加载失败');
+      } finally { setLoading(false); }
+   }, [courseId]);
+
+   useEffect(() => { load(); }, [load]);
+
+   const activeLesson = catalog?.chapters.flatMap(c => c.lessons).find(l => l.id === activeLessonId) || null;
+
+   const startLesson = async (lessonId: string) => {
+      setActiveLessonId(lessonId);
+      const lesson = catalog?.chapters.flatMap(c => c.lessons).find(l => l.id === lessonId);
+      if (!lesson || lesson.progress !== 'NOT_STARTED') return;
+      try {
+         await api.post('/api/course-catalog/progress', { course_id: courseId, lesson_id: lessonId, action: 'start' });
+         load();
+      } catch { /**/ }
+   };
+
+   const completeLesson = async () => {
+      if (!activeLessonId || !activeLesson || completing) return;
+      setCompleting(true);
+      try {
+         await api.post('/api/course-catalog/progress', { course_id: courseId, lesson_id: activeLessonId, action: 'complete' });
+         addToast('课时已完成！', 'success');
+         await load();
+         // Auto-advance to next lesson
+         const all = catalog!.chapters.flatMap(c => c.lessons);
+         const idx = all.findIndex(l => l.id === activeLessonId);
+         const next = all.slice(idx + 1).find(l => l.unlocked);
+         if (next) setActiveLessonId(next.id);
+      } catch (e: any) {
+         addToast(e.response?.data?.message || '操作失败', 'error');
+      } finally { setCompleting(false); }
+   };
+
+   if (loading) return (
+      <div className="flex items-center justify-center h-64">
+         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+   );
+
+   if (error) return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+         <p className="text-red-500 font-bold">{error}</p>
+         <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600">
+            <ArrowLeft size={16} />返回
+         </button>
+      </div>
+   );
+
+   if (!catalog) return null;
+
+   const { course, progress, chapters } = catalog;
+   const allLessons = chapters.flatMap(c => c.lessons);
+   const progressPct = progress.total > 0 ? Math.round(progress.completed / progress.total * 100) : 0;
+   const allCompleted = progress.completed === progress.total && progress.total > 0;
+
+   return (
+      <div className="flex h-[calc(100vh-80px)] gap-4 animate-in fade-in duration-500">
+         {activeResource && <ResourceViewer resource={activeResource} onClose={() => setActiveResource(null)} />}
+
+         {/* ── Left Sidebar: Catalog ─────────────────────────────────────── */}
+         <div className="w-80 flex-shrink-0 flex flex-col bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            {/* Course info */}
+            <div className="relative flex-shrink-0">
+               <div className="h-28 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
+                  {course.cover_url && (
+                     <img src={`${BASE}${course.cover_url}`} alt={course.name} className="w-full h-full object-cover"
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50" />
+                  <button onClick={onBack} className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1.5 bg-white/20 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-white/30 transition-all">
+                     <ArrowLeft size={12} />返回
+                  </button>
+               </div>
+               <div className="px-4 pb-3 pt-2 border-b border-slate-100">
+                  <h2 className="font-extrabold text-slate-800 text-sm leading-tight line-clamp-2">{course.name}</h2>
+                  <div className="flex items-center gap-3 mt-1.5">
+                     <span className="text-xs text-slate-400 flex items-center gap-1"><ElmIcon name="reading" size={16} />{course.total_lessons}课时</span>
+                     <span className="text-xs text-slate-400 flex items-center gap-1"><ElmIcon name="clock" size={16} />{course.lesson_duration}分钟/节</span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="mt-2.5">
+                     <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] text-slate-400">学习进度</span>
+                        <span className="text-[10px] font-bold text-indigo-600">{progress.completed}/{progress.total}</span>
+                     </div>
+                     <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            {/* Chapter List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+               {allCompleted && (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                     <Award size={18} className="text-emerald-500" />
+                     <div>
+                        <p className="text-xs font-extrabold text-emerald-700">全部完成！</p>
+                        <p className="text-[10px] text-emerald-400">恭喜你学完了本课程</p>
+                     </div>
+                  </div>
+               )}
+               {chapters.map(ch => {
+                  const chCompleted = ch.lessons.every(l => l.progress === 'COMPLETED');
+                  const chInProgress = ch.lessons.some(l => l.progress === 'IN_PROGRESS');
+                  const expanded = expandedChapters.has(ch.id);
+                  const globalStart = allLessons.findIndex(l => l.id === ch.lessons[0]?.id);
+                  return (
+                     <div key={ch.id}>
+                        <button
+                           onClick={() => setExpandedChapters(p => { const n = new Set(p); n.has(ch.id) ? n.delete(ch.id) : n.add(ch.id); return n; })}
+                           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left"
+                        >
+                           {expanded ? <ElmIcon name="arrow-down" size={16} /> : <ElmIcon name="arrow-right" size={16} />}
+                           <span className="flex-1 text-sm font-extrabold text-slate-700 truncate">{ch.title}</span>
+                           <span className="text-[10px] text-slate-400">{ch.lessons.length}节</span>
+                           {chCompleted && <ElmIcon name="circle-check" size={16} />}
+                           {chInProgress && !chCompleted && <CircleDot size={13} className="text-indigo-400 flex-shrink-0" />}
+                        </button>
+                        {expanded && (
+                           <div className="pl-2 pr-1 space-y-1.5 mb-1">
+                              {ch.lessons.map((ls, i) => (
+                                 <LessonRow key={ls.id} lesson={ls} globalIndex={globalStart + i}
+                                    isActive={activeLessonId === ls.id}
+                                    onClick={() => startLesson(ls.id)} />
+                              ))}
+                           </div>
+                        )}
+                     </div>
+                  );
+               })}
+            </div>
+         </div>
+
+         {/* ── Right: Content Area ───────────────────────────────────────── */}
+         <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {activeLesson ? (
+               <>
+                  {/* Lesson header */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-start justify-between gap-4">
+                     <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                           {activeLesson.progress === 'COMPLETED' && <span className="flex items-center gap-1 text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"><ElmIcon name="circle-check" size={16} />已完成</span>}
+                           {activeLesson.progress === 'IN_PROGRESS' && <span className="flex items-center gap-1 text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100"><CircleDot size={11} />学习中</span>}
+                           {activeLesson.progress === 'NOT_STARTED' && <span className="text-xs text-slate-400 font-medium">未开始</span>}
+                        </div>
+                        <h2 className="text-lg font-extrabold text-slate-800">{activeLesson.title}</h2>
+                        <div className="flex items-center gap-3 mt-1">
+                           {activeLesson.duration && <span className="text-sm text-slate-400 flex items-center gap-1"><ElmIcon name="clock" size={16} />{activeLesson.duration}分钟</span>}
+                           <span className="text-sm text-slate-400">{activeLesson.resources.length}个学习资源</span>
+                        </div>
+                     </div>
+                     {activeLesson.progress !== 'COMPLETED' && (
+                        <button onClick={completeLesson} disabled={completing}
+                           className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-100 transition-all active:scale-95 disabled:opacity-50 flex-shrink-0">
+                           <ElmIcon name="circle-check" size={16} />
+                           {completing ? '处理中...' : '完成此课时'}
+                        </button>
+                     )}
+                  </div>
+
+                  {/* Resources */}
+                  <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                     {activeLesson.resources.length > 0 ? (
+                        <div className="space-y-4">
+                           <p className="text-sm font-extrabold text-slate-600 flex items-center gap-2"><ElmIcon name="reading" size={16} />课时资源</p>
+                           <div className="space-y-3">
+                              {activeLesson.resources.map(res => {
+                                 const cfg = TYPE_MAP[res.type] || TYPE_MAP.OTHER;
+                                 const Icon = cfg.icon;
+                                 const url = res.url.startsWith('/') ? `${BASE}${res.url}` : res.url;
+                                 return (
+                                    <div key={res.id} className={`group flex items-center gap-4 p-4 rounded-2xl border ${cfg.bg} transition-all hover:shadow-sm`} style={{ borderColor: 'transparent' }}>
+                                       <div className={`w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm flex-shrink-0`}>
+                                          <Icon size={22} className={cfg.color} />
+                                       </div>
+                                       <div className="flex-1 min-w-0">
+                                          <p className="font-extrabold text-slate-800 truncate">{res.title}</p>
+                                          <p className="text-xs text-slate-400 mt-0.5">{cfg.label}{res.file_size ? ` · ${formatSize(res.file_size)}` : ''}</p>
+                                       </div>
+                                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          {(res.type === 'VIDEO' || res.type === 'PDF' || res.type === 'AUDIO') && (
+                                             <button onClick={() => setActiveResource(res)}
+                                                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 text-slate-600 hover:text-indigo-600 font-bold text-sm rounded-xl transition-all shadow-sm">
+                                                <Play size={14} />在线学习
+                                             </button>
+                                          )}
+                                          <a href={url} download={res.file_name}
+                                             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-sm rounded-xl transition-all shadow-sm">
+                                             <ElmIcon name="download" size={16} />下载
+                                          </a>
+                                       </div>
+                                    </div>
+                                 );
+                              })}
+                           </div>
+                        </div>
+                     ) : (
+                        <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-300 py-16">
+                           <ElmIcon name="reading" size={16} />
+                           <p className="font-bold text-slate-400">此课时暂无资源</p>
+                           <p className="text-sm">点击左侧「完成此课时」继续下一节</p>
+                        </div>
+                     )}
+                  </div>
+               </>
+            ) : (
+               <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm gap-4 py-20">
+                  <ElmIcon name="reading" size={16} />
+                  <p className="text-xl font-bold text-slate-400">点击左侧课时开始学习</p>
+                  <p className="text-sm text-slate-300">按顺序解锁，完成上一节才能进入下一节</p>
+               </div>
+            )}
+         </div>
+      </div>
+   );
 };

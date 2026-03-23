@@ -34,9 +34,11 @@ export class AuthService {
             username: user.username,
             sub: user.id,
             role: user.role,
+            name: user.teacherProfile?.name || user.studentProfile?.name || user.username,
             campusId: user.campus_id,
-            studentId: user.student?.id,
-            teacherId: user.teacher?.id
+            campusName: user.campusName,
+            studentId: user.studentProfile?.id,
+            teacherId: user.teacherProfile?.id
         };
         return {
             access_token: this.jwtService.sign(payload),
@@ -47,11 +49,19 @@ export class AuthService {
     // C端专用学员自助注册
     async registerStudent(data: any) {
         const hash = await bcrypt.hash(data.password, 10);
+
+        // 可选：根据名称查一下 campus_id
+        const campuses = await this.usersService.getAllCampuses();
+        const campusObj = campuses.find(c => c.name === data.campus);
+
         return this.usersService.createStudentUser({
             username: data.username,
             password_hash: hash,
             name: data.name,
-            phone: data.phone
+            phone: data.phone,
+            gender: data.gender,
+            campusName: data.campus,
+            campus_id: campusObj?.id || undefined
         });
     }
 

@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -44,7 +45,7 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; description: 
     <h4 className="text-slate-800 font-bold mb-2 text-lg">{title}</h4>
     <p className="text-slate-400 text-sm max-w-[320px] leading-relaxed">{description}</p>
     <button className="mt-6 flex items-center gap-2 text-blue-600 font-bold text-sm hover:underline">
-      <Plus size={16} /> 立即添加记录
+      <ElmIcon name="plus" size={16} /> 立即添加记录
     </button>
   </div>
 );
@@ -54,13 +55,13 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
   const [activeTab, setActiveTab] = useState<TabType>('basic');
 
   // 始终从 Store 获取最新的学员数据
-  const student = useStore(state => state.students.find(s => s.id === initialStudent.id) || initialStudent);
+  const student = useStore(state => (state.students || []).find(s => s.id === initialStudent.id) || initialStudent);
 
   // 衍生数据：该学员的资产、订单、流水与考勤
   const studentOrders = useMemo(() => orders.filter(o => o.student_id === student.id), [orders, student.id]);
   const studentAttendance = useMemo(() => attendanceRecords.filter(r => r.student_id === student.id), [attendanceRecords, student.id]);
   const studentLedgers = useMemo(() => assetLedgers.filter(l => l.student_id === student.id).sort((a, b) => new Date(b.occurTime).getTime() - new Date(a.occurTime).getTime()), [assetLedgers, student.id]);
-  const studentAssets = useMemo(() => assetAccounts.filter(acc => acc.student_id === student.id), [assetAccounts, student.id]);
+  const studentAssets = useMemo(() => (assetAccounts || []).filter(acc => acc.student_id === student.id), [assetAccounts, student.id]);
 
   const { applyRefund, transferClass, addToast } = useStore();
 
@@ -72,7 +73,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
     const order = refundConfirm.order;
     if (order) {
       // Find the specific asset account for this course to get the accountId
-      const targetAccount = assetAccounts.find(
+      const targetAccount = (assetAccounts || []).find(
         acc => acc.student_id === order.student_id && acc.course_id === order.course_id
       );
 
@@ -99,13 +100,13 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
       return;
     }
 
-    const availableClasses = classes.filter(c => c.course_id === selectedCourseId && c.id !== student.class_id);
+    const availableClasses = (classes || []).filter(c => c.course_id === selectedCourseId && c.id !== student.class_id);
     const index = parseInt(choice) - 1;
     const targetClass = availableClasses[index];
 
     if (targetClass) {
       // Simplified transfer: finding the account for old course
-      const oldAccount = assetAccounts.find(acc =>
+      const oldAccount = (assetAccounts || []).find(acc =>
         acc.student_id === student.id &&
         acc.course_id === selectedCourseId
       );
@@ -124,7 +125,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
   };
 
   const handleTransfer = (currentCourse_id: string) => {
-    const availableClasses = classes.filter(c => c.course_id === currentCourse_id && c.id !== student.class_id);
+    const availableClasses = (classes || []).filter(c => c.course_id === currentCourse_id && c.id !== student.class_id);
     if (availableClasses.length === 0) {
       addToast('当前课程暂无其他可选班级。', 'warning');
       return;
@@ -143,7 +144,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
     { id: 'homework', label: '作业批改' },
   ];
 
-  const maskPhone = (phone: string) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+  const maskPhone = (phone: string) => (phone || '').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
 
   const calculateAge = (birthday?: string) => {
     if (!birthday) return '未知';
@@ -166,7 +167,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
   return (
     <div className="space-y-6 animate-fade-in pb-12 max-w-[1440px] mx-auto">
       {/* Top Header Information Bar */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/40 overflow-hidden sticky top-0 z-20">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <button
@@ -189,8 +190,8 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                 </div>
                 <div className="flex flex-wrap items-center gap-y-2 gap-x-8 text-sm text-slate-500 font-medium">
                   <span className="flex items-center gap-2"><Phone size={15} className="text-slate-300" /> {maskPhone(student.phone)}</span>
-                  <span className="flex items-center gap-2"><MapPin size={15} className="text-slate-300" /> {classes.find(c => c.id === student.class_id)?.campus_id || '未知校区'}</span>
-                  <span className="flex items-center gap-2"><BookOpen size={15} className="text-blue-400" /> 剩余课时: <b className="text-slate-900">{studentAssets.reduce((sum, acc) => sum + acc.remainingQty, 0)}</b></span>
+                  <span className="flex items-center gap-2"><ElmIcon name="location" size={16} /> {(classes || []).find(c => c.id === student.class_id)?.campus_id || '未知校区'}</span>
+                  <span className="flex items-center gap-2"><ElmIcon name="reading" size={16} /> 剩余课时: <b className="text-slate-900">{studentAssets.reduce((sum, acc) => sum + acc.remainingQty, 0)}</b></span>
                   <span className="px-2 py-0.5 bg-slate-50 text-[10px] font-mono text-slate-400 rounded">UID: {student.id}</span>
                 </div>
               </div>
@@ -234,7 +235,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
               <div className="bg-white rounded-3xl border border-slate-200 p-8 md:p-10 space-y-10 shadow-sm">
                 <div>
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
-                    <FileText size={18} className="text-blue-500" /> 基本教务属性
+                    <ElmIcon name="document" size={16} /> 基本教务属性
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-10 gap-x-16">
                     <div className="space-y-1.5">
@@ -335,7 +336,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                     <td className="px-8 py-6">
                       <div className="flex flex-col gap-1">
                         <span className="font-bold text-slate-800 text-base">
-                          {courses.find(c => c.id === acc.course_id)?.name || '未知课程'}
+                          {(courses || []).find(c => c.id === acc.course_id)?.name || '未知课程'}
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono font-bold tracking-tighter">资产 ID: {acc.id}</span>
                       </div>
@@ -356,7 +357,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                   <tr>
                     <td colSpan={2} className="py-20">
                       <EmptyState
-                        icon={<BookOpen size={64} />}
+                        icon={<ElmIcon name="reading" size={16} />}
                         title="暂无报名记录"
                         description="该学员尚未报名任何课程，请引导其选择合适的课程进行学习。"
                       />
@@ -392,7 +393,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                       <td className="px-8 py-6">
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-800 uppercase text-sm leading-tight">
-                            {courses.find(c => c.id === order.course_id)?.name || '未知课程'}
+                            {(courses || []).find(c => c.id === order.course_id)?.name || '未知课程'}
                           </span>
                           <span className="text-[10px] text-slate-400 font-medium">{new Date(order.createdAt).toLocaleString()}</span>
                         </div>
@@ -401,7 +402,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                       <td className="px-8 py-6 text-emerald-600 font-bold font-mono text-base tracking-tighter">¥ {order.amount.toFixed(2)}</td>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-2 text-emerald-600 font-bold text-[10px] bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 w-fit uppercase tracking-wider">
-                          <CheckCircle2 size={14} /> {order.status === 'PAID' ? '已支付' : order.status}
+                          <ElmIcon name="circle-check" size={16} /> {order.status === 'PAID' ? '已支付' : order.status}
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right text-slate-500 font-bold">
@@ -439,7 +440,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ledger.businessType === 'BUY' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
                         }`}>
-                        {ledger.businessType === 'BUY' ? <Plus size={18} /> : <Clock size={18} />}
+                        {ledger.businessType === 'BUY' ? <ElmIcon name="plus" size={16} /> : <ElmIcon name="clock" size={16} />}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-800">
@@ -480,22 +481,22 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                     </div>
                     <div>
                       <p className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
-                        {courses.find(c => c.id === item.course_id)?.name || '未知课程'}
+                        {(courses || []).find(c => c.id === item.course_id)?.name || '未知课程'}
                       </p>
                       <p className="text-xs text-slate-400 font-bold flex items-center gap-2 mt-2 uppercase tracking-wide">
-                        <Clock size={14} className="text-slate-300" /> 课次：#{item.lesson_id} <span className="text-slate-200 mx-2">|</span> 状态：{item.deductStatus === 'completed' ? '已消课' : '待结算'}
+                        <ElmIcon name="clock" size={16} /> 课次：#{item.lesson_id} <span className="text-slate-200 mx-2">|</span> 状态：{item.deductStatus === 'completed' ? '已消课' : '待结算'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-12">
                     {item.status === 'present' && (
                       <div className="flex items-center gap-2 text-xs text-emerald-600 font-bold bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100 shadow-inner">
-                        <CheckCircle2 size={18} /> 出席
+                        <ElmIcon name="circle-check" size={16} /> 出席
                       </div>
                     )}
                     {item.status === 'leave' && (
                       <div className="flex items-center gap-2 text-xs text-amber-500 font-bold bg-amber-50 px-4 py-2 rounded-full border border-amber-100 shadow-inner">
-                        <Clock size={18} /> 请假
+                        <ElmIcon name="clock" size={16} /> 请假
                       </div>
                     )}
                     {item.status === 'absent' && (
@@ -546,7 +547,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
       <PromptModal
         isOpen={transferPrompt.isOpen}
         title="选择转入班级"
-        message={transferPrompt.courseId ? `请选择要转入的新班级（输入编号）：\n${classes.filter(c => c.course_id === transferPrompt.courseId && c.name !== student.className).map((c, i) => `${i + 1}. ${c.name} (${c.campus_id})`).join('\n')}` : ''}
+        message={transferPrompt.courseId ? `请选择要转入的新班级（输入编号）：\n${(classes || []).filter(c => c.course_id === transferPrompt.courseId && c.name !== student.className).map((c, i) => `${i + 1}. ${c.name} (${c.campus_id})`).join('\n')}` : ''}
         placeholder="请输入班级编号"
         confirmText="确认转入"
         onConfirm={executeTransfer}

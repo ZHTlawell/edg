@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import {
@@ -45,8 +46,8 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
     const groups: Record<string, any> = {};
     attendanceRecords.forEach(r => {
       if (!groups[r.lesson_id]) {
-        const cls = classes.find(c => c.id === r.class_id);
-        const course = courses.find(c => c.id === r.course_id);
+        const cls = (classes || []).find(c => c.id === r.class_id);
+        const course = (courses || []).find(c => c.id === r.course_id);
         groups[r.lesson_id] = {
           id: r.lesson_id,
           className: cls?.name || '未知班级',
@@ -76,17 +77,17 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
         <div className="space-y-1">
           <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
             <span>学员管理</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span className="text-slate-600">考勤中心</span>
           </nav>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">考勤中心看板</h1>
         </div>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
-            <Download size={18} /> 导出分析
+            <ElmIcon name="download" size={16} /> 导出分析
           </button>
           <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95">
-            <Calendar size={18} /> 快速考勤登记
+            <ElmIcon name="calendar" size={16} /> 快速考勤登记
           </button>
         </div>
       </div>
@@ -97,7 +98,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
           <div className="flex items-center justify-between">
             <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl"><UserCheck size={24} /></div>
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg">
-              <TrendingUp size={12} /> +2.4%
+              <ElmIcon name="trend-charts" size={16} /> +2.4%
             </span>
           </div>
           <div>
@@ -107,7 +108,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
-            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl"><Clock size={24} /></div>
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl"><ElmIcon name="clock" size={16} /></div>
             <span className="text-xs font-bold text-slate-400 px-2 py-1 bg-slate-50 rounded-lg">月度累计</span>
           </div>
           <div>
@@ -154,10 +155,10 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative group">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <ElmIcon name="search" size={16} />
                   <input type="text" placeholder="搜索班级或教师..." className="bg-white border border-slate-200 rounded-xl py-1.5 pl-9 pr-3 text-xs font-medium outline-none focus:border-blue-500 transition-all w-48 shadow-inner" />
                 </div>
-                <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><Filter size={18} /></button>
+                <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><ElmIcon name="operation" size={16} /></button>
               </div>
             </div>
 
@@ -187,7 +188,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 shadow-inner group-hover:text-blue-600 transition-colors">
-                            <UserIcon size={18} />
+                            <ElmIcon name="user" size={16} />
                           </div>
                           <div className="space-y-0.5">
                             <p className="text-sm font-bold text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">{rec.className}</p>
@@ -214,14 +215,14 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                         {rec.status === 'completed' ? (
                           <div className="flex items-center justify-end gap-3">
                             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">已完成登记</span>
-                            <button className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><MoreHorizontal size={16} /></button>
+                            <button className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><ElmIcon name="more-filled" size={16} /></button>
                           </div>
                         ) : (
                           <button
                             onClick={() => onRegister(rec.id)}
                             className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[11px] font-bold transition-all shadow-md shadow-blue-100 active:scale-95"
                           >
-                            开始考勤登记 <ArrowUpRight size={14} />
+                            开始考勤登记 <ElmIcon name="top-right" size={16} />
                           </button>
                         )}
                       </td>
@@ -240,7 +241,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
         <div className="space-y-6">
           <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm space-y-6">
             <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <AlertCircle size={18} className="text-red-500" /> 缺勤异常预警
+              <ElmIcon name="warning" size={16} /> 缺勤异常预警
             </h4>
             <div className="space-y-4">
               {[

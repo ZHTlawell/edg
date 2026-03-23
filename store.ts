@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, Course, Class as ClassInfo, Teacher, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order, PaymentRecord, RefundRecord, Homework, HomeworkSubmission } from './types';
+import { Student, Course, Class as ClassInfo, Teacher, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order, PaymentRecord, RefundRecord, Homework, HomeworkSubmission, Announcement } from './types';
 import api from './utils/api';
 
 // 基础数据字典类型
@@ -12,8 +12,12 @@ export type { Student, Course, ClassInfo, Order, PaymentRecord, RefundRecord };
 export type User = {
     id: string;
     username: string;
+    name?: string;
     role: 'admin' | 'campus_admin' | 'teacher' | 'student';
     campus?: string; // 存储校区名称，如 "总校区"
+    campus_id?: string; // 存储校区 ID
+    teacherId?: string;
+    studentId?: string;
     bindStudentId?: string
 };
 
@@ -38,7 +42,11 @@ interface AppState {
     homeworkSubmissions: HomeworkSubmission[];
     currentUser: User | null;
     teachers: Teacher[];
+    classrooms: any[];
+    announcements: Announcement[];
     toasts: ToastMessage[];
+    workbenchOverview: any | null;
+    classTeacherFilter: string | null; // Filter classes by teacher name/id
 
     // Actions
     login: (username: string, password: string) => Promise<void>;
@@ -50,17 +58,21 @@ interface AppState {
     rejectUser: (userId: string) => Promise<void>;
     logout: () => void;
 
-    // Remote Sync Actions
+    // remote sync actions
     initData: () => Promise<void>;
-    fetchCourses: () => Promise<void>;
+    fetchCourses: (campusId?: string) => Promise<void>;
+    deleteCourse: (id: string) => Promise<void>;
     fetchClasses: (campusId?: string) => Promise<void>;
     fetchMyAssets: () => Promise<void>;
     fetchStudents: () => Promise<void>;
     fetchTeachers: (campusId?: string) => Promise<void>;
+    fetchClassrooms: (campusId?: string) => Promise<void>;
+    fetchCampuses: () => Promise<void>;
 
     setStudents: (students: Student[]) => void;
     setCourses: (courses: Course[]) => void;
     setClasses: (classes: ClassInfo[]) => void;
+    fetchWorkbenchOverview: () => Promise<void>;
 
     addStudent: (student: Omit<Student, 'id' | 'balanceAmount' | 'balanceLessons' | 'createdAt' | 'lastStudyTime'>) => void;
     updateStudent: (student: Student) => void;
@@ -68,7 +80,11 @@ interface AppState {
 
     // Attendance Actions
     submitAttendance: (lesson_id: string, course_id: string, class_id: string, campus_id: string, records: { student_id: string, status: AttendStatus, deductHours: number }[]) => Promise<void>;
-    confirmConsumption: (lesson_id: string) => void;
+    confirmConsumption: (lesson_id: string) => Promise<void>;
+
+    // Scheduling Actions
+    generateDraft: (classId: string, startDate: string, lessonsCount: number, durationMinutes: number) => Promise<void>;
+    publishSchedules: (lessonIds: string[]) => Promise<void>;
 
     // Order & Asset Actions
     createOrder: (orderData: { studentId?: string; student_id?: string; courseId: string; course_id?: string; amount: number; totalQty?: number; total_qty?: number; classId?: string; notes?: string;[key: string]: any }) => Promise<string>;
@@ -90,6 +106,16 @@ interface AppState {
     publishHomework: (homeworkData: { title: string; content: string; class_id: string; deadline: string; teacher_id: string; attachmentName?: string; attachmentUrl?: string }) => Promise<string>;
     submitHomework: (submissionData: { homework_id: string; student_id: string; content: string }) => Promise<string>;
     gradeHomework: (submission_id: string, score: number, feedback: string, teacher_id: string) => Promise<void>;
+
+    // Announcement Actions
+    fetchAnnouncementsAdmin: () => Promise<void>;
+    fetchAnnouncementsActive: () => Promise<void>;
+    createAnnouncement: (data: { title: string; content: string; scope: string; campusIds?: string[] }) => Promise<string>;
+    updateAnnouncement: (id: string, data: { title?: string; content?: string; scope?: string; campusIds?: string[] }) => Promise<void>;
+    publishAnnouncement: (id: string) => Promise<void>;
+    withdrawAnnouncement: (id: string) => Promise<void>;
+
+    setClassTeacherFilter: (teacherName: string | null) => void;
 
     // Toast Actions
     addToast: (message: string, type: ToastType) => void;
@@ -137,7 +163,11 @@ export const useStore = create<AppState>()(
             ],
             homeworkSubmissions: [],
             teachers: [],
+            classrooms: [],
+            announcements: [],
             toasts: [],
+            workbenchOverview: null,
+            classTeacherFilter: null,
             currentUser: null,
 
             login: async (username, password) => {
@@ -150,8 +180,12 @@ export const useStore = create<AppState>()(
                     const currentUser: User = {
                         id: user.sub,
                         username: user.username,
+                        name: user.name,
                         role: user.role.toLowerCase(),
-                        campus: user.campusId,
+                        campus: user.campusName || '总校区',
+                        campus_id: user.campusId,
+                        teacherId: user.teacherId,
+                        studentId: user.studentId,
                         bindStudentId: user.role === 'STUDENT' ? user.studentId : undefined
                     };
 
@@ -238,8 +272,8 @@ export const useStore = create<AppState>()(
                 if (!user) return;
 
                 await Promise.all([
-                    get().fetchCourses(),
-                    get().fetchClasses()
+                    get().fetchCourses(user.role === 'campus_admin' ? user.campus_id : undefined),
+                    get().fetchClasses(user.role === 'campus_admin' ? user.campus_id : undefined)
                 ]);
 
                 if (user.role === 'student') {
@@ -249,17 +283,43 @@ export const useStore = create<AppState>()(
                 if (['admin', 'campus_admin'].includes(user.role)) {
                     await Promise.all([
                         get().fetchStudents(),
-                        get().fetchTeachers()
+                        get().fetchTeachers(),
+                        get().fetchClassrooms(user.role === 'campus_admin' ? user.campus_id : undefined)
                     ]);
+                }
+
+                if (user.role === 'admin') {
+                    await get().fetchWorkbenchOverview();
                 }
             },
 
-            fetchCourses: async () => {
+            fetchWorkbenchOverview: async () => {
                 try {
-                    const res = await api.get('/api/academic/courses');
+                    const res = await api.get('/api/statistics/workbench-overview');
+                    set({ workbenchOverview: res.data });
+                } catch (error: any) {
+                    console.error('Fetch workbench overview failed', error);
+                }
+            },
+
+            fetchCourses: async (campusId) => {
+                console.log('[Store] Fetching courses for campus:', campusId);
+                try {
+                    const res = await api.get('/api/academic/courses', { params: { campusId } });
+                    console.log('[Store] Received courses count:', res.data?.length);
                     set({ courses: res.data });
                 } catch (error: any) {
                     console.error('Fetch courses failed', error);
+                }
+            },
+            deleteCourse: async (id) => {
+                try {
+                    await api.post(`/api/academic/courses/${id}/delete`);
+                    get().addToast('课程删除成功', 'success');
+                    const user = get().currentUser;
+                    await get().fetchCourses(user?.role === 'campus_admin' ? user?.campus_id : undefined);
+                } catch (error: any) {
+                    get().addToast(error.message || '删除失败', 'error');
                 }
             },
 
@@ -269,31 +329,6 @@ export const useStore = create<AppState>()(
                     set({ classes: res.data });
                 } catch (error: any) {
                     console.error('Fetch classes failed', error);
-                }
-            },
-
-            fetchMyAssets: async () => {
-                try {
-                    const res = await api.get('/api/finance/my-assets');
-                    const { balance, accounts } = res.data;
-                    set({ assetAccounts: accounts });
-
-                    // 如果是学员，根据名下资产反推 EduStudent.id 并存入 currentUser
-                    if (Array.isArray(accounts) && accounts.length > 0) {
-                        const firstAsset = accounts[0];
-                        const state = get();
-                        if (state.currentUser && state.currentUser.role === 'student') {
-                            set({
-                                currentUser: {
-                                    ...state.currentUser,
-                                    bindStudentId: firstAsset.student_id
-                                }
-                            });
-                            console.log('Updated bindStudentId from assets:', firstAsset.student_id);
-                        }
-                    }
-                } catch (error: any) {
-                    console.error('Fetch assets failed', error);
                 }
             },
 
@@ -321,16 +356,52 @@ export const useStore = create<AppState>()(
             },
             fetchTeachers: async (campusId) => {
                 try {
-                    const res = await api.get('/api/auth/teachers', { params: { campusId } });
-                    // Map backend EduTeacher to frontend Teacher type
-                    const mappedTeachers: Teacher[] = res.data.map((bt: any) => ({
-                        id: bt.id,
-                        name: bt.name,
-                        department: bt.department
-                    }));
-                    set({ teachers: mappedTeachers });
+                    const res = await api.get(`/api/academic/teachers${campusId ? `?campusId=${campusId}` : ''}`);
+                    set({ teachers: res.data });
                 } catch (error: any) {
-                    console.error('Fetch teachers failed', error);
+                    get().addToast('获取教师列表失败', 'error');
+                }
+            },
+            fetchClassrooms: async (campusId) => {
+                try {
+                    const res = await api.get('/api/academic/classrooms', { params: { campusId } });
+                    set({ classrooms: res.data });
+                } catch (error: any) {
+                    console.error('Fetch classrooms failed', error);
+                }
+            },
+
+            fetchCampuses: async () => {
+                try {
+                    const res = await api.get('/api/users/campuses');
+                    set({ campuses: res.data });
+                } catch (error: any) {
+                    // silently fail or toast
+                }
+            },
+
+            fetchMyAssets: async () => {
+                try {
+                    const res = await api.get('/api/finance/my-assets');
+                    const { balance, accounts } = res.data;
+                    set({ assetAccounts: accounts });
+
+                    // 如果是学员，根据名下资产反推 EduStudent.id 并存入 currentUser
+                    if (Array.isArray(accounts) && accounts.length > 0) {
+                        const firstAsset = accounts[0];
+                        const state = get();
+                        if (state.currentUser && state.currentUser.role === 'student') {
+                            set({
+                                currentUser: {
+                                    ...state.currentUser,
+                                    bindStudentId: firstAsset.student_id
+                                }
+                            });
+                            console.log('Updated bindStudentId from assets:', firstAsset.student_id);
+                        }
+                    }
+                } catch (error: any) {
+                    console.error('Fetch assets failed', error);
                 }
             },
 
@@ -383,9 +454,36 @@ export const useStore = create<AppState>()(
                 }
             },
 
-            confirmConsumption: (lessonId) => {
-                // 已合并至 submitAttendance 事务中，此处转为前端提示
-                get().addToast('消课逻辑已通过考勤自动触发', 'info');
+            confirmConsumption: async (lessonId) => {
+                try {
+                    await api.post('/api/teaching/confirm-consumption', { lessonId });
+                    get().addToast('课消确认成功，资产已核算', 'success');
+                    await get().fetchClasses();
+                } catch (error: any) {
+                    get().addToast(error.message || '确认失败', 'error');
+                    throw error;
+                }
+            },
+
+            generateDraft: async (classId, startDate, lessonsCount, durationMinutes) => {
+                try {
+                    await api.post('/api/academic/classes/schedule-draft', { classId, startDate, lessonsCount, durationMinutes });
+                    get().addToast('排课草稿生成成功', 'success');
+                    await get().fetchClasses();
+                } catch (error: any) {
+                    get().addToast(error.message || '生成失败', 'error');
+                }
+            },
+
+            publishSchedules: async (lessonIds) => {
+                try {
+                    await api.post('/api/academic/classes/schedule-publish', { lessonIds });
+                    get().addToast('排课发布成功，全端同步生效', 'success');
+                    await get().fetchClasses();
+                } catch (error: any) {
+                    get().addToast(error.message || '发布失败', 'error');
+                    throw error;
+                }
             },
 
             createOrder: async (orderData) => {
@@ -562,6 +660,71 @@ export const useStore = create<AppState>()(
                     get().addToast(error.message, 'error');
                 }
             },
+
+            fetchAnnouncementsAdmin: async () => {
+                try {
+                    const res = await api.get('/api/announcements/admin/list');
+                    set({ announcements: res.data });
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                }
+            },
+
+            fetchAnnouncementsActive: async () => {
+                try {
+                    const res = await api.get('/api/announcements/active');
+                    set({ announcements: res.data });
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                }
+            },
+
+            createAnnouncement: async (data) => {
+                try {
+                    const res = await api.post('/api/announcements', data);
+                    get().addToast('公告创建成功', 'success');
+                    await get().fetchAnnouncementsAdmin();
+                    return res.data.id;
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            updateAnnouncement: async (id, data) => {
+                try {
+                    await api.put(`/api/announcements/${id}`, data);
+                    get().addToast('公告已更新', 'success');
+                    await get().fetchAnnouncementsAdmin();
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            publishAnnouncement: async (id) => {
+                try {
+                    await api.post(`/api/announcements/${id}/publish`);
+                    get().addToast('公告发布成功', 'success');
+                    await get().fetchAnnouncementsAdmin();
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            withdrawAnnouncement: async (id) => {
+                try {
+                    await api.delete(`/api/users/announcements/${id}`);
+                    get().addToast('公告已撤回', 'success');
+                    await get().fetchAnnouncementsAdmin();
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            setClassTeacherFilter: (teacherName) => set({ classTeacherFilter: teacherName }),
 
             addToast: (message, type) => {
                 const id = 'toast_' + Date.now() + Math.random().toString(36).substr(2, 5);

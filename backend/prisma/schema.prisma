@@ -7,278 +7,417 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-// ==========================================
-// 1. 权限与人员中枢 (Identity & Access)
-// ==========================================
-
 model SysUser {
-  id            String    @id @default(uuid())
-  username      String    @unique
-  password_hash String
-  role          String    // ADMIN, CAMPUS_ADMIN, TEACHER, STUDENT
-  campus_id     String?   // 所属校区 (CAMPUS_ADMIN审批通过后赋值)
-  campusName    String?   // 申请时填写的机构/校区名称
-  address       String?   // 校区详细地址
-  status        String    @default("ACTIVE") // ACTIVE, PENDING_APPROVAL, DISABLED
-  createdAt     DateTime  @default(now())
-
+  id             String      @id @default(uuid())
+  username       String      @unique
+  password_hash  String
+  role           String
+  campus_id      String?
+  status         String      @default("ACTIVE")
+  createdAt      DateTime    @default(now())
+  campusName     String?
+  address        String?
   studentProfile EduStudent?
   teacherProfile EduTeacher?
 }
 
 model EduStudent {
-  id        String   @id @default(uuid())
-  name      String
-  gender    String?
-  phone     String?  @unique
-  balance   Float    @default(0)
-  status    String   @default("ACTIVE")
-  
-  user_id   String   @unique
-  user      SysUser  @relation(fields: [user_id], references: [id])
-
-  classes      EduStudentInClass[]
-  orders       FinOrder[]
-  accounts     FinAssetAccount[]
-  attendances  TeachAttendance[]
-  submissions  TeachHomeworkSubmission[]
-  refunds      FinRefundRecord[]
-  createdAt    DateTime @default(now())
+  id             String                    @id @default(uuid())
+  name           String
+  gender         String?
+  phone          String?                   @unique
+  balance        Float                     @default(0)
+  status         String                    @default("ACTIVE")
+  user_id        String                    @unique
+  createdAt      DateTime                  @default(now())
+  user           SysUser                   @relation(fields: [user_id], references: [id])
+  classes        EduStudentInClass[]
+  accounts       FinAssetAccount[]
+  orders         FinOrder[]
+  refunds        FinRefundRecord[]
+  lessonProgress StudentLessonProgress[]
+  attendances    TeachAttendance[]
+  submissions    TeachHomeworkSubmission[]
 }
 
 model EduTeacher {
   id          String   @id @default(uuid())
   name        String
   department  String?
-
   user_id     String   @unique
   user        SysUser  @relation(fields: [user_id], references: [id])
-
-  classes     EdClass[]
-  homeworks   TeachHomework[]
+  
+  assignments EdClassAssignment[]
   courses     EdCourse[]
+  homeworks   TeachHomework[]
 }
 
-// ==========================================
-// 2. 教务与课程核心 (Academic & Scheduling)
-// ==========================================
-
 model EdCourse {
-  id             String   @id @default(uuid())
+  id             String                  @id @default(uuid())
   name           String
   category       String
   price          Float
   total_lessons  Int
-  status         String   @default("ENABLED") // ENABLED, DISABLED
-
-  is_standard    Boolean  @default(false)
+  status         String                  @default("ENABLED")
+  is_standard    Boolean                 @default(false)
   standard_id    String?
-  duration       Int      @default(45)
-
-  campus_id      String?  // 归属校区 (可选，总部课程为 null)
-  instructor_id  String?  // 默认推荐讲师
-  instructor     EduTeacher? @relation(fields: [instructor_id], references: [id])
-
-  classes        EdClass[]
-  orders         FinOrder[]
+  duration       Int                     @default(45)
+  campus_id      String?
+  instructor_id  String?
+  assignments    EdClassAssignment[]
+  instructor     EduTeacher?             @relation(fields: [instructor_id], references: [id])
+  standard       StdCourseStandard?      @relation(fields: [standard_id], references: [id])
   accounts       FinAssetAccount[]
+  orders         FinOrder[]
+  lessonProgress StudentLessonProgress[]
 }
 
 model EdClass {
-  id          String   @id @default(uuid())
-  name        String
-  capacity    Int
-  enrolled    Int      @default(0)
-  campus_id   String
-  status      String   @default("ONGOING") // PENDING, ONGOING, CLOSED
+  id                String              @id @default(uuid())
+  name              String
+  capacity          Int
+  enrolled          Int                 @default(0)
+  campus_id         String
+  status            String              @default("ONGOING")
+  
+  assignments       EdClassAssignment[]
+  students          EduStudentInClass[]
+}
 
-  course_id   String
-  course      EdCourse @relation(fields: [course_id], references: [id])
+model EdClassAssignment {
+  id         String   @id @default(uuid())
+  class_id   String
+  course_id  String
+  teacher_id String
+  
+  class      EdClass    @relation(fields: [class_id], references: [id])
+  course     EdCourse   @relation(fields: [course_id], references: [id])
+  teacher    EduTeacher @relation(fields: [teacher_id], references: [id])
+  
+  status     String     @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  createdAt  DateTime   @default(now())
 
-  teacher_id  String
-  teacher     EduTeacher @relation(fields: [teacher_id], references: [id])
+  schedules  EdLessonSchedule[]
+  homeworks  TeachHomework[]
 
-  students    EduStudentInClass[]
-  schedules   EdLessonSchedule[]
-  homeworks   TeachHomework[]
+  @@unique([class_id, course_id])
 }
 
 model EduStudentInClass {
   student_id String
-  student    EduStudent @relation(fields: [student_id], references: [id])
   class_id   String
-  class      EdClass    @relation(fields: [class_id], references: [id])
   enrolledAt DateTime   @default(now())
+  class      EdClass    @relation(fields: [class_id], references: [id])
+  student    EduStudent @relation(fields: [student_id], references: [id])
 
   @@id([student_id, class_id])
 }
 
 model EdLessonSchedule {
-  id          String   @id @default(uuid())
-  class_id    String
-  class       EdClass  @relation(fields: [class_id], references: [id])
+  id            String   @id @default(uuid())
+  assignment_id String
+  assignment    EdClassAssignment @relation(fields: [assignment_id], references: [id])
   
-  lesson_no   Int      @default(1)
+  lesson_no     Int      @default(1)
+  start_time    DateTime
+  end_time      DateTime
+  classroom     String?
+  classroom_id  String?
+  status        String   @default("SCHEDULED")
+  is_consumed   Boolean  @default(false)
 
-  start_time  DateTime
-  end_time    DateTime
-  classroom   String?
-  status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
-  is_consumed Boolean  @default(false)
+  attendances   TeachAttendance[]
+  room          EduClassroom?     @relation(fields: [classroom_id], references: [id])
 
-  attendances TeachAttendance[]
-
-  @@unique([class_id, lesson_no])
+  @@unique([assignment_id, lesson_no])
 }
 
-// ==========================================
-// 3. 金融与课消引擎 (Finance & Assets)
-// ==========================================
+model EduClassroom {
+  id        String   @id @default(uuid())
+  name      String
+  campus_id String
+  status    String   @default("AVAILABLE")
+  createdAt DateTime @default(now())
+
+  schedules EdLessonSchedule[]
+
+  @@unique([campus_id, name])
+}
 
 model FinOrder {
-  id          String   @id @default(uuid())
-  student_id  String
-  student     EduStudent @relation(fields: [student_id], references: [id])
-
-  course_id   String
-  course      EdCourse @relation(fields: [course_id], references: [id])
-
-  amount      Float
-  total_qty   Int      @default(1) // Number of lessons purchased
-  order_source String  @default("student") // student, admin
-  operator_id  String? // ID of the user who placed the order (if by admin)
-  status      String   @default("PENDING_PAYMENT") // PENDING_PAYMENT, PAID, PARTIAL_REFUNDED, REFUNDED, CANCELLED
-  createdAt   DateTime @default(now())
-
-  payments    FinPaymentRecord[]
-  refunds     FinRefundRecord[]
+  id           String             @id @default(uuid())
+  student_id   String
+  course_id    String
+  amount       Float
+  total_qty    Int                @default(1)
+  order_source String             @default("student")
+  operator_id  String?
+  status       String             @default("PENDING_PAYMENT")
+  createdAt    DateTime           @default(now())
+  course       EdCourse           @relation(fields: [course_id], references: [id])
+  student      EduStudent         @relation(fields: [student_id], references: [id])
+  payments     FinPaymentRecord[]
+  refunds      FinRefundRecord[]
 }
 
 model FinPaymentRecord {
   id          String   @id @default(uuid())
   order_id    String
-  order       FinOrder @relation(fields: [order_id], references: [id])
   amount      Float
-  channel     String   // Wechat, Alipay, Cash, BankTransfer
-  status      String   @default("SUCCESS") // SUCCESS, FAILED
-  operator_id String?  // If admin registered the offline payment
+  channel     String
+  status      String   @default("SUCCESS")
+  operator_id String?
   createdAt   DateTime @default(now())
+  order       FinOrder @relation(fields: [order_id], references: [id])
 }
 
 model FinRefundRecord {
-  id            String   @id @default(uuid())
-  order_id      String
-  order         FinOrder @relation(fields: [order_id], references: [id])
-  student_id    String
-  student       EduStudent @relation(fields: [student_id], references: [id])
-  amount        Float
-  reason        String
-  status        String   @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED
-  applicant_id  String   // ID of student or admin who applied
-  approver_id   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String     @id @default(uuid())
+  order_id     String
+  student_id   String
+  amount       Float
+  reason       String
+  status       String     @default("PENDING_APPROVAL")
+  applicant_id String
+  approver_id  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  student      EduStudent @relation(fields: [student_id], references: [id])
+  order        FinOrder   @relation(fields: [order_id], references: [id])
 }
 
 model FinAssetAccount {
-  id              String   @id @default(uuid())
-  
+  id              String           @id @default(uuid())
   student_id      String
-  student         EduStudent @relation(fields: [student_id], references: [id])
-
   course_id       String
-  course          EdCourse @relation(fields: [course_id], references: [id])
-
   campus_id       String
-
   total_qty       Float
   remaining_qty   Float
-  locked_qty      Float    @default(0)
-  refunded_qty    Float    @default(0)
-  refunded_amount Float    @default(0)
-  status          String   @default("ACTIVE") // ACTIVE, DEPLETED, REFUNDED
-
+  locked_qty      Float            @default(0)
+  refunded_qty    Float            @default(0)
+  refunded_amount Float            @default(0)
+  status          String           @default("ACTIVE")
+  updatedAt       DateTime         @updatedAt
+  course          EdCourse         @relation(fields: [course_id], references: [id])
+  student         EduStudent       @relation(fields: [student_id], references: [id])
   ledgers         FinAssetLedger[]
-  updatedAt       DateTime @updatedAt
 }
 
 model FinAssetLedger {
-  id               String   @id @default(uuid())
+  id               String          @id @default(uuid())
   account_id       String
-  account          FinAssetAccount @relation(fields: [account_id], references: [id])
-
-  type             String   // BUY, CONSUME, REFUND
+  type             String
   change_qty       Float
-  balance_snapshot Float    // 变更后的余额
-  ref_id           String?  // 关联的订单ID或考勤单ID，用于审计追踪
-  
-  occurTime        DateTime @default(now())
+  balance_snapshot Float
+  ref_id           String?
+  occurTime        DateTime        @default(now())
+  account          FinAssetAccount @relation(fields: [account_id], references: [id])
 }
 
-// ==========================================
-// 4. 教学交互闭环 (Teaching & Interaction)
-// ==========================================
-
 model TeachAttendance {
-  id            String   @id @default(uuid())
-  
+  id            String           @id @default(uuid())
   lesson_id     String
-  lesson        EdLessonSchedule @relation(fields: [lesson_id], references: [id])
-
   student_id    String
-  student       EduStudent @relation(fields: [student_id], references: [id])
-
-  status        String   // PRESENT, ABSENT, LATE, LEAVE
-  deduct_status String   @default("PENDING") // PENDING, DEDUCTED, SKIPPED
-  deduct_amount Float    @default(0)
+  status        String
+  deduct_status String           @default("PENDING")
+  deduct_amount Float            @default(0)
+  student       EduStudent       @relation(fields: [student_id], references: [id])
+  lesson        EdLessonSchedule @relation(fields: [lesson_id], references: [id])
 }
 
 model TeachHomework {
-  id              String   @id @default(uuid())
-  title           String
-  content         String
-  deadline        DateTime
-  attachmentName  String?
-  attachmentUrl   String?
-
-  class_id        String
-  class           EdClass  @relation(fields: [class_id], references: [id])
-
-  teacher_id      String
-  teacher         EduTeacher @relation(fields: [teacher_id], references: [id])
-
-  submissions     TeachHomeworkSubmission[]
-  createdAt       DateTime @default(now())
+  id             String                    @id @default(uuid())
+  title          String
+  content        String
+  deadline       DateTime
+  assignment_id  String
+  teacher_id     String
+  createdAt      DateTime                  @default(now())
+  attachmentName String?
+  attachmentUrl  String?
+  teacher        EduTeacher                @relation(fields: [teacher_id], references: [id])
+  assignment     EdClassAssignment         @relation(fields: [assignment_id], references: [id])
+  submissions    TeachHomeworkSubmission[]
 }
 
 model TeachHomeworkSubmission {
-  id          String   @id @default(uuid())
-  
+  id          String        @id @default(uuid())
   homework_id String
-  homework    TeachHomework @relation(fields: [homework_id], references: [id])
-
   student_id  String
-  student     EduStudent @relation(fields: [student_id], references: [id])
-
   content     String
   score       Float?
   feedback    String?
-  status      String   @default("SUBMITTED") // SUBMITTED, GRADED
-
-  submittedAt DateTime @default(now())
+  status      String        @default("SUBMITTED")
+  submittedAt DateTime      @default(now())
+  student     EduStudent    @relation(fields: [student_id], references: [id])
+  homework    TeachHomework @relation(fields: [homework_id], references: [id])
 }
-
-// ==========================================
-// 5. 系统审计日志 (System Audit)
-// ==========================================
 
 model SysAuditLog {
   id          String   @id @default(uuid())
-  action      String   // SCHEDULE_PUBLISH, SCHEDULE_VOID, RESCHEDULE
+  action      String
   entity_type String
   entity_id   String
   operator_id String?
-  details     String?  // JSON representation of details
+  details     String?
   createdAt   DateTime @default(now())
 }
 
+model SysAnnouncement {
+  id           String                  @id @default(uuid())
+  title        String
+  content      String
+  status       String                  @default("DRAFT")
+  scope        String                  @default("ALL")
+  publisher_id String
+  publishTime  DateTime?
+  withdrawTime DateTime?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  targets      SysAnnouncementTarget[]
+}
+
+model SysAnnouncementTarget {
+  id              String          @id @default(uuid())
+  announcement_id String
+  campus_id       String
+  announcement    SysAnnouncement @relation(fields: [announcement_id], references: [id])
+}
+
+model StdCourseCategory {
+  id          String              @id @default(uuid())
+  name        String              @unique
+  description String?
+  sort_order  Int                 @default(0)
+  status      String              @default("ENABLED")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  standards   StdCourseStandard[]
+}
+
+model StdCourseStandard {
+  id                 String                    @id @default(uuid())
+  code               String                    @unique
+  name               String
+  category_id        String
+  age_min            Int?
+  age_max            Int?
+  description        String?
+  total_lessons      Int
+  lesson_duration    Int                       @default(45)
+  suggested_cycle    String?
+  suggested_capacity Int                       @default(20)
+  status             String                    @default("DRAFT")
+  version            Int                       @default(1)
+  creator_id         String
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  cover_url          String?
+  courses            EdCourse[]
+  chapters           StdCourseChapter[]
+  category           StdCourseCategory         @relation(fields: [category_id], references: [id])
+  campuses           StdCourseStandardCampus[]
+  templates          StdCourseTemplate[]
+  versions           StdCourseVersion[]
+  resources          StdResource[]
+}
+
+model StdCourseStandardCampus {
+  id          String            @id @default(uuid())
+  standard_id String
+  campus_id   String
+  createdAt   DateTime          @default(now())
+  standard    StdCourseStandard @relation(fields: [standard_id], references: [id])
+
+  @@unique([standard_id, campus_id])
+}
+
+model StdCourseTemplate {
+  id              String            @id @default(uuid())
+  standard_id     String
+  teaching_goal   String?
+  stage_desc      String?
+  default_fee_ref Float?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  standard        StdCourseStandard @relation(fields: [standard_id], references: [id])
+}
+
+model StdCourseVersion {
+  id          String            @id @default(uuid())
+  standard_id String
+  version     Int
+  snapshot    String
+  change_note String?
+  operator_id String
+  createdAt   DateTime          @default(now())
+  standard    StdCourseStandard @relation(fields: [standard_id], references: [id])
+}
+
+model StdResource {
+  id          String              @id @default(uuid())
+  title       String
+  type        String
+  url         String
+  file_name   String?
+  file_size   Int?
+  description String?
+  status      String              @default("DRAFT")
+  standard_id String?
+  creator_id  String
+  sort_order  Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  lessonLinks StdLessonResource[]
+  standard    StdCourseStandard?  @relation(fields: [standard_id], references: [id])
+}
+
+model StdCourseChapter {
+  id          String            @id @default(uuid())
+  standard_id String
+  title       String
+  sort_order  Int               @default(0)
+  createdAt   DateTime          @default(now())
+  standard    StdCourseStandard @relation(fields: [standard_id], references: [id])
+  lessons     StdCourseLesson[]
+}
+
+model StdCourseLesson {
+  id         String                  @id @default(uuid())
+  chapter_id String
+  title      String
+  sort_order Int                     @default(0)
+  duration   Int?
+  createdAt  DateTime                @default(now())
+  chapter    StdCourseChapter        @relation(fields: [chapter_id], references: [id])
+  resources  StdLessonResource[]
+  progress   StudentLessonProgress[]
+}
+
+model StdLessonResource {
+  id          String          @id @default(uuid())
+  lesson_id   String
+  resource_id String
+  sort_order  Int             @default(0)
+  resource    StdResource     @relation(fields: [resource_id], references: [id])
+  lesson      StdCourseLesson @relation(fields: [lesson_id], references: [id])
+
+  @@unique([lesson_id, resource_id])
+}
+
+model StudentLessonProgress {
+  id           String          @id @default(uuid())
+  student_id   String
+  course_id    String
+  lesson_id    String
+  status       String          @default("NOT_STARTED")
+  started_at   DateTime?
+  completed_at DateTime?
+  updatedAt    DateTime        @updatedAt
+  lesson       StdCourseLesson @relation(fields: [lesson_id], references: [id])
+  course       EdCourse        @relation(fields: [course_id], references: [id])
+  student      EduStudent      @relation(fields: [student_id], references: [id])
+
+  @@unique([student_id, lesson_id, course_id])
+}

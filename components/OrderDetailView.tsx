@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { 
   ArrowLeft, 
@@ -225,7 +226,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
                       <tr>
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><BookOpen size={16} /></div>
+                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><ElmIcon name="reading" size={16} /></div>
                             <span className="font-bold text-slate-800 text-sm">高级UI/UX设计实战课时包</span>
                           </div>
                         </td>
@@ -236,7 +237,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
                       <tr>
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><FileText size={16} /></div>
+                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><ElmIcon name="document" size={16} /></div>
                             <span className="font-bold text-slate-800 text-sm">配套纸质教材及设计手册</span>
                           </div>
                         </td>
@@ -277,7 +278,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
                   <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">已入账流水记录 (2)</p>
                     <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-bold shadow-md shadow-blue-100">
-                      <Plus size={14} /> 新增收款
+                      <ElmIcon name="plus" size={16} /> 新增收款
                     </button>
                   </div>
                   <table className="w-full text-left">
@@ -326,21 +327,21 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">总购买课时</p>
                         <p className="text-2xl font-bold text-slate-900 font-mono tracking-tighter">48.0</p>
                       </div>
-                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><BookOpen size={24} /></div>
+                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><ElmIcon name="reading" size={16} /></div>
                     </div>
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">已消耗课时</p>
                         <p className="text-2xl font-bold text-slate-900 font-mono tracking-tighter">12.0</p>
                       </div>
-                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><CheckCircle2 size={24} /></div>
+                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><ElmIcon name="circle-check" size={16} /></div>
                     </div>
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between ring-2 ring-blue-500/20">
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">当前剩余课时</p>
                         <p className="text-2xl font-bold text-blue-600 font-mono tracking-tighter">36.0</p>
                       </div>
-                      <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100"><Clock size={24} /></div>
+                      <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100"><ElmIcon name="clock" size={16} /></div>
                     </div>
                   </div>
                   
@@ -429,7 +430,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
           {/* Student Shortcut Card */}
           <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden p-6 group">
             <h5 className="text-xs font-bold text-slate-900 mb-5 flex items-center gap-2">
-              <User size={16} className="text-blue-500" /> 学员快捷入口
+              <ElmIcon name="user" size={16} /> 学员快捷入口
             </h5>
             <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6 group-hover:bg-blue-50 group-hover:border-blue-100 transition-all">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 font-bold shadow-sm group-hover:scale-110 transition-transform">张</div>
@@ -439,7 +440,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
               </div>
             </div>
             <button className="w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-              查看学员详情档案 <ChevronRight size={14} />
+              查看学员详情档案 <ElmIcon name="arrow-right" size={16} />
             </button>
           </div>
 
@@ -450,7 +451,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
               
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <div className="w-10 h-10 rounded-2xl bg-white text-amber-600 flex items-center justify-center shadow-md animate-pulse">
-                  <AlertTriangle size={24} />
+                  <ElmIcon name="warning" size={16} />
                 </div>
                 <h5 className="text-sm font-bold text-amber-900 tracking-tight">订单欠费预警</h5>
               </div>

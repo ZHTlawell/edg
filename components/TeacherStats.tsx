@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import {
     BarChart3,
@@ -16,9 +17,9 @@ import {
 export const TeacherStats: React.FC = () => {
     const KpiCards = [
         { label: '平均学员好评', value: '4.92', trend: '+0.05', isUp: true, icon: <Star />, color: 'text-amber-500', bg: 'bg-amber-50' },
-        { label: '到课率记录', value: '98.5%', trend: '+1.2%', isUp: true, icon: <CheckCircle2 />, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { label: '作业批改耗时', value: '4.2H', trend: '-0.8', isUp: false, icon: <Clock />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-        { label: '累计带班人数', value: '428', trend: '+24', isUp: true, icon: <Users />, color: 'text-blue-500', bg: 'bg-blue-50' },
+        { label: '到课率记录', value: '98.5%', trend: '+1.2%', isUp: true, icon: <ElmIcon name="circle-check" size={16} />, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { label: '作业批改耗时', value: '4.2H', trend: '-0.8', isUp: false, icon: <ElmIcon name="clock" size={16} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+        { label: '累计带班人数', value: '428', trend: '+24', isUp: true, icon: <ElmIcon name="user" size={16} />, color: 'text-blue-500', bg: 'bg-blue-50' },
     ];
 
     return (
@@ -28,7 +29,7 @@ export const TeacherStats: React.FC = () => {
                 <div className="space-y-1">
                     <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
                         <span>个人中心</span>
-                        <ChevronRight size={14} />
+                        <ElmIcon name="arrow-right" size={16} />
                         <span className="text-slate-600">教学统计</span>
                     </nav>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">教学质量数据看板</h1>
@@ -51,7 +52,7 @@ export const TeacherStats: React.FC = () => {
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{kpi.label}</p>
                             <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tight my-1">{kpi.value}</h3>
                             <p className={`text-[10px] font-bold flex items-center gap-1 ${kpi.isUp ? 'text-emerald-500' : 'text-indigo-500'}`}>
-                                {kpi.isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                                {kpi.isUp ? <ElmIcon name="trend-charts" size={16} /> : <ElmIcon name="data-analysis" size={16} />}
                                 {kpi.trend} <span className="text-slate-300 font-medium">周期对比</span>
                             </p>
                         </div>
@@ -109,7 +110,7 @@ export const TeacherStats: React.FC = () => {
                     </div>
                     <div className="pt-4 border-t border-white/10">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center"><MonitorPlay size={24} /></div>
+                            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center"><ElmIcon name="video-play" size={16} /></div>
                             <div className="space-y-0.5">
                                 <p className="text-sm font-bold tracking-tight">核心竞争力评分</p>
                                 <p className="text-[10px] opacity-40 uppercase font-bold tracking-widest">相比全校平均 +15%</p>

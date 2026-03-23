@@ -10,29 +10,33 @@ api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
         if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+            config.headers = config.headers || {};
+            if (typeof (config.headers as any).set === 'function') {
+                (config.headers as any).set('Authorization', `Bearer ${token}`);
+            } else {
+                (config.headers as any)['Authorization'] = `Bearer ${token}`;
+            }
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 // 响应拦截器：统一处理错误提示
 api.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
     (error) => {
         const message = error.response?.data?.message || '网络请求故障，请稍后重试';
 
         // 如果是 401 身份过期，自动清理并跳转
+        // 只有当本地确实有 token 但失效了才清理并跳转，避免循环或误伤
         if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
+            if (localStorage.getItem('token')) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
             }
         }
 

@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import {
     User,
@@ -69,7 +70,7 @@ export const StudentRegistration: React.FC<StudentRegistrationProps> = ({ onBack
             <div className="mb-8 text-left space-y-2">
                 <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
                     学员自主注册
-                    <CheckCircle2 size={24} className="text-emerald-500" />
+                    <ElmIcon name="circle-check" size={16} />
                 </h2>
                 <p className="text-slate-400 text-sm font-medium">开启您的智慧学习之旅，仅需几步即可完成</p>
             </div>
@@ -80,7 +81,7 @@ export const StudentRegistration: React.FC<StudentRegistrationProps> = ({ onBack
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">真实姓名</label>
                         <div className="relative group">
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-slate-900 transition-colors">
-                                <User size={16} />
+                                <ElmIcon name="user" size={16} />
                             </div>
                             <input type="text" required value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -102,7 +103,7 @@ export const StudentRegistration: React.FC<StudentRegistrationProps> = ({ onBack
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">就读学校</label>
                     <div className="relative group">
                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-slate-900 transition-colors">
-                            <Building2 size={16} />
+                            <ElmIcon name="house" size={16} />
                         </div>
                         <select
                             required
@@ -111,7 +112,7 @@ export const StudentRegistration: React.FC<StudentRegistrationProps> = ({ onBack
                             className={`${inputClasses} appearance-none`}
                         >
                             <option value="" disabled hidden>-- 请选择已注册的校区 --</option>
-                            {campuses.map(campus => (
+                            {(campuses || []).map(campus => (
                                 <option key={campus.id} value={campus.name}>{campus.name}</option>
                             ))}
                         </select>

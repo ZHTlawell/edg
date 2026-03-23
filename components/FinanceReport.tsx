@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import {
     Calendar,
@@ -37,11 +38,11 @@ export const FinanceReport: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm">
-                        <Calendar size={14} />
+                        <ElmIcon name="calendar" size={16} />
                         <span>2023-11-01 至 2023-11-30</span>
                     </div>
                     <button className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
-                        <Download size={16} /> 导出财务账单
+                        <ElmIcon name="download" size={16} /> 导出财务账单
                     </button>
                 </div>
             </div>
@@ -76,7 +77,7 @@ export const FinanceReport: React.FC = () => {
                     <div className="flex items-end gap-3">
                         <h3 className="text-4xl font-bold text-slate-900 font-mono tracking-tighter">24</h3>
                         <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full text-[10px] font-bold mb-1">
-                            <TrendingUp size={10} /> +12% <span className="text-slate-400 font-normal ml-1">vs 昨日</span>
+                            <ElmIcon name="trend-charts" size={16} /> +12% <span className="text-slate-400 font-normal ml-1">vs 昨日</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4 pt-2 border-t border-slate-200">
@@ -111,7 +112,7 @@ export const FinanceReport: React.FC = () => {
 
                     <div className="flex items-center gap-3">
                         <div className="relative group">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Search size={14} /></span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><ElmIcon name="search" size={16} /></span>
                             <input
                                 type="text"
                                 placeholder="搜索订单号/学员姓名"
@@ -119,10 +120,10 @@ export const FinanceReport: React.FC = () => {
                             />
                         </div>
                         <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors">
-                            支付渠道: 全部 <ChevronDown size={14} className="text-slate-400" />
+                            支付渠道: 全部 <ElmIcon name="arrow-down" size={16} />
                         </div>
                         <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors">
-                            排序方式: 时间降序 <ChevronDown size={14} className="text-slate-400" />
+                            排序方式: 时间降序 <ElmIcon name="arrow-down" size={16} />
                         </div>
                     </div>
                 </div>
@@ -174,7 +175,7 @@ export const FinanceReport: React.FC = () => {
                                                     <button className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors">作废</button>
                                                 </>
                                             ) : (
-                                                <button className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">详情 <ArrowUpRight size={12} /></button>
+                                                <button className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">详情 <ElmIcon name="top-right" size={16} /></button>
                                             )}
                                         </div>
                                     </td>
@@ -189,7 +190,7 @@ export const FinanceReport: React.FC = () => {
                     <p className="text-xs font-bold text-slate-400">显示第 1 至 10 条, 共 156 条记录</p>
                     <div className="flex items-center gap-2">
                         <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 transition-all cursor-pointer">
-                            <ChevronLeft size={16} />
+                            <ElmIcon name="arrow-left" size={16} />
                         </button>
                         <div className="flex items-center gap-1">
                             <button className="w-8 h-8 rounded-lg bg-blue-600 text-white text-xs font-bold shadow-md">1</button>
@@ -197,7 +198,7 @@ export const FinanceReport: React.FC = () => {
                             <button className="w-8 h-8 rounded-lg hover:bg-white text-slate-400 text-xs font-bold transition-all">3</button>
                         </div>
                         <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 transition-all cursor-pointer">
-                            <ChevronRight size={16} />
+                            <ElmIcon name="arrow-right" size={16} />
                         </button>
                     </div>
                 </div>
@@ -254,7 +255,7 @@ export const FinanceReport: React.FC = () => {
                 <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
-                            <ShieldCheck size={20} />
+                            <ElmIcon name="finished" size={16} />
                         </div>
                         <h3 className="font-bold text-slate-800">财务审计提醒</h3>
                     </div>
@@ -263,7 +264,7 @@ export const FinanceReport: React.FC = () => {
                         {/* Abnormal Alert */}
                         <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-4">
                             <div className="p-2 bg-white text-rose-600 rounded-xl shadow-sm border border-rose-100">
-                                <AlertTriangle size={18} />
+                                <ElmIcon name="warning" size={16} />
                             </div>
                             <div className="space-y-1">
                                 <h5 className="text-sm font-bold text-rose-800">异常对账单 (2)</h5>

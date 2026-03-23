@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -137,9 +138,9 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
         <div className="space-y-1">
           <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
             <span onClick={onBack} className="hover:text-blue-600 cursor-pointer transition-colors">教学管理</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span onClick={onBack} className="hover:text-blue-600 cursor-pointer transition-colors">课表</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span className="text-slate-600">考勤登记</span>
           </nav>
           <div className="flex items-center gap-4">
@@ -185,28 +186,28 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">授课教师</p>
             <div className="flex items-center gap-2">
-              <UserIcon size={14} className="text-blue-500" />
+              <ElmIcon name="user" size={16} />
               <p className="text-sm font-bold text-slate-900">{classContext?.course?.instructor || '加载中...'}</p>
             </div>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">授课教室</p>
             <div className="flex items-center gap-2">
-              <DoorOpen size={14} className="text-emerald-500" />
+              <ElmIcon name="house" size={16} />
               <p className="text-sm font-bold text-slate-900">{classContext?.lesson.classroom || '默认教室'}</p>
             </div>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">上课日期</p>
             <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-slate-400" />
+              <ElmIcon name="calendar" size={16} />
               <p className="text-sm font-bold text-slate-900">{classContext?.lesson.start_time.split('T')[0] || '...'}</p>
             </div>
           </div>
           <div className="p-6 space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">上课时段</p>
             <div className="flex items-center gap-2">
-              <Clock size={14} className="text-slate-400" />
+              <ElmIcon name="clock" size={16} />
               <p className="text-sm font-bold text-slate-900">{classContext?.lesson.start_time.split('T')[1]?.substring(0, 5) || ''} - {classContext?.lesson.end_time.split('T')[1]?.substring(0, 5) || ''}</p>
             </div>
           </div>
@@ -221,7 +222,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
             <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/30">
               <div className="flex items-center gap-4 flex-1 max-w-md">
                 <div className="relative flex-1 group">
-                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                  <ElmIcon name="search" size={16} />
                   <input
                     type="text"
                     placeholder="按姓名或学号搜索..."
@@ -235,7 +236,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
                     onClick={() => setOnlyShowAbnormal(!onlyShowAbnormal)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[11px] font-bold transition-all border ${onlyShowAbnormal ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'}`}
                   >
-                    <Filter size={14} /> 只看异常
+                    <ElmIcon name="operation" size={16} /> 只看异常
                   </button>
                 </div>
               </div>
@@ -245,7 +246,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
                   onClick={() => batchUpdate('present')}
                   className="px-4 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[11px] font-bold hover:bg-emerald-100 transition-all shadow-sm flex items-center gap-2"
                 >
-                  <CheckCircle2 size={14} /> 一键全到
+                  <ElmIcon name="circle-check" size={16} /> 一键全到
                 </button>
                 <div className="w-px h-6 bg-slate-200 mx-1"></div>
                 <button
@@ -330,7 +331,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
               </table>
               {filteredList.length === 0 && (
                 <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-4">
-                  <Search size={48} className="opacity-10" />
+                  <ElmIcon name="search" size={16} />
                   <p className="text-sm font-bold">没有找到匹配的学员记录</p>
                 </div>
               )}
@@ -342,7 +343,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
         <div className="space-y-6">
           <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm space-y-8">
             <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Users size={18} className="text-blue-500" /> 考勤实时统计
+              <ElmIcon name="user" size={16} /> 考勤实时统计
             </h4>
 
             <div className="grid grid-cols-2 gap-4">
@@ -379,7 +380,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
           <div className="bg-amber-50 rounded-[2rem] border border-amber-100 p-8 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm">
-                <AlertCircle size={22} />
+                <ElmIcon name="warning" size={16} />
               </div>
               <h5 className="text-sm font-bold text-amber-900 tracking-tight">考勤规则说明</h5>
             </div>

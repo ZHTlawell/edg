@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { AlertCircle, HelpCircle, X, Check } from 'lucide-react';
 
@@ -30,7 +31,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 <div className="p-6">
                     <div className="flex items-start gap-4">
                         <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
-                            <AlertCircle size={24} />
+                            <ElmIcon name="warning" size={16} />
                         </div>
                         <div className="flex-1">
                             <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
@@ -50,7 +51,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         onClick={onConfirm}
                         className="px-4 py-2 text-sm font-bold text-white bg-orange-500 rounded-xl shadow-md shadow-orange-200 hover:bg-orange-600 active:scale-95 transition-all flex items-center gap-1.5"
                     >
-                        <Check size={16} /> {confirmText}
+                        <ElmIcon name="check" size={16} /> {confirmText}
                     </button>
                 </div>
             </div>
@@ -101,7 +102,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
                 <div className="p-6">
                     <div className="flex items-start gap-4">
                         <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-                            <HelpCircle size={24} />
+                            <ElmIcon name="help-filled" size={16} />
                         </div>
                         <div className="flex-1 space-y-3">
                             <h3 className="text-lg font-bold text-slate-800">{title}</h3>
@@ -134,7 +135,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
                         onClick={handleSubmit}
                         className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl shadow-md shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all flex items-center gap-1.5"
                     >
-                        <Check size={16} /> {confirmText}
+                        <ElmIcon name="check" size={16} /> {confirmText}
                     </button>
                 </div>
             </div>

@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import {
    CalendarDays,
@@ -38,7 +39,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
    const currentStudent = React.useMemo(() => {
       if (currentUser?.role === 'student') {
          // Try to find by bindStudentId (EduStudent.id) OR by currentUser.id (user_id)
-         return students.find(s => s.id === currentUser.bindStudentId || (s as any).user_id === currentUser.id);
+         return (students || []).find(s => s.id === currentUser.bindStudentId || (s as any).user_id === currentUser.id);
       }
       return null;
    }, [currentUser, students]);
@@ -54,7 +55,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       return (Array.isArray(assetAccounts) ? assetAccounts : [])
          .filter(acc => acc && (acc.student_id === currentUser?.bindStudentId || (acc as any).user_id === currentUser?.id))
          .map(acc => {
-            const course = courses.find(c => c.id === acc.course_id);
+            const course = (courses || []).find(c => c.id === acc.course_id);
             const total = acc.total_qty || (acc as any).totalQty || 1;
             const remaining = acc.remaining_qty ?? (acc as any).remainingQty ?? 0;
             const progress = Math.round(((total - remaining) / total) * 100);
@@ -86,7 +87,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                <div className="space-y-2">
                   <h1 className="text-3xl font-bold text-slate-900 tracking-tight">你好, {currentStudent?.name || '学员'}！</h1>
                   <div className="flex items-center gap-4 text-sm text-slate-400 font-bold uppercase tracking-widest">
-                     <span className="flex items-center gap-1.5"><MapPin size={14} /> {currentStudent?.campus || '总部旗舰校区'}</span>
+                     <span className="flex items-center gap-1.5"><ElmIcon name="location" size={16} /> {currentStudent?.campus || '总部旗舰校区'}</span>
                      <span className="flex items-center gap-1.5"><FileBadge size={14} /> 学员 ID: {currentStudent?.id || '---'}</span>
                   </div>
                </div>
@@ -117,7 +118,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
          {/* Quick Action King Slots */}
          <div className="grid grid-cols-4 gap-4">
             {[
-               { label: '在线请假', icon: <Clock size={20} />, color: 'bg-blue-50 text-blue-600', onClick: onLeave },
+               { label: '在线请假', icon: <ElmIcon name="clock" size={16} />, color: 'bg-blue-50 text-blue-600', onClick: onLeave },
                { label: '我的作业', icon: <Zap size={20} />, color: 'bg-amber-50 text-amber-600', onClick: onHomework },
                { label: '学习资料', icon: <PlayCircle size={20} />, color: 'bg-indigo-50 text-indigo-600', onClick: onMaterials },
                { label: '联系班主任', icon: <MessageSquareText size={20} />, color: 'bg-rose-50 text-rose-600', onClick: onContact },
@@ -141,7 +142,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <div className="flex items-center justify-between">
                      <span className="px-4 py-1.5 bg-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-white/10 backdrop-blur-md text-emerald-400">即将上课</span>
                      <div className="flex items-center gap-2 text-xs font-bold opacity-60">
-                        <CalendarDays size={14} /> 今天 14:00
+                        <ElmIcon name="calendar" size={16} /> 今天 14:00
                      </div>
                   </div>
                   <div className="space-y-2">
@@ -159,7 +160,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         </div>
                      </div>
                      <button className="p-3 bg-white text-slate-900 rounded-2xl shadow-xl hover:bg-emerald-50 transition-colors">
-                        <ChevronRight size={20} />
+                        <ElmIcon name="arrow-right" size={16} />
                      </button>
                   </div>
                </div>

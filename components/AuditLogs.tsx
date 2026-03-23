@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { Search, Filter, ShieldAlert, LogIn, ExternalLink, Download, FileText } from 'lucide-react';
 
@@ -20,7 +21,7 @@ export const AuditLogs: React.FC = () => {
                     <p className="text-sm text-slate-500 mt-1">记录平台关键操作及安全事件，默认保存180天。</p>
                 </div>
                 <button className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm self-start md:self-auto">
-                    <Download size={18} />
+                    <ElmIcon name="download" size={16} />
                     <span>导出当前日志</span>
                 </button>
             </div>
@@ -28,7 +29,7 @@ export const AuditLogs: React.FC = () => {
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-center">
                 <div className="relative flex-1 flex gap-3 w-full">
                     <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <ElmIcon name="search" size={16} />
                         <input
                             type="text"
                             placeholder="搜索操作员、IP或事件描述..."
@@ -46,7 +47,7 @@ export const AuditLogs: React.FC = () => {
                 </div>
                 <div className="flex gap-2 w-full md:w-auto">
                     <button className="flex-1 md:flex-none flex items-center justify-center gap-2 text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-4 py-2.5 rounded-xl transition-colors font-bold text-sm">
-                        <Filter size={16} />
+                        <ElmIcon name="operation" size={16} />
                         高级筛选
                     </button>
                 </div>
@@ -74,7 +75,7 @@ export const AuditLogs: React.FC = () => {
                                     <td className="px-4 py-4">
                                         <div className="flex items-center gap-2">
                                             {log.type === 'security' && <ShieldAlert size={14} className="text-red-500" />}
-                                            {log.type === 'business' && <FileText size={14} className="text-blue-500" />}
+                                            {log.type === 'business' && <ElmIcon name="document" size={16} />}
                                             {log.type === 'system' && <LogIn size={14} className="text-slate-500" />}
                                             <span className="font-bold text-slate-800">{log.user}</span>
                                             <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-bold">{log.role}</span>

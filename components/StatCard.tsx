@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
@@ -29,8 +30,8 @@ export const StatCard: React.FC<StatCardProps> = ({
         <div className={`flex items-center gap-1 text-sm font-bold ${
           trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-slate-400'
         }`}>
-          {trend === 'up' && <TrendingUp size={16} />}
-          {trend === 'down' && <TrendingDown size={16} />}
+          {trend === 'up' && <ElmIcon name="trend-charts" size={16} />}
+          {trend === 'down' && <ElmIcon name="data-analysis" size={16} />}
           {trend === 'neutral' && <Minus size={16} />}
           {change}
         </div>

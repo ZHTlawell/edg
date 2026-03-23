@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, MapPin, Calendar, User, Phone, Download, Image as ImageIcon, BarChart2, Target, UserCog, GraduationCap, Building2, Search, Filter } from 'lucide-react';
 import { useStore } from '../store';
@@ -66,7 +67,7 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
     // Filter students for this campus
     const campusStudents = useMemo(() => {
         // Students in the store are mapped with campus name
-        return students.filter(s =>
+        return (students || []).filter(s =>
             (s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')) &&
             (s.name.includes(searchTerm) || (s.className && s.className.includes(searchTerm)) || s.phone.includes(searchTerm))
         );
@@ -89,7 +90,7 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                     {/* Left: identity */}
                     <div className="flex gap-4 flex-1">
                         <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center shrink-0 border border-blue-100">
-                            <MapPin size={24} className="text-blue-500" />
+                            <ElmIcon name="location" size={16} />
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -100,15 +101,15 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-6 text-sm text-slate-500">
                                 <span className="flex items-center gap-1.5">
-                                    <MapPin size={13} className="text-slate-400" />
+                                    <ElmIcon name="location" size={16} />
                                     上海市徐汇区桥路1号港汇中心广场
                                 </span>
                                 <span className="flex items-center gap-1.5">
-                                    <Calendar size={13} className="text-slate-400" />
+                                    <ElmIcon name="calendar" size={16} />
                                     成立时间：2018-05-12
                                 </span>
                                 <span className="flex items-center gap-1.5">
-                                    <User size={13} className="text-slate-400" />
+                                    <ElmIcon name="user" size={16} />
                                     分校长：{campus.manager}
                                 </span>
                                 <span className="flex items-center gap-1.5">
@@ -122,7 +123,7 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                     {/* Right: export + stats */}
                     <div className="flex flex-col gap-4 lg:items-end shrink-0">
                         <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-blue-100">
-                            <Download size={15} />
+                            <ElmIcon name="download" size={16} />
                             导出报表
                         </button>
                         <div className="grid grid-cols-3 gap-6">
@@ -158,9 +159,9 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                                 {allStaff.filter(s => s.campus === campus.name).length}
                             </span>
                         )}
-                        {tab === '班级学员' && students.filter(s => s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')).length > 0 && (
+                        {tab === '班级学员' && (students || []).filter(s => s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')).length > 0 && (
                             <span className="ml-1.5 bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full">
-                                {students.filter(s => s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')).length}
+                                {(students || []).filter(s => s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')).length}
                             </span>
                         )}
                     </button>
@@ -174,7 +175,7 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                         {/* 运营负责人 */}
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                             <div className="flex items-center gap-2 mb-4">
-                                <User size={16} className="text-blue-500" />
+                                <ElmIcon name="user" size={16} />
                                 <h2 className="font-bold text-slate-800">运营负责人</h2>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -218,7 +219,7 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="relative">
-                                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <ElmIcon name="search" size={16} />
                                 <input
                                     type="text"
                                     placeholder="搜索姓名/岗位..."
@@ -281,7 +282,7 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="relative">
-                                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <ElmIcon name="search" size={16} />
                                 <input
                                     type="text"
                                     placeholder="搜索姓名/班级..."
@@ -290,7 +291,7 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                                     className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium w-40"
                                 />
                             </div>
-                            <button className="bg-slate-50 hover:bg-slate-100 text-slate-400 p-1.5 rounded-lg transition-colors"><Filter size={14} /></button>
+                            <button className="bg-slate-50 hover:bg-slate-100 text-slate-400 p-1.5 rounded-lg transition-colors"><ElmIcon name="operation" size={16} /></button>
                         </div>
                     </div>
                     <div className="overflow-x-auto">

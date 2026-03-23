@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { Shield, Key, AlertCircle, Save, CheckCircle2, Copy } from 'lucide-react';
 
@@ -84,7 +85,7 @@ export const RolePermission: React.FC = () => {
                                     {module.items.map((item, itemIdx) => (
                                         <div key={itemIdx} className="flex items-center justify-between">
                                             <span className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                                                {item.checked ? <CheckCircle2 size={16} className="text-blue-500" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-300"></div>}
+                                                {item.checked ? <ElmIcon name="circle-check" size={16} /> : <div className="w-4 h-4 rounded-full border-2 border-slate-300"></div>}
                                                 {item.name}
                                             </span>
                                             <label className="relative inline-flex items-center cursor-pointer">
@@ -100,7 +101,7 @@ export const RolePermission: React.FC = () => {
 
                     {/* Warning banner */}
                     <div className="mt-auto px-6 py-4 bg-orange-50 border-t border-orange-100 flex items-start gap-3">
-                        <AlertCircle className="text-orange-500 mt-0.5 shrink-0" size={18} />
+                        <ElmIcon name="warning" size={16} />
                         <div className="text-sm">
                             <p className="text-orange-800 font-bold">权限变动警示</p>
                             <p className="text-orange-600 text-xs mt-1 leading-relaxed">修改【财务与订单管控】或【系统设置与审计】关联卡片，将影响该角色下所有现存账号的安全及业务可用性，保存后需用户重新登录才可生效该修改。</p>

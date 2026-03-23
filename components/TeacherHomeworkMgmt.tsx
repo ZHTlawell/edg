@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import { PlusCircle, Search, Calendar, FileText, CheckCircle2, Clock, Users, UploadCloud, X } from 'lucide-react';
@@ -60,7 +61,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <ElmIcon name="search" size={16} />
                             <input
                                 type="text"
                                 placeholder="搜索作业标题..."
@@ -90,14 +91,14 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                                                    <FileText size={18} />
+                                                    <ElmIcon name="document" size={16} />
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-bold text-slate-800">{hw.title}</p>
                                                     <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{hw.content}</p>
                                                     {hw.attachmentName && (
                                                         <div className="flex items-center gap-1.5 mt-1.5 text-xs text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-md font-medium">
-                                                            <FileText size={12} /> {hw.attachmentName}
+                                                            <ElmIcon name="document" size={16} /> {hw.attachmentName}
                                                         </div>
                                                     )}
                                                 </div>
@@ -105,12 +106,12 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                                         </td>
                                         <td className="p-4">
                                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium">
-                                                <Users size={12} /> {targetClass?.name || '未知班级'}
+                                                <ElmIcon name="user" size={16} /> {targetClass?.name || '未知班级'}
                                             </span>
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                                <Clock size={14} /> {hw.deadline}
+                                                <ElmIcon name="clock" size={16} /> {hw.deadline}
                                             </div>
                                         </td>
                                         <td className="p-4">
@@ -213,7 +214,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                                         <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-white text-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-                                                    <FileText size={16} />
+                                                    <ElmIcon name="document" size={16} />
                                                 </div>
                                                 <div>
                                                     <p className="text-xs font-bold text-slate-700">{newHomework.attachment.name}</p>
@@ -227,7 +228,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                                                 }}
                                                 className="text-slate-400 hover:text-red-500 transition-colors"
                                             >
-                                                <X size={16} />
+                                                <ElmIcon name="close" size={16} />
                                             </button>
                                         </div>
                                     ) : (
@@ -252,7 +253,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                                     onClick={handlePublish}
                                     className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2"
                                 >
-                                    <CheckCircle2 size={16} /> 确认发布
+                                    <ElmIcon name="circle-check" size={16} /> 确认发布
                                 </button>
                             </div>
                         </div>

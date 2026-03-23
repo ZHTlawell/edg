@@ -127,13 +127,16 @@ export class FinanceService {
                 throw new BadRequestException('可退金额核算为0，无法发起退款');
             }
 
+            // TC-04: 如果金额超过 1000，需要总部审批
+            const status = refundableAmount > 1000 ? 'PENDING_HQ_APPROVAL' : 'PENDING_APPROVAL';
+
             const refundRecord = await prisma.finRefundRecord.create({
                 data: {
                     order_id: order.id,
                     student_id: order.student_id,
                     amount: refundableAmount,
                     reason: data.reason,
-                    status: 'PENDING_APPROVAL',
+                    status,
                     applicant_id: data.applicantId
                 }
             });
@@ -150,7 +153,9 @@ export class FinanceService {
             });
 
             if (!refund) throw new NotFoundException('退费申请单不存在');
-            if (refund.status !== 'PENDING_APPROVAL') throw new BadRequestException('该申请单状态非待审批，无法操作');
+            if (refund.status !== 'PENDING_APPROVAL' && refund.status !== 'PENDING_HQ_APPROVAL') {
+                throw new BadRequestException('该申请单状态非待审批，无法操作');
+            }
 
             if (!data.isApproved) {
                 return await prisma.finRefundRecord.update({

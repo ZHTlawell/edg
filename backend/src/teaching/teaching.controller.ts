@@ -29,7 +29,15 @@ export class TeachingController {
     }
 
     @Post('attendance')
-    async submitAttendance(@Request() req: any, @Body() body: any) {
-        return this.teachingService.submitAttendance(req.user.userId, body);
+    async submitAttendance(@Body() body: any) {
+        return this.teachingService.submitAttendance(body);
+    }
+
+    @Post('confirm-consumption')
+    async confirmConsumption(@Request() req: any, @Body() body: { lessonId: string }) {
+        if (req.user.role !== 'CAMPUS_ADMIN' && req.user.role !== 'ADMIN') {
+            throw new UnauthorizedException('仅教务主管可执行课消确认');
+        }
+        return this.teachingService.confirmLessonConsumption(body.lessonId, req.user.userId);
     }
 }

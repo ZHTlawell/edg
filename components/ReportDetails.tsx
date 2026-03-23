@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import {
@@ -40,7 +41,11 @@ interface ReportItem {
 // Removed MOCK_DATA in favor of useStore
 
 export const ReportDetails: React.FC = () => {
-  const { currentUser, orders, students, courses, getExportData, addToast } = useStore();
+  const { currentUser, orders, students, courses, getExportData, addToast, campuses, fetchCampuses } = useStore();
+
+  React.useEffect(() => {
+    fetchCampuses();
+  }, [fetchCampuses]);
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
@@ -49,7 +54,7 @@ export const ReportDetails: React.FC = () => {
     const data = orders.filter(o => {
       if (isCampusAdmin && o.campusId !== currentUser?.campus) return false;
       if (keyword) {
-        const student = students.find(s => s.id === o.studentId);
+        const student = (students || []).find(s => s.id === o.studentId);
         return student?.name.includes(keyword) || o.id.includes(keyword);
       }
       return true;
@@ -57,10 +62,10 @@ export const ReportDetails: React.FC = () => {
 
     return data.map(o => ({
       orderId: o.id,
-      studentName: students.find(s => s.id === o.studentId)?.name || '未知',
-      phone: students.find(s => s.id === o.studentId)?.phone || '-',
+      studentName: (students || []).find(s => s.id === o.studentId)?.name || '未知',
+      phone: (students || []).find(s => s.id === o.studentId)?.phone || '-',
       campus: o.campusId,
-      courseClass: courses.find(c => c.id === o.courseId)?.name || '未知课程',
+      courseClass: (courses || []).find(c => c.id === o.courseId)?.name || '未知课程',
       totalAmount: o.amount,
       receivedAmount: o.status === 'PAID' ? o.amount : 0,
       paymentMethod: o.paymentMethod,
@@ -116,9 +121,9 @@ export const ReportDetails: React.FC = () => {
 
   const getPayStatusTag = (status: ReportItem['payStatus']) => {
     switch (status) {
-      case 'paid': return <span className="flex items-center gap-1 text-emerald-600 font-bold text-[11px]"><CheckCircle2 size={12} /> 已收全款</span>;
-      case 'partial': return <span className="flex items-center gap-1 text-blue-600 font-bold text-[11px]"><Clock size={12} /> 部分支付</span>;
-      case 'unpaid': return <span className="flex items-center gap-1 text-amber-500 font-bold text-[11px]"><AlertCircle size={12} /> 未支付</span>;
+      case 'paid': return <span className="flex items-center gap-1 text-emerald-600 font-bold text-[11px]"><ElmIcon name="circle-check" size={16} /> 已收全款</span>;
+      case 'partial': return <span className="flex items-center gap-1 text-blue-600 font-bold text-[11px]"><ElmIcon name="clock" size={16} /> 部分支付</span>;
+      case 'unpaid': return <span className="flex items-center gap-1 text-amber-500 font-bold text-[11px]"><ElmIcon name="warning" size={16} /> 未支付</span>;
     }
   };
 
@@ -130,22 +135,22 @@ export const ReportDetails: React.FC = () => {
           <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
             <Home size={14} />
             <span>数据分析</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span>统计报表</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span className="text-slate-600">报表明细</span>
           </nav>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">业务订单报表明细</h1>
         </div>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
-            <RotateCcw size={18} /> 重置
+            <ElmIcon name="refresh" size={16} /> 重置
           </button>
           <button
             onClick={handleExport}
             className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
           >
-            <Download size={18} /> 导出当前明细
+            <ElmIcon name="download" size={16} /> 导出当前明细
           </button>
         </div>
       </div>
@@ -156,7 +161,7 @@ export const ReportDetails: React.FC = () => {
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">统计时间区间 <span className="text-red-500">*</span></label>
             <div className="relative group">
-              <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+              <ElmIcon name="calendar" size={16} />
               <input type="text" defaultValue="2024-05-01 ~ 2024-05-31" className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all" />
             </div>
           </div>
@@ -165,13 +170,14 @@ export const ReportDetails: React.FC = () => {
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">筛选校区 <span className="text-red-500">*</span></label>
               <div className="relative">
-                <MapPin size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <ElmIcon name="location" size={16} />
                 <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
-                  <option>全部校区</option>
-                  <option>总部旗舰校</option>
-                  <option>浦东分校</option>
+                  <option value="all">全部校区</option>
+                  {(campuses || []).map(c => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <ElmIcon name="arrow-down" size={16} />
               </div>
             </div>
           )}
@@ -199,7 +205,7 @@ export const ReportDetails: React.FC = () => {
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">关键字检索</label>
             <div className="relative group">
-              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+              <ElmIcon name="search" size={16} />
               <input
                 type="text"
                 placeholder="学员姓名/手机号/订单号"
@@ -213,7 +219,7 @@ export const ReportDetails: React.FC = () => {
 
         <div className="pt-2 flex justify-end">
           <button className="flex items-center gap-2 px-10 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
-            <Search size={18} /> 执行筛选
+            <ElmIcon name="search" size={16} /> 执行筛选
           </button>
         </div>
       </div>
@@ -221,7 +227,7 @@ export const ReportDetails: React.FC = () => {
       {/* Summary Ribbon */}
       <div className="bg-blue-50/50 rounded-2xl border border-blue-100 p-6 flex flex-wrap items-center gap-12 shadow-inner">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-lg text-blue-600 shadow-sm border border-blue-100"><Filter size={16} /></div>
+          <div className="p-2 bg-white rounded-lg text-blue-600 shadow-sm border border-blue-100"><ElmIcon name="operation" size={16} /></div>
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">当前筛选结果：</span>
         </div>
         <div className="flex items-baseline gap-2">
@@ -255,7 +261,7 @@ export const ReportDetails: React.FC = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2 text-slate-400 hover:text-blue-600 rounded-lg"><Filter size={18} /></button>
+            <button className="p-2 text-slate-400 hover:text-blue-600 rounded-lg"><ElmIcon name="operation" size={16} /></button>
           </div>
         </div>
 
@@ -338,11 +344,11 @@ export const ReportDetails: React.FC = () => {
             <span>共 1,284 条记录</span>
             <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
               <button className="px-3 py-1 bg-slate-100 rounded-md text-slate-800">10 条/页</button>
-              <ChevronDown size={14} className="mx-1" />
+              <ElmIcon name="arrow-down" size={16} />
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button disabled className="p-2 text-slate-300 cursor-not-allowed transition-all"><ChevronLeft size={20} /></button>
+            <button disabled className="p-2 text-slate-300 cursor-not-allowed transition-all"><ElmIcon name="arrow-left" size={16} /></button>
             <div className="flex gap-1">
               {[1, 2, 3, '...', 12].map((p, i) => (
                 <button
@@ -351,7 +357,7 @@ export const ReportDetails: React.FC = () => {
                 >{p}</button>
               ))}
             </div>
-            <button className="p-2 text-slate-400 hover:bg-white hover:border-slate-200 rounded-xl transition-all"><ChevronRight size={20} /></button>
+            <button className="p-2 text-slate-400 hover:bg-white hover:border-slate-200 rounded-xl transition-all"><ElmIcon name="arrow-right" size={16} /></button>
             <div className="h-4 w-px bg-slate-200 mx-2"></div>
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
               跳至 <input type="text" className="w-10 bg-white border border-slate-200 rounded-lg text-center py-1.5 outline-none focus:border-blue-500" /> 页

@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     ArrowLeft,
@@ -82,7 +83,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
                     disabled={loading}
                     className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-all"
                 >
-                    <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+                    <ElmIcon name="refresh" size={16} />
                     刷新
                 </button>
             </div>
@@ -104,7 +105,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
             {/* List */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
-                    <Users size={18} className="text-indigo-500" />
+                    <ElmIcon name="user" size={16} />
                     <h2 className="font-semibold text-slate-800">待审核申请列表</h2>
                     {pendingList.length > 0 && (
                         <span className="ml-auto bg-amber-100 text-amber-600 text-xs font-bold px-2.5 py-1 rounded-full">
@@ -119,7 +120,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
                     </div>
                 ) : pendingList.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                        <CheckCircle size={48} className="mb-3 text-emerald-300" />
+                        <ElmIcon name="circle-check" size={16} />
                         <p className="font-semibold text-slate-500">暂无待审核的教师申请</p>
                         <p className="text-sm mt-1">所有申请均已处理完毕</p>
                     </div>
@@ -131,7 +132,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
                                     <div className="flex items-start gap-4">
                                         {/* Avatar */}
                                         <div className="w-11 h-11 rounded-2xl bg-indigo-100 flex items-center justify-center shrink-0">
-                                            <User size={20} className="text-indigo-500" />
+                                            <ElmIcon name="user" size={16} />
                                         </div>
                                         {/* Info */}
                                         <div className="space-y-1.5">
@@ -140,7 +141,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
                                                     {user.teacherProfile?.name || '—'}
                                                 </span>
                                                 <span className="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-100 flex items-center gap-1">
-                                                    <Clock size={10} />
+                                                    <ElmIcon name="clock" size={16} />
                                                     待审核
                                                 </span>
                                             </div>
@@ -151,7 +152,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
                                                 </span>
                                                 {user.campusName && (
                                                     <span className="flex items-center gap-1">
-                                                        <Building2 size={11} />
+                                                        <ElmIcon name="house" size={16} />
                                                         申请校区: {user.campusName}
                                                     </span>
                                                 )}
@@ -181,7 +182,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
                                         >
                                             {actionLoading === user.id + '-approve' ? (
                                                 <Loader2 size={14} className="animate-spin" />
-                                            ) : <CheckCircle size={14} />}
+                                            ) : <ElmIcon name="circle-check" size={16} />}
                                             通过
                                         </button>
                                     </div>

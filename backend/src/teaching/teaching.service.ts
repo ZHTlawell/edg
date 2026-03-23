@@ -17,7 +17,7 @@ export class TeachingService {
                 title: data.title,
                 content: data.content,
                 deadline: new Date(data.deadline),
-                class_id: data.classId,
+                assignment_id: data.classId, // Here the frontend 'classId' should be the assignmentId for homework
                 teacher_id: teacherId,
                 attachmentName: data.attachmentName,
                 attachmentUrl: data.attachmentUrl
@@ -62,83 +62,113 @@ export class TeachingService {
     // =====================================
     // 考勤登记与核减资产 (Attendance & Deductions)
     // =====================================
-    async submitAttendance(operatorId: string, data: { lessonId: string; attendances: { studentId: string; status: string; deductAmount: number }[] }) {
+    async submitAttendance(data: { lessonId: string; attendances: { studentId: string; status: string; deductAmount: number }[] }) {
         const lesson = await this.prisma.edLessonSchedule.findUnique({
-            where: { id: data.lessonId },
-            include: { class: true }
+            where: { id: data.lessonId }
         });
         if (!lesson) throw new NotFoundException('找不到该课次记录');
 
-        // 开启事务：处理所有学生的考勤登记，并对发生了消费的学员扣除课时余额
         return this.prisma.$transaction(async (prisma) => {
             const results = [];
-
             for (const record of data.attendances) {
-                let deductStatus = 'SKIPPED'; // 默认不扣课
-
-                // 如果产生了实际课时消耗 (deductAmount > 0，例如出勤、旷课缺席等)
-                if (record.deductAmount > 0) {
-                    // 寻找该学生关联此课程的钱包
-                    const account = await prisma.finAssetAccount.findFirst({
-                        where: {
-                            student_id: record.studentId,
-                            course_id: lesson.class.course_id
-                        }
-                    });
-
-                    if (account && account.remaining_qty >= record.deductAmount) {
-                        // 扣除课时
-                        const updatedAccount = await prisma.finAssetAccount.update({
-                            where: { id: account.id },
-                            data: {
-                                remaining_qty: { decrement: record.deductAmount },
-                                status: account.remaining_qty === record.deductAmount ? 'DEPLETED' : account.status
-                            }
-                        });
-
-                        // 资金链路留痕：生成消课流水 (Ledger)
-                        await prisma.finAssetLedger.create({
-                            data: {
-                                account_id: account.id,
-                                type: 'CONSUME',
-                                change_qty: -record.deductAmount,
-                                balance_snapshot: updatedAccount.remaining_qty,
-                                ref_id: `ATTENDANCE-${data.lessonId}`
-                            }
-                        });
-
-                        deductStatus = 'DEDUCTED';
-                    } else {
-                        // 余额不足，强行登记但标记为失败，真实场景应触发欠费预警
-                        deductStatus = 'FAILED_INSUFFICIENT_BALANCE';
-                    }
-                }
-
-                // 落库具体的考勤记录单
                 const att = await prisma.teachAttendance.create({
                     data: {
                         lesson_id: data.lessonId,
                         student_id: record.studentId,
                         status: record.status,
-                        deduct_status: deductStatus,
+                        deduct_status: 'PENDING',
                         deduct_amount: record.deductAmount
                     }
                 });
-
                 results.push(att);
             }
 
-            // 更新本节课的主状态为“已完结”
+            // 更新课次状态为 COMPLETED，但 is_consumed 仍为 false
             await prisma.edLessonSchedule.update({
                 where: { id: data.lessonId },
                 data: { status: 'COMPLETED' }
             });
 
-            return {
-                success: true,
-                recordsProcessed: results.length,
-                message: '考勤登记完毕，产生的课时消耗已自动核减'
-            };
+            return { success: true, recordsProcessed: results.length };
+        });
+    }
+
+    // TC-01, TC-08: 校区端确认课消 (Confirm Consumption)
+    async confirmLessonConsumption(lessonId: string, operatorId: string) {
+        const lesson = await this.prisma.edLessonSchedule.findUnique({
+            where: { id: lessonId },
+            include: {
+                assignment: {
+                    include: {
+                        class: true,
+                        course: true
+                    }
+                },
+                attendances: true
+            }
+        });
+
+        if (!lesson) throw new NotFoundException('课次不存在');
+        if (lesson.is_consumed) throw new BadRequestException('该课次已完成课消，不可重复操作');
+
+        return this.prisma.$transaction(async (prisma) => {
+            for (const att of lesson.attendances) {
+                if (att.deduct_amount > 0 && att.deduct_status === 'PENDING') {
+                    const account = await prisma.finAssetAccount.findFirst({
+                        where: {
+                            student_id: att.student_id,
+                            course_id: (lesson as any).assignment.course_id
+                        }
+                    });
+
+                    if (account && account.remaining_qty >= att.deduct_amount) {
+                        const updatedAccount = await prisma.finAssetAccount.update({
+                            where: { id: account.id },
+                            data: {
+                                remaining_qty: { decrement: att.deduct_amount },
+                                status: account.remaining_qty === att.deduct_amount ? 'DEPLETED' : account.status
+                            }
+                        });
+
+                        await prisma.finAssetLedger.create({
+                            data: {
+                                account_id: account.id,
+                                type: 'CONSUME',
+                                change_qty: -att.deduct_amount,
+                                balance_snapshot: updatedAccount.remaining_qty,
+                                ref_id: `CONSUME-${lessonId}-${att.student_id}`
+                            }
+                        });
+
+                        await prisma.teachAttendance.update({
+                            where: { id: att.id },
+                            data: { deduct_status: 'DEDUCTED' }
+                        });
+                    } else {
+                        await prisma.teachAttendance.update({
+                            where: { id: att.id },
+                            data: { deduct_status: 'FAILED_INSUFFICIENT_BALANCE' }
+                        });
+                    }
+                }
+            }
+
+            await prisma.edLessonSchedule.update({
+                where: { id: lessonId },
+                data: { is_consumed: true }
+            });
+
+            await prisma.sysAuditLog.create({
+                data: {
+                    action: 'LESSON_CONSUMPTION_CONFIRM',
+                    entity_type: 'LESSON_SCHEDULE',
+                    entity_id: lessonId,
+                    operator_id: operatorId,
+                    details: JSON.stringify({ lesson_no: lesson.lesson_no })
+                }
+            });
+
+            return { success: true };
         });
     }
 }

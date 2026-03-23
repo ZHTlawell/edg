@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import { X, CreditCard, Clock, CheckCircle2, AlertCircle, ShoppingCart } from 'lucide-react';
 import { Course } from '../types';
@@ -44,7 +45,7 @@ export const PurchaseConfirmationModal: React.FC<PurchaseConfirmationModalProps>
                         onClick={onClose}
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
                     >
-                        <X size={20} />
+                        <ElmIcon name="close" size={16} />
                     </button>
                 </div>
 
@@ -66,8 +67,8 @@ export const PurchaseConfirmationModal: React.FC<PurchaseConfirmationModalProps>
                             <div className="space-y-1">
                                 <h3 className="text-lg font-bold text-slate-900 leading-tight">{course.name}</h3>
                                 <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
-                                    <span className="flex items-center gap-1"><Clock size={12} /> {course.totalLessons} 课时</span>
-                                    <span className="flex items-center gap-1"><CheckCircle2 size={12} /> {course.category}课程</span>
+                                    <span className="flex items-center gap-1"><ElmIcon name="clock" size={16} /> {course.totalLessons} 课时</span>
+                                    <span className="flex items-center gap-1"><ElmIcon name="circle-check" size={16} /> {course.category}课程</span>
                                 </div>
                             </div>
                             <div className="text-right">
@@ -79,7 +80,7 @@ export const PurchaseConfirmationModal: React.FC<PurchaseConfirmationModalProps>
 
                     {/* Security Notice */}
                     <div className="flex gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100/50">
-                        <AlertCircle size={18} className="text-amber-600 shrink-0" />
+                        <ElmIcon name="warning" size={16} />
                         <div className="space-y-1">
                             <p className="text-xs font-bold text-amber-800">支付与退收须知</p>
                             <p className="text-[11px] text-amber-700 leading-relaxed font-medium">

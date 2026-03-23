@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus,
@@ -124,7 +125,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
   }, [isCampusAdmin, myCampus]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter(student => {
+    return (students || []).filter(student => {
       const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.phone.includes(searchTerm) || (student.className || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = selectedStatus === 'all' || student.status === selectedStatus;
       const matchesCampus = selectedCampus === 'all' || student.campus === selectedCampus;
@@ -199,7 +200,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     }
   };
 
-  const maskPhone = (phone: string) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+  const maskPhone = (phone: string) => phone.replace(/(\d{3})\d{4}(\d{4})/, 'size={16}****$2');
 
   const getStatusLabel = (status: StudentStatus) => {
     switch (status) {
@@ -231,9 +232,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
         <nav className="flex items-center gap-2 text-sm text-slate-400">
           <Home size={16} className="text-slate-500" />
           <a href="#" onClick={() => setViewMode('list')} className="hover:text-blue-600 transition-colors">首页</a>
-          <ChevronRight size={14} />
+          <ElmIcon name="arrow-right" size={16} />
           <span className="hover:text-blue-600 cursor-pointer transition-colors" onClick={() => setViewMode('list')}>学员管理</span>
-          <ChevronRight size={14} />
+          <ElmIcon name="arrow-right" size={16} />
           <span className="text-slate-600 font-medium">{editingStudent?.id ? '编辑学员' : '新增学员'}</span>
         </nav>
 
@@ -314,7 +315,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                         <option value="浦东校区">浦东分校区</option>
                         <option value="静安校区">静安分校区</option>
                       </select>
-                      <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <ElmIcon name="arrow-down" size={16} />
                     </div>
                   </div>
                 )}
@@ -380,7 +381,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8 text-center space-y-4">
               <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle size={32} />
+                <ElmIcon name="warning" size={16} />
               </div>
               <h3 className="text-xl font-bold text-slate-900">确定要删除该学员吗？</h3>
               <p className="text-sm text-slate-500 leading-relaxed px-4">
@@ -398,7 +399,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       {/* Toast Notification */}
       {showToast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
-          <CheckCircle2 size={24} />
+          <ElmIcon name="circle-check" size={16} />
           <span className="font-bold text-base">学员数据已成功更新</span>
         </div>
       )}
@@ -407,7 +408,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       <nav className="flex items-center gap-2 text-sm text-slate-400">
         <Home size={16} className="text-slate-500" />
         <a href="#" className="hover:text-blue-600 transition-colors">首页</a>
-        <ChevronRight size={14} />
+        <ElmIcon name="arrow-right" size={16} />
         <span className="text-slate-600 font-medium">学员管理</span>
       </nav>
 
@@ -422,7 +423,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             onClick={() => handleOpenForm()}
             className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 active:scale-95 group"
           >
-            <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+            <ElmIcon name="plus" size={16} />
             <span>录入新学员</span>
           </button>
           <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-6 py-3.5 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
@@ -449,7 +450,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
         <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group border-b-4 border-b-amber-500/10">
           <div className="flex items-center gap-4">
             <div className="p-4 bg-amber-50 text-amber-600 rounded-[1.25rem] group-hover:scale-110 transition-transform duration-500">
-              <AlertTriangle size={24} />
+              <ElmIcon name="warning" size={16} />
             </div>
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">课时预警</p>
@@ -487,7 +488,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="flex-1 relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
+            <ElmIcon name="search" size={16} />
             <input
               type="text"
               placeholder="搜索学员姓名、手机号、班级..."
@@ -507,7 +508,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                 <option value="python">Python开发</option>
                 <option value="data">数据分析</option>
               </select>
-              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <ElmIcon name="arrow-down" size={16} />
             </div>
 
             <div className="relative">
@@ -519,14 +520,14 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                 <option value="6-10">6 - 10 课时</option>
                 <option value="10+">10 课时以上</option>
               </select>
-              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <ElmIcon name="arrow-down" size={16} />
             </div>
 
             <button
               onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
               className={`flex items-center justify-center gap-2 px-6 py-3.5 border rounded-2xl text-sm font-bold transition-all active:scale-95 ${isFilterPanelOpen ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'}`}
             >
-              <Filter size={18} className={isFilterPanelOpen ? 'text-blue-600' : 'text-slate-400'} />
+              <ElmIcon name="operation" size={16} />
               <span className="text-blue-600">高级筛选</span>
             </button>
           </div>
@@ -562,7 +563,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
               <div className="absolute -top-10 right-0">
                 <button onClick={resetFilters} className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1.5 group">
-                  <RotateCcw size={12} className="group-hover:rotate-180 transition-transform duration-500" /> 重置条件
+                  <ElmIcon name="refresh" size={16} /> 重置条件
                 </button>
               </div>
 
@@ -629,7 +630,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-5 text-sm text-slate-600 font-bold tracking-tight family-mono">{student.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1 $2 $3')}</td>
+                  <td className="px-8 py-5 text-sm text-slate-600 font-bold tracking-tight family-mono">{student.phone.replace(/(\d{3})(\d{4})(\d{4})/, 'size={16} $2 $3')}</td>
                   <td className="px-8 py-5">
                     <span className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100/50">
                       {student.className || '未分班'}
@@ -674,7 +675,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                   <td colSpan={6} className="px-8 py-32 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-4">
                       <div className="p-5 bg-slate-50 rounded-full">
-                        <Search size={48} className="opacity-10" />
+                        <ElmIcon name="search" size={16} />
                       </div>
                       <div className="space-y-1">
                         <p className="text-lg font-bold text-slate-600">未找到相关学员档案</p>
@@ -697,7 +698,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
         </p>
         <div className="flex items-center gap-2">
           <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
-            <ChevronRight size={20} className="rotate-180" />
+            <ElmIcon name="arrow-right" size={16} />
           </button>
           {[1, 2, 3, '...', 128].map((p, i) => (
             <button
@@ -708,7 +709,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             </button>
           ))}
           <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
-            <ChevronRight size={20} />
+            <ElmIcon name="arrow-right" size={16} />
           </button>
         </div>
       </div>

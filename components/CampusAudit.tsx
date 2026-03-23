@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, ArrowLeft, ChevronLeft, ChevronRight, Filter, ExternalLink, RefreshCw, Clock, UserCheck, CheckCircle, XCircle, Loader2, Building2, User, Phone } from 'lucide-react';
 import { CampusAuditDetail } from './CampusAuditDetail';
@@ -126,7 +127,7 @@ export const CampusAudit: React.FC<CampusAuditProps> = ({ onBack }) => {
                     <h1 className="text-2xl font-bold text-slate-900">校区审核</h1>
                     {regList.length > 0 && (
                         <span className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-600 text-xs font-bold px-3 py-1.5 rounded-full">
-                            <Clock size={12} />
+                            <ElmIcon name="clock" size={16} />
                             注册待审核：{regList.length}
                         </span>
                     )}
@@ -140,7 +141,7 @@ export const CampusAudit: React.FC<CampusAuditProps> = ({ onBack }) => {
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-slate-500">搜索</label>
                         <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <ElmIcon name="search" size={16} />
                             <input
                                 type="text"
                                 placeholder="输入校区名称、单号..."
@@ -190,7 +191,7 @@ export const CampusAudit: React.FC<CampusAuditProps> = ({ onBack }) => {
                                 onClick={loadRegList}
                                 disabled={regLoading}
                                 className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-blue-100 shrink-0">
-                                <RefreshCw size={14} className={regLoading ? 'animate-spin' : ''} />
+                                <ElmIcon name="refresh" size={16} />
                                 刷新
                             </button>
                         </div>
@@ -256,7 +257,7 @@ export const CampusAudit: React.FC<CampusAuditProps> = ({ onBack }) => {
                                                         disabled={!!actionLoading}
                                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 text-xs font-semibold hover:bg-emerald-100 transition-all disabled:opacity-50"
                                                     >
-                                                        {actionLoading === record.id + '-approve' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                                                        {actionLoading === record.id + '-approve' ? <Loader2 size={12} className="animate-spin" /> : <ElmIcon name="circle-check" size={16} />}
                                                         通过
                                                     </button>
                                                 </div>
@@ -294,7 +295,7 @@ export const CampusAudit: React.FC<CampusAuditProps> = ({ onBack }) => {
                             disabled={currentPage === 1}
                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
-                            <ChevronLeft size={16} />
+                            <ElmIcon name="arrow-left" size={16} />
                         </button>
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                             <button
@@ -310,7 +311,7 @@ export const CampusAudit: React.FC<CampusAuditProps> = ({ onBack }) => {
                             disabled={currentPage === totalPages}
                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
-                            <ChevronRight size={16} />
+                            <ElmIcon name="arrow-right" size={16} />
                         </button>
                     </div>
                 </div>

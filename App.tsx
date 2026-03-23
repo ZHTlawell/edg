@@ -33,16 +33,22 @@ import { CourseMarketplace } from './components/CourseMarketplace';
 import { TeacherHomeworkMgmt } from './components/TeacherHomeworkMgmt';
 import { StudentHomework } from './components/StudentHomework';
 import { TeacherApproval } from './components/TeacherApproval';
+import { TeacherRegistration } from './components/TeacherRegistration';
 import { RefundManagement } from './components/RefundManagement';
 import { FinanceReport } from './components/FinanceReport';
 import { Payments } from './components/Payments';
+import { AnnouncementMgmt } from './components/AnnouncementMgmt';
+import { AnnouncementView } from './components/AnnouncementView';
+import { AnnouncementPopup } from './components/AnnouncementPopup';
+import { CourseStandardMgmt } from './components/CourseStandardMgmt';
+import { CourseResourceMgmt } from './components/CourseResourceMgmt';
 import { ToastContainer } from './components/ToastContainer';
-import { Student } from './types';
+import { Student, Announcement } from './types';
 import { ClipboardList } from 'lucide-react';
 import { useStore } from './store';
 
 const App: React.FC = () => {
-  const { currentUser, logout } = useStore();
+  const { currentUser, logout, fetchAnnouncementsActive, announcements } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -50,15 +56,29 @@ const App: React.FC = () => {
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
+  const [popupAnnouncements, setPopupAnnouncements] = useState<Announcement[]>([]);
 
   // Derive role from store
   const userRole = currentUser?.role || 'admin';
 
-  const handleLogin = (role: string) => {
+  const handleLogin = async (role: string) => {
     setIsAuthenticated(true);
     if (role === 'student') setActiveView('student-dashboard');
     else if (role === 'teacher') setActiveView('teaching');
+    else if (role === 'campus_admin') setActiveView('teaching');
     else setActiveView('dashboard');
+
+    // Show announcement popup for campus_admin on first login
+    if (role === 'campus_admin') {
+      try {
+        await fetchAnnouncementsActive();
+        // We'll pick up from the store state after fetch, via useEffect
+        setShowAnnouncementPopup(true);
+      } catch (err) {
+        console.warn('Failed to load announcements for popup', err);
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -93,9 +113,18 @@ const App: React.FC = () => {
       setIsAuthenticated(true);
       if (currentUser.role === 'student' && activeView === 'dashboard') {
         setActiveView('student-dashboard');
+      } else if (currentUser.role === 'campus_admin' && activeView === 'dashboard') {
+        setActiveView('teaching');
       }
     }
   }, [currentUser]);
+
+  // Sync popup announcements once fetched
+  useEffect(() => {
+    if (showAnnouncementPopup && announcements.length > 0) {
+      setPopupAnnouncements(announcements);
+    }
+  }, [showAnnouncementPopup, announcements]);
 
   if (!isAuthenticated || !currentUser) {
     return (
@@ -109,6 +138,13 @@ const App: React.FC = () => {
   return (
     <>
       <ToastContainer />
+      {/* Announcement popup for campus_admin on first login */}
+      {showAnnouncementPopup && popupAnnouncements.length > 0 && (
+        <AnnouncementPopup
+          announcements={popupAnnouncements}
+          onClose={() => setShowAnnouncementPopup(false)}
+        />
+      )}
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar
           isOpen={isSidebarOpen}
@@ -125,12 +161,16 @@ const App: React.FC = () => {
         />
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header onLogout={handleLogout} onNavigate={(id) => setActiveView(id)} userRole={userRole} />
-
+          <Header
+            onLogout={handleLogout}
+            onNavigate={setActiveView}
+            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            userRole={userRole}
+          />
           <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8 bg-[#F8FAFC]">
             <div className="max-w-[1440px] mx-auto h-full">
               {/* Core Dashboards by Role */}
-              {activeView === 'dashboard' && (userRole === 'admin' || userRole === 'campus_admin') && <Dashboard />}
+              {activeView === 'dashboard' && userRole === 'admin' && <Dashboard />}
               {activeView === 'teaching' && userRole === 'teacher' && (
                 <TeacherDashboard
                   onEnterAttendance={handleEnterAttendance}
@@ -160,10 +200,10 @@ const App: React.FC = () => {
                   setActiveView('course-study');
                 }} />
               )}
-              {activeView === 'course-study' && (
+              {activeView === 'course-study' && selectedCourseId && (
                 <CourseStudyView
+                  courseId={selectedCourseId}
                   onBack={() => setActiveView('student-learning')}
-                  onStartQuiz={() => setActiveView('online-quiz')}
                 />
               )}
               {activeView === 'online-quiz' && (
@@ -201,11 +241,18 @@ const App: React.FC = () => {
               {activeView === 'student-market' && userRole === 'student' && <CourseMarketplace />}
               {activeView === 'teacher-homework' && userRole === 'teacher' && <TeacherHomeworkMgmt />}
               {activeView === 'student-homework' && userRole === 'student' && <StudentHomework />}
+              {activeView === 'teacher-registration' && userRole === 'campus_admin' && (
+                <TeacherRegistration onNavigate={(id) => setActiveView(id)} />
+              )}
               {activeView === 'teacher-approval' && userRole === 'campus_admin' && (
-                <TeacherApproval onBack={() => setActiveView('dashboard')} />
+                <TeacherApproval onBack={() => setActiveView('teaching')} />
               )}
               {activeView === 'refund-management' && <RefundManagement />}
               {activeView === 'finance-report' && <FinanceReport />}
+              {activeView === 'announcemnt-mgmt' && userRole === 'admin' && <AnnouncementMgmt />}
+              {activeView === 'announcement-view' && (userRole === 'admin' || userRole === 'campus_admin') && <AnnouncementView />}
+              {activeView === 'course-standard' && userRole === 'admin' && <CourseStandardMgmt />}
+              {activeView === 'course-resource' && userRole === 'admin' && <CourseResourceMgmt />}
 
               {/* Sub Views */}
               {activeView === 'attendance-registration' && (
@@ -223,11 +270,15 @@ const App: React.FC = () => {
               {activeView === 'student-detail' && selectedStudent && <StudentDetailView student={selectedStudent} onBack={handleBackToList} />}
 
               {/* Fallback */}
-              {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market', 'teacher-homework', 'student-homework', 'teacher-approval', 'refund-management', 'finance-report'].includes(activeView) && (
+              {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market', 'teacher-homework', 'student-homework', 'teacher-registration', 'teacher-approval', 'refund-management', 'finance-report', 'announcemnt-mgmt', 'announcement-view', 'course-standard', 'course-resource'].includes(activeView) && (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-white rounded-2xl border border-slate-100">
                   <ClipboardList size={48} className="opacity-10 mb-4" />
                   <p className="text-xl font-bold text-slate-600">模块开发中</p>
-                  <button onClick={() => setActiveView((userRole === 'admin' || userRole === 'campus_admin') ? 'dashboard' : 'student-dashboard')} className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-xl font-bold">返回首页</button>
+                  <button onClick={() => {
+                    if (userRole === 'admin') setActiveView('dashboard');
+                    else if (userRole === 'student') setActiveView('student-dashboard');
+                    else setActiveView('teaching');
+                  }} className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-xl font-bold">返回首页</button>
                 </div>
               )}
             </div>

@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import {
@@ -49,12 +50,12 @@ export const StatisticsOverview: React.FC = () => {
     const attendanceRate = totalAttendance > 0 ? (presentCount / totalAttendance * 100).toFixed(1) : '0';
 
     return [
-      { label: '累计报名人数', value: totalEnrollment, trend: '+12%', isUp: true, icon: <Users />, color: 'text-blue-600', bg: 'bg-blue-50' },
+      { label: '累计报名人数', value: totalEnrollment, trend: '+12%', isUp: true, icon: <ElmIcon name="user" size={16} />, color: 'text-blue-600', bg: 'bg-blue-50' },
       { label: '新增订单总数', value: filteredOrders.length, trend: '+5%', isUp: true, icon: <CreditCard />, color: 'text-indigo-600', bg: 'bg-indigo-50' },
       { label: '实收营收金额', value: `¥${totalRevenue.toLocaleString()}`, trend: '+15%', isUp: true, icon: <DollarSign />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
       { label: '退费金额 (暂计)', value: '¥2,400', trend: '-2%', isUp: false, icon: <Undo2 />, color: 'text-red-600', bg: 'bg-red-50' },
       { label: '平均到课率', value: `${attendanceRate}%`, trend: '+0.5%', isUp: true, icon: <BarChart3 />, color: 'text-amber-600', bg: 'bg-amber-50' },
-      { label: '累计课消课时', value: `${totalConsumption}H`, trend: '+8%', isUp: true, icon: <BookOpen />, color: 'text-purple-600', bg: 'bg-purple-50' },
+      { label: '累计课消课时', value: `${totalConsumption}H`, trend: '+8%', isUp: true, icon: <ElmIcon name="reading" size={16} />, color: 'text-purple-600', bg: 'bg-purple-50' },
     ];
   }, [orders, attendanceRecords, assetLedgers, isCampusAdmin, myCampus]);
 
@@ -66,7 +67,7 @@ export const StatisticsOverview: React.FC = () => {
           <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
             <Home size={14} />
             <span>数据分析</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span className="text-slate-600">统计报表</span>
           </nav>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -75,7 +76,7 @@ export const StatisticsOverview: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-95">
-            <Download size={18} /> 导出全量报表
+            <ElmIcon name="download" size={16} /> 导出全量报表
           </button>
         </div>
       </div>
@@ -91,7 +92,7 @@ export const StatisticsOverview: React.FC = () => {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">{stat.label}</p>
               <h3 className="text-xl font-bold text-slate-900 font-mono tracking-tight">{stat.value}</h3>
               <p className={`text-[10px] font-bold mt-1 flex items-center gap-1 ${stat.isUp ? 'text-emerald-600' : 'text-red-500'}`}>
-                {stat.isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                {stat.isUp ? <ElmIcon name="trend-charts" size={16} /> : <ElmIcon name="data-analysis" size={16} />}
                 {stat.trend} <span className="text-slate-300 font-medium">vs 上期</span>
               </p>
             </div>

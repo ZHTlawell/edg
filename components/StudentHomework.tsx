@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import { BookOpen, FileText, UploadCloud, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -24,7 +25,7 @@ export const StudentHomework: React.FC = () => {
 
     const handleSubmit = (hwId: string) => {
         if (typeof submitHomework !== 'function') {
-            alert('🚨 检测到系统内核热更新缓存，请按 F5 或 Cmd+R 强制刷新页面后重试！');
+            alert('检测到系统内核热更新缓存，请按 F5 或 Cmd+R 强制刷新页面后重试！');
             return;
         }
 
@@ -46,7 +47,7 @@ export const StudentHomework: React.FC = () => {
             <div className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-10">
                 <div className="flex items-center gap-8">
                     <div className="w-20 h-20 bg-amber-50 rounded-[2rem] flex items-center justify-center text-amber-500 shadow-inner">
-                        <BookOpen size={40} />
+                        <ElmIcon name="reading" size={16} />
                     </div>
                     <div className="space-y-2">
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">我的作业</h1>
@@ -77,8 +78,8 @@ export const StudentHomework: React.FC = () => {
                                     {hw.content}
                                 </p>
                                 <div className="flex items-center gap-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                    <span className="flex items-center gap-1.5"><Clock size={14} className="text-slate-300" /> 截止: {hw.deadline}</span>
-                                    <span className="flex items-center gap-1.5"><FileText size={14} className="text-slate-300" /> 满分 100分</span>
+                                    <span className="flex items-center gap-1.5"><ElmIcon name="clock" size={16} /> 截止: {hw.deadline}</span>
+                                    <span className="flex items-center gap-1.5"><ElmIcon name="document" size={16} /> 满分 100分</span>
                                 </div>
                             </div>
 
@@ -93,7 +94,7 @@ export const StudentHomework: React.FC = () => {
                                     </div>
                                 ) : isSubmitted ? (
                                     <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 text-center flex flex-col items-center justify-center h-full gap-2 text-emerald-600">
-                                        <CheckCircle2 size={32} className="opacity-80" />
+                                        <ElmIcon name="circle-check" size={16} />
                                         <p className="text-sm font-bold">作业已提交</p>
                                         <p className="text-[10px] uppercase tracking-widest opacity-60">请等待老师批改</p>
                                     </div>
@@ -118,7 +119,7 @@ export const StudentHomework: React.FC = () => {
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full gap-3">
                                         <div className="p-3 bg-orange-50 text-orange-500 rounded-full">
-                                            <AlertCircle size={24} />
+                                            <ElmIcon name="warning" size={16} />
                                         </div>
                                         <button
                                             onClick={() => { setSelectedHomework(hw.id); setSubmissionContent(''); }}
@@ -136,7 +137,7 @@ export const StudentHomework: React.FC = () => {
                 {myHomeworks.length === 0 && (
                     <div className="bg-white rounded-[2.5rem] border border-slate-200 py-20 flex flex-col items-center justify-center text-slate-400 gap-4 shadow-sm">
                         <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100">
-                            <CheckCircle2 size={32} className="text-slate-300" />
+                            <ElmIcon name="circle-check" size={16} />
                         </div>
                         <div className="text-center">
                             <p className="text-lg font-bold text-slate-600 mb-1">太棒了，暂无待办作业！</p>

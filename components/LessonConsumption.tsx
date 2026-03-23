@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -109,9 +110,9 @@ export const LessonConsumption: React.FC<LessonConsumptionProps> = ({ lessonId, 
         <div className="space-y-1">
           <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
             <span onClick={onBack} className="hover:text-blue-600 cursor-pointer">教学管理</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span>课表</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span className="text-slate-600">课消确认</span>
           </nav>
           <div className="flex items-center gap-4">
@@ -134,14 +135,14 @@ export const LessonConsumption: React.FC<LessonConsumptionProps> = ({ lessonId, 
         <div className="p-6 flex-1 space-y-1">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">排课项目</p>
           <div className="flex items-center gap-2">
-            <BookOpen size={16} className="text-blue-500" />
+            <ElmIcon name="reading" size={16} />
             <p className="text-sm font-bold text-slate-900">{classContext?.course?.name} · {classContext?.class.name}</p>
           </div>
         </div>
         <div className="p-6 flex-1 space-y-1">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">授课时间</p>
           <div className="flex items-center gap-2">
-            <Calendar size={16} className="text-slate-400" />
+            <ElmIcon name="calendar" size={16} />
             <p className="text-sm font-bold text-slate-900">{classContext?.lesson.start_time.split('T')[0]} <span className="text-slate-400 font-medium ml-2">{classContext?.lesson.start_time.split('T')[1]?.substring(0, 5)} - {classContext?.lesson.end_time.split('T')[1]?.substring(0, 5)}</span></p>
           </div>
         </div>
@@ -199,7 +200,7 @@ export const LessonConsumption: React.FC<LessonConsumptionProps> = ({ lessonId, 
                         <td className="px-8 py-5 text-center font-mono text-sm font-bold text-slate-500">{item.availableBalance.toFixed(1)}</td>
                         <td className={`px-8 py-5 text-center bg-blue-50/20`}>
                           <div className="inline-flex items-center gap-2">
-                            {isInsufficient && <AlertTriangle size={14} className="text-red-500 animate-pulse" />}
+                            {isInsufficient && <ElmIcon name="warning" size={16} />}
                             <input
                               type="number"
                               step="0.5"
@@ -258,7 +259,7 @@ export const LessonConsumption: React.FC<LessonConsumptionProps> = ({ lessonId, 
 
             <div className="space-y-6">
               <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em]">
-                <TrendingDown size={14} /> 课时账户全景
+                <ElmIcon name="data-analysis" size={16} /> 课时账户全景
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
@@ -304,7 +305,7 @@ export const LessonConsumption: React.FC<LessonConsumptionProps> = ({ lessonId, 
             <div className="bg-red-50 rounded-[2rem] border border-red-100 p-8 space-y-4 animate-bounce-short">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-red-500 shadow-sm border border-red-100">
-                  <AlertCircle size={24} />
+                  <ElmIcon name="warning" size={16} />
                 </div>
                 <h5 className="text-sm font-bold text-red-900 tracking-tight">课时余额预警</h5>
               </div>
@@ -345,7 +346,7 @@ export const LessonConsumption: React.FC<LessonConsumptionProps> = ({ lessonId, 
               onBack();
             }}
           >
-            <CheckCircle2 size={18} className="group-hover:scale-110 transition-transform" /> 确认执行课消记录
+            <ElmIcon name="circle-check" size={16} /> 确认执行课消记录
           </button>
         </div>
       </div>

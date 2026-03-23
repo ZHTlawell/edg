@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import {
     Bell,
@@ -21,8 +22,8 @@ const MOCK_NOTIFICATIONS = [
 export const StudentNotifications: React.FC = () => {
     const getIcon = (type: string) => {
         switch (type) {
-            case 'urgent': return <Megaphone className="text-rose-500" size={20} />;
-            case 'homework': return <MessageCircle className="text-blue-500" size={20} />;
+            case 'urgent': return <ElmIcon name="notification" size={16} />;
+            case 'homework': return <ElmIcon name="chat-round" size={16} />;
             case 'finance': return <Mail className="text-amber-500" size={20} />;
             default: return <Bell className="text-slate-400" size={20} />;
         }
@@ -35,7 +36,7 @@ export const StudentNotifications: React.FC = () => {
                 <div className="space-y-1">
                     <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
                         <span>学员中心</span>
-                        <ChevronRight size={14} />
+                        <ElmIcon name="arrow-right" size={16} />
                         <span className="text-slate-600">通知中心</span>
                     </nav>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">消息与公告</h1>
@@ -68,7 +69,7 @@ export const StudentNotifications: React.FC = () => {
                                     {!n.read && <span className="ml-3 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>}
                                 </h4>
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    <Clock size={12} /> {n.time}
+                                    <ElmIcon name="clock" size={16} /> {n.time}
                                 </div>
                             </div>
                             <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-2xl">
@@ -88,7 +89,7 @@ export const StudentNotifications: React.FC = () => {
 
             <div className="p-10 bg-blue-50/50 border-2 border-dashed border-blue-100 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 text-center">
                 <div className="w-16 h-16 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center">
-                    <CheckCircle2 size={32} />
+                    <ElmIcon name="circle-check" size={16} />
                 </div>
                 <div className="space-y-1">
                     <h5 className="font-bold text-slate-900">您已读完所有重要通知</h5>

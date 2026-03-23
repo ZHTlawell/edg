@@ -56,4 +56,10 @@ export class UsersController {
         }
         return this.usersService.rejectUser(id);
     }
+
+    // 查询所有可用校区 (Public)
+    @Get('campuses')
+    async getCampuses() {
+        return this.usersService.getAllCampuses();
+    }
 }

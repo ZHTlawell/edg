@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search, MapPin, ChevronLeft, ChevronRight, MoreHorizontal, SlidersHorizontal, ChevronDown, UserCheck } from 'lucide-react';
+import { ElmIcon } from './ElmIcon';
 import { CampusAudit } from './CampusAudit';
 import { CampusDetail } from './CampusDetail';
 
@@ -20,7 +21,7 @@ interface Campus {
 const campusData: Campus[] = [
     { id: '1', name: '上海徐汇旗舰中心', region: '华东地区', level: '旗舰校区', manager: '张文杰', students: 1240, classes: 42, monthlyRevenue: 452000, status: '正常运营' },
     { id: '2', name: '北京朝阳双井校区', region: '华北地区', level: '标准校区', manager: '李思思', students: 860, classes: 28, monthlyRevenue: 312500, status: '正常运营' },
-    { id: '3', name: '深圳南山科技园校区', region: '华南地区', level: '旗舰校区', manager: '王健', students: 1100, classes: 36, monthlyRevenue: 388000, status: '维护中', icon: '🌟' },
+    { id: '3', name: '深圳南山科技园校区', region: '华南地区', level: '旗舰校区', manager: '王健', students: 1100, classes: 36, monthlyRevenue: 388000, status: '维护中', icon: 'star-filled' },
     { id: '4', name: '杭州西湖文三校区', region: '华东地区', level: '社区中心', manager: '陈晓东', students: 450, classes: 15, monthlyRevenue: 128000, status: '正常运营' },
     { id: '5', name: '广州天河中怡校区', region: '华南地区', level: '标准校区', manager: '周小芳', students: 920, classes: 30, monthlyRevenue: 345000, status: '正常运营' },
     { id: '6', name: '成都高新天府校区', region: '西南地区', level: '标准校区', manager: '刘明', students: 680, classes: 22, monthlyRevenue: 198000, status: '正常运营' },
@@ -135,7 +136,7 @@ export const CampusManagement: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-3">
                         {/* Search */}
                         <div className="relative flex-1 min-w-[200px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <ElmIcon name="search" size={16} />
                             <input
                                 type="text"
                                 placeholder="搜索校区名称、负责人、区域..."
@@ -158,7 +159,7 @@ export const CampusManagement: React.FC = () => {
                         </div>
                         {/* More filters */}
                         <button className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-600 transition-all ml-auto">
-                            <SlidersHorizontal size={15} />
+                            <ElmIcon name="operation" size={16} />
                             更多筛选
                         </button>
                     </div>
@@ -185,7 +186,7 @@ export const CampusManagement: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${campus.status === '维护中' ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'}`}>
-                                                    <MapPin size={14} />
+                                                    {campus.icon ? <ElmIcon name={campus.icon} size={16} /> : <ElmIcon name="location" size={16} />}
                                                 </div>
                                                 <div>
                                                     <p className="font-semibold text-slate-800 text-sm">{campus.name}</p>
@@ -224,12 +225,12 @@ export const CampusManagement: React.FC = () => {
                                 disabled={currentPage === 1}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             >
-                                <ChevronLeft size={16} />
+                                <ElmIcon name="arrow-left" size={16} />
                             </button>
                             {getPageNumbers().map((p, idx) =>
                                 p === '...' ? (
                                     <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400">
-                                        <MoreHorizontal size={16} />
+                                        <ElmIcon name="more-filled" size={16} />
                                     </span>
                                 ) : (
                                     <button
@@ -246,7 +247,7 @@ export const CampusManagement: React.FC = () => {
                                 disabled={currentPage === totalPages}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             >
-                                <ChevronRight size={16} />
+                                <ElmIcon name="arrow-right" size={16} />
                             </button>
                         </div>
                     </div>

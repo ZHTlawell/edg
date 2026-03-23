@@ -16,8 +16,10 @@ import {
     ShieldCheck,
     FileText,
     UploadCloud,
-    Check
+    Check,
+    ChevronRight
 } from 'lucide-react';
+import { ElmIcon } from './ElmIcon';
 import { useStore } from '../store';
 
 interface RegistrationProps {
@@ -29,7 +31,11 @@ interface RegistrationProps {
 type CampusStep = 1 | 2 | 3; // 1: 基础信息, 2: 资质上传, 3: 提交成功
 
 export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campusList = [] }) => {
-    const { registerCampusAdmin, registerTeacher, addToast } = useStore();
+    const { registerCampusAdmin, registerTeacher, addToast, campuses, fetchCampuses } = useStore();
+
+    React.useEffect(() => {
+        if (campuses.length === 0) fetchCampuses();
+    }, [campuses.length, fetchCampuses]);
 
     const [campusStep, setCampusStep] = useState<CampusStep>(1);
     const [isLoading, setIsLoading] = useState(false);
@@ -134,7 +140,7 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
                 <div key={item.s} className="flex flex-col items-center gap-2">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${campusStep >= item.s ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-slate-100 text-slate-400'
                         }`}>
-                        {campusStep > item.s ? <Check size={18} /> : item.s}
+                        {campusStep > item.s ? <ElmIcon name="check" size={16} /> : item.s}
                     </div>
                     <span className={`text-xs font-bold ${campusStep >= item.s ? 'text-blue-600' : 'text-slate-400'}`}>
                         {item.label}
@@ -148,18 +154,19 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
         return (
             <div className="animate-in fade-in zoom-in-95 duration-500 flex flex-col items-center text-center py-6">
                 <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6">
-                    <CheckCircle2 size={40} className="text-emerald-500" />
+                    <ElmIcon name="circle-check" size={16} />
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900 mb-3">注册申请已提交</h2>
                 <p className="text-slate-500 text-sm mb-2">您的资质信息已进入审核流程</p>
-                <div className="w-full rounded-2xl p-4 text-sm font-medium mb-8 bg-blue-50 text-blue-700 border border-blue-100">
-                    🛡️ 总管理员将在 1-3 个工作日内完成审核，请保持电话畅通。
+                <div className="w-full rounded-2xl p-4 text-sm font-medium mb-8 bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center">
+                    <ElmIcon name="info-filled" size={16} className="mr-2" />
+                    总管理员将在 1-3 个工作日内完成审核，请保持电话畅通。
                 </div>
                 <button
                     onClick={onBack}
-                    className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors font-bold text-xs uppercase tracking-widest"
+                    className="mb-8 flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors font-bold text-xs uppercase tracking-widest bg-transparent border-0 p-0 cursor-pointer group"
                 >
-                    <ArrowLeft size={14} />
+                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                     返回登录页
                 </button>
             </div>
@@ -177,35 +184,80 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
                 <div className="mb-8 text-left space-y-2">
                     <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
                         教师自主注册
-                        <User className="text-indigo-500" />
+                        <ElmIcon name="user" size={16} />
                     </h2>
                     <p className="text-slate-400 text-sm font-medium">提交注册信息后，校区管理员将审核您的申请</p>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 ml-1">真实姓名</label>
-                        <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className={inputClasses} placeholder="请输入姓名" />
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">真实姓名</label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors">
+                                <ElmIcon name="user" size={16} />
+                            </div>
+                            <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className={`${inputClasses} pl-12`} placeholder="请输入您的真实姓名" />
+                        </div>
                     </div>
+                    
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 ml-1">希望加入的校区</label>
-                        <input type="text" required value={formData.campusName} onChange={e => setFormData({ ...formData, campusName: e.target.value })} className={inputClasses} placeholder="请输入校区名称" />
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">希望加入的校区</label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors">
+                                <ElmIcon name="house" size={16} />
+                            </div>
+                            <select
+                                required
+                                className={`${inputClasses} pl-12 appearance-none`}
+                                value={formData.campus_id}
+                                onChange={e => {
+                                    const selectedCampus = (campuses || []).find(c => c.id === e.target.value);
+                                    setFormData({ ...formData, campus_id: e.target.value, campusName: selectedCampus?.name || '' });
+                                }}
+                            >
+                                <option value="" disabled hidden>-- 请选择希望入职的校区 --</option>
+                                {(campuses || []).map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <ElmIcon name="arrow-right" size={16} />
+                            </div>
+                        </div>
                     </div>
+
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 ml-1">联系电话</label>
-                        <input type="tel" required value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className={inputClasses} placeholder="请输入手机号" />
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">联系电话</label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors">
+                                <Smartphone size={18} />
+                            </div>
+                            <input type="tel" required value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className={`${inputClasses} pl-12`} placeholder="请输入11位手机号" />
+                        </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-500 ml-1">登录账号</label>
-                            <input type="text" required value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className={inputClasses} placeholder="账号名称" />
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">登录账号</label>
+                            <input type="text" required value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className={inputClasses} placeholder="设置账号名称" />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-500 ml-1">设置密码</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">设置密码</label>
                             <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className={inputClasses} placeholder="******" />
                         </div>
                     </div>
-                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-3 mt-4">
-                        {isLoading ? <Loader2 className="animate-spin" /> : '提交申请'}
+                    
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">确认密码</label>
+                        <input type="password" required value={formData.confirmPassword} onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })} className={inputClasses} placeholder="请再次输入密码以确保一致" />
+                    </div>
+
+                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 mt-6 group active:scale-[0.98] disabled:opacity-50">
+                        {isLoading ? <Loader2 className="animate-spin" /> : (
+                            <>
+                                <span>提交入职申请</span>
+                                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                            </>
+                        )}
                     </button>
                 </form>
             </div>
@@ -224,7 +276,7 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
             <div className="bg-white border border-slate-100 rounded-3xl p-8 shadow-sm">
                 <div className="flex items-center gap-2 mb-8 pb-4 border-b border-slate-50">
                     <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                        {campusStep === 1 ? <Building2 size={18} /> : <ShieldCheck size={18} />}
+                        {campusStep === 1 ? <ElmIcon name="house" size={16} /> : <ElmIcon name="finished" size={16} />}
                     </div>
                     <h2 className="font-bold text-slate-800">
                         {campusStep === 1 ? '第一步：基础资料' : '第二步：资质上传'}
@@ -384,7 +436,7 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
                                     {formData.permitFile ? (
                                         <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
                                             <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 mb-4">
-                                                <CheckCircle2 size={32} />
+                                                <ElmIcon name="circle-check" size={16} />
                                             </div>
                                             <p className="text-sm font-bold text-slate-800 mb-1">{formData.permitFile.name}</p>
                                             <p className="text-xs text-slate-400">{(formData.permitFile.size / 1024 / 1024).toFixed(2)} MB</p>
@@ -410,7 +462,7 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
                                     )}
                                 </div>
                                 <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1 italic text-center">
-                                    <ShieldCheck size={10} /> 请确保许可证名称与第一步填写的校区名称完全一致
+                                    <ElmIcon name="finished" size={16} /> 请确保许可证名称与第一步填写的校区名称完全一致
                                 </p>
                             </div>
                         </div>
@@ -437,7 +489,7 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
                             >
                                 {isLoading ? <Loader2 className="animate-spin" /> : (
                                     <>
-                                        <Check size={20} />
+                                        <ElmIcon name="check" size={16} />
                                         <span>提交入驻审核</span>
                                     </>
                                 )}

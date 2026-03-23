@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import { useStore } from '../store';
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
@@ -6,11 +7,11 @@ import type { ToastType } from '../store';
 const ToastIcon = ({ type }: { type: ToastType }) => {
     switch (type) {
         case 'success':
-            return <CheckCircle2 className="text-emerald-500" size={20} />;
+            return <ElmIcon name="circle-check" size={16} />;
         case 'error':
-            return <AlertCircle className="text-red-500" size={20} />;
+            return <ElmIcon name="warning" size={16} />;
         case 'warning':
-            return <AlertTriangle className="text-orange-500" size={20} />;
+            return <ElmIcon name="warning" size={16} />;
         case 'info':
         default:
             return <Info className="text-blue-500" size={20} />;
@@ -42,7 +43,7 @@ export const ToastContainer: React.FC = () => {
                         onClick={() => removeToast(toast.id)}
                         className="ml-2 hover:bg-black/5 p-1 rounded-full transition-colors"
                     >
-                        <X size={16} className="opacity-50" />
+                        <ElmIcon name="close" size={16} />
                     </button>
                 </div>
             ))}

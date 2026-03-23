@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   User,
@@ -32,7 +33,11 @@ interface OrderCreationProps {
 import { useStore } from '../store';
 
 export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess }) => {
-  const { students, courses, campuses, createOrder, addToast } = useStore();
+  const { students, courses, campuses, fetchCampuses, createOrder, addToast } = useStore();
+
+  useEffect(() => {
+    fetchCampuses();
+  }, [fetchCampuses]);
   // --- Form State ---
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [campus, setCampus] = useState('总校区');
@@ -52,8 +57,8 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
   const [showParentInfo, setShowParentInfo] = useState(false);
 
   // --- Derived State ---
-  const student = useMemo(() => students.find(s => s.id === selectedStudentId), [students, selectedStudentId]);
-  const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
+  const student = useMemo(() => (students || []).find(s => s.id === selectedStudentId), [students, selectedStudentId]);
+  const course = useMemo(() => (courses || []).find(c => c.id === courseId), [courses, courseId]);
 
   // Note: Standardize unit prices, fallback to 150
   const courseUnitPrice = useMemo(() => {
@@ -95,7 +100,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
     }
 
     // 映射当前校区 ID
-    const campusId = campuses.find(c => c.name === campus)?.id || 'C001';
+    const campusId = (campuses || []).find(c => c.name === campus)?.id || 'C001';
 
     // 执行 Store 动作，完成订单创建与资产流转
     const orderId = createOrder({
@@ -124,7 +129,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
         </div>
         <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
           <span>报名缴费</span>
-          <ChevronRight size={14} />
+          <ElmIcon name="arrow-right" size={16} />
           <span className="text-slate-600">创建订单</span>
         </nav>
       </div>
@@ -137,11 +142,11 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><User size={20} /></div>
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-xl"><ElmIcon name="user" size={16} /></div>
                 <h3 className="font-bold text-slate-800 tracking-tight">学员信息确认</h3>
               </div>
               <button className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
-                <Plus size={14} /> 注册新学员
+                <ElmIcon name="plus" size={16} /> 注册新学员
               </button>
             </div>
 
@@ -150,16 +155,16 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">学员选择 <span className="text-red-500">*</span></label>
                   <div className="relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <ElmIcon name="search" size={16} />
                     <select
                       value={selectedStudentId}
                       onChange={handleStudentSearch}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-bold text-slate-900 appearance-none cursor-pointer"
                     >
                       <option value="">点击搜索或选择学员...</option>
-                      {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>)}
+                      {(students || []).map(s => <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>)}
                     </select>
-                    <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <ElmIcon name="arrow-down" size={16} />
                   </div>
                 </div>
 
@@ -199,7 +204,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                   onClick={() => setShowParentInfo(!showParentInfo)}
                   className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-1 transition-colors"
                 >
-                  <ChevronRight size={14} className={`transition-transform duration-300 ${showParentInfo ? 'rotate-90' : ''}`} />
+                  <ElmIcon name="arrow-right" size={16} />
                   {showParentInfo ? '收起家长联系信息' : '展开家长联系信息'}
                 </button>
                 {showParentInfo && student && (
@@ -222,7 +227,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><BookOpen size={20} /></div>
+                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><ElmIcon name="reading" size={16} /></div>
                 <h3 className="font-bold text-slate-800 tracking-tight">报名核心信息</h3>
               </div>
             </div>
@@ -236,9 +241,9 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                     onChange={(e) => setCampus(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
                   >
-                    <option value="总校区">总部旗舰校</option>
-                    <option value="浦东校区">浦东分校</option>
-                    <option value="静安校区">静安分校</option>
+                    {(campuses || []).map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -250,7 +255,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
                   >
                     <option value="">请选择课程...</option>
-                    {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {(courses || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
 
@@ -296,7 +301,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">预计开课日期</label>
                   <div className="relative group">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <ElmIcon name="calendar" size={16} />
                     <input
                       type="date"
                       value={startDate}
@@ -381,7 +386,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                     { id: 'alipay', label: '支付宝', icon: <Smartphone size={18} /> },
                     { id: 'cash', label: '现金支付', icon: <Banknote size={18} /> },
                     { id: 'card', label: '银行卡', icon: <CreditCard size={18} /> },
-                    { id: 'transfer', label: '对公转账', icon: <Building2 size={18} /> }
+                    { id: 'transfer', label: '对公转账', icon: <ElmIcon name="house" size={16} /> }
                   ].map(method => (
                     <button
                       key={method.id}
@@ -399,7 +404,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
               <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isInstallment ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-300 border border-slate-200'}`}>
-                    <CheckCircle2 size={24} />
+                    <ElmIcon name="circle-check" size={16} />
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-800 text-sm">学费分期支付</h4>
@@ -478,7 +483,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
                     <p className="text-[10px] font-bold uppercase opacity-60 tracking-wider">分期首付计划</p>
                     <p className="text-xs font-bold">¥ {installmentAmount} <span className="text-white/40 font-normal">× {installmentCount}期</span></p>
                   </div>
-                  <CheckCircle2 size={20} className="text-indigo-400" />
+                  <ElmIcon name="circle-check" size={16} />
                 </div>
               )}
             </div>
@@ -496,7 +501,7 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
           {/* Capacity Alert card */}
           <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <AlertCircle size={20} />
+              <ElmIcon name="warning" size={16} />
             </div>
             <div className="space-y-1">
               <h4 className="text-xs font-bold text-slate-800 tracking-tight">班级库存提示</h4>

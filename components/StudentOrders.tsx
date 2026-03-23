@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import {
     CreditCard,
@@ -26,13 +27,13 @@ export const StudentOrders: React.FC = () => {
 
     const currentStudent = React.useMemo(() => {
         if (currentUser?.role === 'student') {
-            return students.find(s => s.id === currentUser.bindStudentId || (s as any).user_id === currentUser.id);
+            return (students || []).find(s => s.id === currentUser.bindStudentId || (s as any).user_id === currentUser.id);
         }
         return null;
     }, [currentUser, students]);
 
     const stats = React.useMemo(() => {
-        const studentAssets = assetAccounts.filter(acc => acc.student_id === currentStudent?.id);
+        const studentAssets = (assetAccounts || []).filter(acc => acc.student_id === currentStudent?.id);
         const remaining = studentAssets.reduce((sum, acc) => sum + acc.remaining_qty, 0);
         const consumed = studentAssets.reduce((sum, acc) => sum + (acc.total_qty - acc.remaining_qty), 0);
         return { remaining, consumed };
@@ -69,7 +70,7 @@ export const StudentOrders: React.FC = () => {
 
     const handlePurchase = async () => {
         if (!selectedCourseForPurchase || !currentStudent) return;
-        const course = courses.find(c => c.id === selectedCourseForPurchase);
+        const course = (courses || []).find(c => c.id === selectedCourseForPurchase);
         if (!course) return;
 
         try {
@@ -106,7 +107,7 @@ export const StudentOrders: React.FC = () => {
                 <div className="space-y-1">
                     <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
                         <span>学员中心</span>
-                        <ChevronRight size={14} />
+                        <ElmIcon name="arrow-right" size={16} />
                         <span className="text-slate-600">订单与课时</span>
                     </nav>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">我的财务资产</h1>
@@ -123,7 +124,7 @@ export const StudentOrders: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col gap-4">
                     <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
-                        <Clock size={24} />
+                        <ElmIcon name="clock" size={16} />
                     </div>
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">总可用课时</p>
@@ -169,7 +170,7 @@ export const StudentOrders: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {studentOrders.length > 0 ? studentOrders.map((order) => {
-                                const course = courses.find(c => c.id === order.course_id);
+                                const course = (courses || []).find(c => c.id === order.course_id);
                                 return (
                                     <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
                                         <td className="px-10 py-6">
@@ -208,7 +209,7 @@ export const StudentOrders: React.FC = () => {
                                 <tr>
                                     <td colSpan={4} className="px-10 py-20 text-center">
                                         <div className="flex flex-col items-center gap-4 text-slate-300">
-                                            <FileText size={48} />
+                                            <ElmIcon name="document" size={16} />
                                             <p className="text-sm font-bold uppercase tracking-widest">暂无购课订单记录</p>
                                         </div>
                                     </td>
@@ -224,7 +225,7 @@ export const StudentOrders: React.FC = () => {
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative">
                         <button onClick={() => setPayModalOpen(false)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-600">
-                            <X size={24} />
+                            <ElmIcon name="close" size={16} />
                         </button>
                         <h3 className="text-xl font-bold text-slate-900 mb-6">支付订单</h3>
                         <div className="bg-slate-50 rounded-2xl p-6 mb-6">
@@ -249,7 +250,7 @@ export const StudentOrders: React.FC = () => {
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative">
                         <button onClick={() => setRefundModalOpen(false)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-600">
-                            <X size={24} />
+                            <ElmIcon name="close" size={16} />
                         </button>
                         <h3 className="text-xl font-bold text-slate-900 mb-6">申请退费</h3>
                         <div className="space-y-4 mb-6">
@@ -282,7 +283,7 @@ export const StudentOrders: React.FC = () => {
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative">
                         <button onClick={() => setPurchaseModalOpen(false)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-600">
-                            <X size={24} />
+                            <ElmIcon name="close" size={16} />
                         </button>
                         <h3 className="text-xl font-bold text-slate-900 mb-6">购买新课程</h3>
                         <div className="space-y-4 mb-6">
@@ -294,7 +295,7 @@ export const StudentOrders: React.FC = () => {
                                     onChange={e => setSelectedCourseForPurchase(e.target.value)}
                                 >
                                     <option value="">请选择需购买的课程...</option>
-                                    {courses.filter(c => c.status === 'enabled').map(c => (
+                                    {(courses || []).filter(c => c.status === 'enabled').map(c => (
                                         <option key={c.id} value={c.id}>{c.name} - {c.price}</option>
                                     ))}
                                 </select>

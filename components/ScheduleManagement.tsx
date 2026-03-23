@@ -1,35 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import {
-  Plus,
-  Search,
-  Download,
-  Calendar,
-  List,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  MapPin,
-  Users,
-  BookOpen,
-  User as UserIcon,
-  MoreHorizontal,
-  RotateCcw,
-  CheckCircle2,
-  Clock,
-  X,
-  ArrowUpRight,
-  AlertCircle,
-  FileText,
-  DoorOpen,
-  Settings2,
-  TrendingDown,
-  MessageCircle,
-  ShieldCheck
-} from 'lucide-react';
+import { ElmIcon } from './ElmIcon';
+// import { ... } from 'lucide-react'; // Removing many imports to use ElmIcon
 import { AttendanceModal } from './AttendanceModal';
+import { ScheduleGenerationModal } from './ScheduleGenerationModal';
 
-type ScheduleStatus = 'pending' | 'ongoing' | 'completed' | 'canceled';
+type ScheduleStatus = 'draft' | 'published' | 'completed' | 'canceled' | 'scheduled';
 type ViewMode = 'calendar' | 'list';
 
 interface ScheduleManagementProps {
@@ -39,81 +15,219 @@ interface ScheduleManagementProps {
 
 export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterAttendance: _unused, onEnterConsumption: _unused_c }) => {
   /* Use real store data */
-  const { currentUser, attendanceRecords, confirmConsumption, assetAccounts, students, courses, classes } = useStore();
+  const { 
+    currentUser, attendanceRecords, confirmConsumption, generateDraft, 
+    publishSchedules, assetAccounts, students, courses, classes, 
+    addToast, campuses, fetchCampuses, teachers, fetchTeachers, fetchClasses 
+  } = useStore();
+
+  useEffect(() => {
+    fetchCampuses();
+    fetchTeachers(currentUser?.campus_id);
+    fetchClasses(currentUser?.campus_id);
+  }, []);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [attendanceLesson, setAttendanceLesson] = useState<any>(null);
+  const [selectedClassId, setSelectedClassId] = useState<string>('all');
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>('all');
+  const [selectedCourseName, setSelectedCourseName] = useState<string>('all');
+  const [selectedTeacherName, setSelectedTeacherName] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCampusId, setSelectedCampusId] = useState<string>('all');
+
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+  const [conflictData, setConflictData] = useState<any>(null);
+  const [isGenModalOpen, setIsGenModalOpen] = useState(false);
+
+  const allAssignments = useMemo(() => {
+    const list: any[] = [];
+    (classes || []).forEach(cls => {
+      const clsAny = cls as any;
+      if (clsAny.assignments) {
+        (clsAny.assignments || []).forEach((a: any) => {
+          list.push({ id: a.id, class_id: cls.id, className: cls.name, courseName: a.course?.name });
+        });
+      } else if (clsAny.assignment_id) {
+        list.push({ id: clsAny.assignment_id, class_id: cls.id, className: cls.name, courseName: clsAny.course?.name });
+      }
+    });
+    return list;
+  }, [classes]);
 
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const isTeacher = currentUser?.role === 'teacher';
   const isStudent = currentUser?.role === 'student';
 
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [anchorDate, setAnchorDate] = useState(new Date()); // Default to current date
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePrevWeek = () => {
+    const d = new Date(anchorDate);
+    d.setDate(d.getDate() - 7);
+    setAnchorDate(d);
+  };
+
+  const handleNextWeek = () => {
+    const d = new Date(anchorDate);
+    d.setDate(d.getDate() + 7);
+    setAnchorDate(d);
+  };
+
+  const weekRange = useMemo(() => {
+    const start = new Date(anchorDate);
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+    const monday = new Date(start.setDate(diff));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return {
+      start: monday,
+      end: sunday,
+      formatted: `${monday.getFullYear()}年 ${monday.getMonth() + 1}月${monday.getDate()}日 - ${sunday.getMonth() + 1}月${sunday.getDate()}日`
+    };
+  }, [anchorDate]);
+
+  const handleSearch = async () => {
+    const campusId = selectedCampusId === 'all' ? currentUser?.campus_id : selectedCampusId;
+    console.log('[ScheduleManagement] Querying for campusId:', campusId);
+    try {
+      await fetchClasses(campusId);
+      addToast('课表数据已同步', 'success');
+    } catch (e) {
+      console.error('[ScheduleManagement] Search failed:', e);
+      addToast('数据同步失败', 'error');
+    }
+  };
+
+  const handleReset = () => {
+    setSelectedCampusId('all');
+    setSelectedAssignmentId('all');
+    setSelectedClassId('all');
+    setSelectedCourseName('all');
+    setSelectedTeacherName('all');
+    setSelectedStatus('all');
+    setAnchorDate(new Date());
+    fetchClasses(currentUser?.campus_id);
+    addToast('筛选条件已重置', 'info');
+  };
 
   const displayLessons = useMemo(() => {
-    // Transform classes.schedules into Lesson[]
     const allLessons: any[] = [];
-    classes.forEach(cls => {
-      if (cls.schedules) {
-        cls.schedules.forEach(sched => {
-          allLessons.push({
-            id: sched.id,
-            date: (sched.start_time || '').split(/[T ]/)[0] || '',
-            time: (() => {
-              const start = (sched.start_time || '').split(/[T ]/)[1];
-              const end = (sched.end_time || '').split(/[T ]/)[1];
-              if (start && end) {
-                return `${start.substring(0, 5)} - ${end.substring(0, 5)}`;
-              }
-              return '00:00 - 00:00';
-            })(),
-            className: cls.name,
-            courseName: cls.course?.name || '未知课程',
-            teacherName: cls.teacher?.name || '未知教师',
-            classroom: sched.classroom || '未分配',
-            expected: cls.enrolled || 0,
-            attended: sched.attendances?.length || 0,
-            usageStatus: sched.status === 'COMPLETED' ? 'confirmed' : 'unconfirmed',
-            status: sched.status.toLowerCase(),
-            course_id: cls.course_id,
-            class_id: cls.id
-          });
-        });
+
+    (classes || []).forEach(cls => {
+      const clsAny = cls as any;
+      // Handle nested assignments (Admin view)
+      if (clsAny.assignments && Array.isArray(clsAny.assignments)) {
+                (clsAny.assignments || []).forEach((a: any) => {
+                    if (a.schedules) {
+                        (a.schedules || []).forEach((sched: any) => {
+                            const startDate = new Date(sched.start_time);
+                            const endDate = new Date(sched.end_time);
+                            allLessons.push({
+                                id: sched.id,
+                                date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+                                time: `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')} - ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`,
+                                className: cls.name,
+                                courseName: a.course?.name || '未知课程',
+                                teacherName: a.teacher?.name || '未知教师',
+                                teacher_id: a.teacher_id,
+                                classroom: sched.classroom || '未分配',
+                                expected: cls.enrolled || 0,
+                                attended: sched.attendances?.length || 0,
+                                usageStatus: sched.status === 'COMPLETED' ? 'confirmed' : 'unconfirmed',
+                                status: (sched.status || 'draft').toLowerCase(),
+                                course_id: a.course_id,
+                                class_id: cls.id,
+                                assignment_id: a.id
+                            });
+                        });
+                    }
+                });
+      }
+
+      // Handle flattened structure (Teacher view or legacy)
+      if (clsAny.schedules && !clsAny.assignments) {
+            (clsAny.schedules || []).forEach((sched: any) => {
+                const startDate = new Date(sched.start_time);
+                const endDate = new Date(sched.end_time);
+                allLessons.push({
+                    id: sched.id,
+                    date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+                    time: `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')} - ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`,
+                    className: cls.name,
+                    courseName: clsAny.course?.name || '未知课程',
+                    teacherName: clsAny.teacher?.name || '未知教师',
+                    teacher_id: clsAny.teacher_id,
+                    classroom: sched.classroom || '未分配',
+                    expected: cls.enrolled || 0,
+                    attended: sched.attendances?.length || 0,
+                    usageStatus: sched.status === 'COMPLETED' ? 'confirmed' : 'unconfirmed',
+                    status: (sched.status || 'draft').toLowerCase(),
+                    course_id: clsAny.course_id,
+                    class_id: cls.id,
+                    assignment_id: clsAny.assignment_id
+                });
+            });
       }
     });
 
-    if (isTeacher) {
-      const teacherProfile = (currentUser as any)?.teacherProfile;
-      return allLessons.filter(l => l.teacherName === teacherProfile?.name);
-    }
-    if (isStudent && currentUser?.bindStudentId) {
-      // Filter by student's enrolled classes
-      const studentEnrollments = classes.filter(cls =>
-        cls.students?.some((s: any) => s.student_id === currentUser.bindStudentId)
-      ).map(cls => cls.name);
-      return allLessons.filter(l => studentEnrollments.includes(l.className));
+    let result = allLessons.filter(l => {
+      const lessonDate = new Date(l.date);
+      // Normalize to day start to avoid timezone/time issues
+      const normalizedLessonDate = new Date(lessonDate.getFullYear(), lessonDate.getMonth(), lessonDate.getDate());
+      const normalizedStart = new Date(weekRange.start.getFullYear(), weekRange.start.getMonth(), weekRange.start.getDate());
+      const normalizedEnd = new Date(weekRange.end.getFullYear(), weekRange.end.getMonth(), weekRange.end.getDate());
+      
+      return normalizedLessonDate >= normalizedStart && normalizedLessonDate <= normalizedEnd;
+    });
+
+    if (selectedClassId !== 'all') {
+      result = result.filter(l => l.class_id === selectedClassId);
     }
 
-    return allLessons;
-  }, [classes, currentUser, isTeacher, isStudent]);
+    if (selectedCourseName !== 'all') {
+      result = result.filter(l => l.courseName === selectedCourseName);
+    }
+
+    if (selectedTeacherName !== 'all') {
+      result = result.filter(l => l.teacherName === selectedTeacherName);
+    }
+
+    if (selectedStatus !== 'all') {
+      result = result.filter(l => l.status === selectedStatus);
+    }
+
+    if (isTeacher) {
+      const myId = currentUser?.teacherId;
+      result = result.filter(l => (l as any).teacher_id === myId || l.teacherName === (currentUser?.name || currentUser?.username));
+    }
+
+    return result;
+  }, [classes, currentUser, isTeacher, isStudent, weekRange, selectedClassId, selectedCourseName, selectedTeacherName, selectedStatus]);
 
   const getStatusConfig = (status: ScheduleStatus) => {
     switch (status) {
-      case 'pending': return { label: '未开始', style: 'bg-amber-50 text-amber-600 border-amber-100', dot: 'bg-amber-500' };
-      case 'ongoing': return { label: '进行中', style: 'bg-blue-50 text-blue-600 border-blue-100', dot: 'bg-blue-500' };
+      case 'draft': return { label: '草稿 (待发布)', style: 'bg-slate-100 text-slate-500 border-slate-200', dot: 'bg-slate-300' };
+      case 'published': return { label: '已发布', style: 'bg-blue-50 text-blue-600 border-blue-100', dot: 'bg-blue-500' };
       case 'completed': return { label: '已完成', style: 'bg-emerald-50 text-emerald-600 border-emerald-100', dot: 'bg-emerald-500' };
-      case 'canceled': return { label: '已取消', style: 'bg-slate-50 text-slate-400 border-slate-200', dot: 'bg-slate-400' };
+      case 'canceled': return { label: '已取消', style: 'bg-red-50 text-red-400 border-red-100', dot: 'bg-red-400' };
+      case 'scheduled': 
+      default: 
+        return { label: '已排课', style: 'bg-blue-50 text-blue-600 border-blue-100', dot: 'bg-blue-500' };
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+    <div className="space-y-6 animate-in duration-500 pb-20 relative">
       {/* Top Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <nav className="flex items-center gap-2 text-sm text-slate-400">
             <span className="hover:text-blue-600 transition-colors cursor-pointer">教学管理</span>
-            <ChevronRight size={14} />
+            <ElmIcon name="arrow-right" size={16} />
             <span className="text-slate-600 font-medium">课表</span>
           </nav>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{isTeacher || isStudent ? '我的课表' : '课表管理'}</h1>
@@ -121,13 +235,39 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
         {!isStudent && (
           <div className="flex items-center gap-3">
             <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-              <Download size={18} /> 导出
+              <ElmIcon name="download" size={18} /> 导出
             </button>
-            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-50 transition-all shadow-sm active:scale-95">
-              <Plus size={18} /> 新增课次
+            <button
+              onClick={() => {
+                if (selectedAssignmentId === 'all') {
+                  addToast('请在下方筛选器中选择具体教学任务以生成课表', 'warning');
+                  return;
+                }
+                setIsGenModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
+            >
+              <ElmIcon name="calendar" size={18} /> 生成课表草稿
             </button>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95">
-              <Calendar size={18} /> 生成课表
+            <button
+              onClick={async () => {
+                const draftIds = displayLessons.filter(l => l.status === 'draft').map(l => l.id);
+                if (draftIds.length === 0) {
+                  addToast('当前没有待发布的草稿课次', 'info');
+                  return;
+                }
+                try {
+                  await publishSchedules(draftIds);
+                } catch (e: any) {
+                  if (e.response?.data?.conflicts) {
+                    setConflictData(e.response.data.conflicts);
+                    setIsConflictModalOpen(true);
+                  }
+                }
+              }}
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95"
+            >
+              <ElmIcon name="finished" size={18} /> 发布已选课表
             </button>
           </div>
         )}
@@ -137,59 +277,95 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
       <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-6">
         {!isStudent && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            {!isCampusAdmin && (
+            {!isCampusAdmin && !isTeacher && (
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">校区</label>
                 <div className="relative">
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer">
+                  <select 
+                    value={selectedCampusId}
+                    onChange={e => setSelectedCampusId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
+                  >
                     <option value="all">全量校区</option>
-                    <option value="1">总部旗舰校</option>
+                    {(campuses || []).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
                   </select>
-                  <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <ElmIcon name="arrow-down" size={16} />
                 </div>
               </div>
             )}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">班级</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">教学任务</label>
               <div className="relative">
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer">
-                  <option value="all">所有班级</option>
-                  <option value="1">UI精英1班</option>
+                <select
+                  value={selectedAssignmentId}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSelectedAssignmentId(val);
+                    // Also update selectedClassId for filtering
+                    const assignment = allAssignments.find(a => a.id === val);
+                    setSelectedClassId(assignment?.class_id || 'all');
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
+                >
+                  <option value="all">所有教学任务</option>
+                  {allAssignments.map(a => (
+                    <option key={a.id} value={a.id}>{a.className} - {a.courseName}</option>
+                  ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <ElmIcon name="arrow-down" size={16} />
               </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">课程</label>
               <div className="relative">
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer">
+                <select 
+                  value={selectedCourseName}
+                  onChange={e => setSelectedCourseName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
+                >
                   <option value="all">所有课程</option>
+                  {(courses || []).map(course => (
+                    <option key={course.id} value={course.name}>{course.name}</option>
+                  ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <ElmIcon name="arrow-down" size={16} />
               </div>
             </div>
             {!isTeacher && (
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">教师</label>
                 <div className="relative">
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer">
+                  <select 
+                    value={selectedTeacherName}
+                    onChange={e => setSelectedTeacherName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
+                  >
                     <option value="all">所有教师</option>
-                    <option value="李老师">李老师</option>
+                    {(teachers || []).map(t => (
+                      <option key={t.id} value={t.name}>{t.name}</option>
+                    ))}
                   </select>
-                  <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <ElmIcon name="arrow-down" size={16} />
                 </div>
               </div>
             )}
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">状态</label>
               <div className="relative">
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer">
+                <select 
+                  value={selectedStatus}
+                  onChange={e => setSelectedStatus(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
+                >
                   <option value="all">所有状态</option>
-                  <option value="pending">未开始</option>
-                  <option value="ongoing">进行中</option>
+                  <option value="draft">草稿</option>
+                  <option value="published">已发布</option>
                   <option value="completed">已完成</option>
+                  <option value="canceled">已取消</option>
                 </select>
-                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <ElmIcon name="arrow-down" size={16} />
               </div>
             </div>
             <div className="space-y-1.5 flex flex-col justify-end">
@@ -198,13 +374,13 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                   onClick={() => setViewMode('calendar')}
                   className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'calendar' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                  <Calendar size={14} /> 周视图
+                  <ElmIcon name="calendar" size={16} /> 周视图
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
                   className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                  <List size={14} /> 列表
+                  <ElmIcon name="list" size={16} /> 列表
                 </button>
               </div>
             </div>
@@ -216,18 +392,37 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">排课区间:</span>
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                  <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ChevronLeft size={16} /></button>
-                  <span className="px-4 py-1.5 bg-slate-50 rounded-xl border border-slate-100">2024年 5月20日 - 5月26日</span>
-                  <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ChevronRight size={16} /></button>
+                  <button onClick={handlePrevWeek} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ElmIcon name="arrow-left" size={16} /></button>
+                  <div className="relative group">
+                    <span
+                      onClick={() => dateInputRef.current?.showPicker()}
+                      className="px-4 py-1.5 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-blue-50 transition-colors block"
+                    >
+                      {weekRange.formatted}
+                    </span>
+                    <input
+                      ref={dateInputRef}
+                      type="date"
+                      className="absolute inset-0 opacity-0 pointer-events-none"
+                      onChange={(e) => e.target.value && setAnchorDate(new Date(e.target.value))}
+                    />
+                  </div>
+                  <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ElmIcon name="arrow-right" size={16} /></button>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-6 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all active:scale-95">
-                <RotateCcw size={16} /> 重置
+              <button 
+                onClick={handleReset}
+                className="flex items-center gap-2 px-6 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all active:scale-95"
+              >
+                <ElmIcon name="refresh" size={16} /> 重置
               </button>
-              <button className="flex items-center gap-2 px-10 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
-                <Search size={16} /> 查询
+              <button 
+                onClick={handleSearch}
+                className="flex items-center gap-2 px-10 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95"
+              >
+                <ElmIcon name="search" size={16} /> 查询
               </button>
             </div>
           </div>
@@ -235,14 +430,21 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
         {isStudent && (
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">当前周次:</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">排课区间:</span>
               <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ChevronLeft size={16} /></button>
-                <span className="px-4 py-1.5 bg-slate-50 rounded-xl border border-slate-100 font-mono tracking-tight">2024.05.20 - 2024.05.26</span>
-                <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ChevronRight size={16} /></button>
+                <button onClick={handlePrevWeek} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ElmIcon name="arrow-left" size={16} /></button>
+                <div className="relative">
+                  <span
+                    onClick={() => dateInputRef.current?.showPicker()}
+                    className="px-4 py-1.5 bg-slate-50 rounded-xl border border-slate-100 font-mono tracking-tight cursor-pointer hover:bg-blue-50"
+                  >
+                    {weekRange.formatted}
+                  </span>
+                </div>
+                <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ElmIcon name="arrow-right" size={16} /></button>
               </div>
             </div>
-            <p className="text-xs font-bold text-slate-400">共有 <span className="text-blue-600">3</span> 节待上课程</p>
+            <p className="text-xs font-bold text-slate-400">共有 <span className="text-blue-600">{displayLessons.length}</span> 节待上课程</p>
           </div>
         )}
       </div>
@@ -254,13 +456,22 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
             {/* Calendar Header Row (Weekdays) */}
             <div className="grid grid-cols-[80px_repeat(7,1fr)] bg-slate-50/50 border-b border-slate-100">
               <div className="h-14 border-r border-slate-100 flex items-center justify-center">
-                <Settings2 size={16} className="text-slate-300" />
+                <ElmIcon name="operation" size={16} />
               </div>
-              {['周一 (5.20)', '周二 (5.21)', '周三 (5.22)', '周四 (5.23)', '周五 (5.24)', '周六 (5.25)', '周日 (5.26)'].map((day, i) => (
-                <div key={i} className={`h-14 border-r border-slate-100 flex flex-col items-center justify-center ${i === 0 ? 'bg-blue-50/30' : ''}`}>
-                  <span className={`text-[11px] font-bold ${i === 0 ? 'text-blue-600' : 'text-slate-400'} uppercase tracking-widest`}>{day}</span>
-                </div>
-              ))}
+              {['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((day, i) => {
+                const d = new Date(weekRange.start);
+                d.setDate(d.getDate() + i);
+                const dateStr = `${d.getMonth() + 1}.${d.getDate()}`;
+                const isToday = new Date().toDateString() === d.toDateString();
+
+                return (
+                  <div key={i} className={`h-14 border-r border-slate-100 flex flex-col items-center justify-center ${isToday ? 'bg-blue-50/30' : ''}`}>
+                    <span className={`text-[11px] font-bold ${isToday ? 'text-blue-600' : 'text-slate-400'} uppercase tracking-widest`}>
+                      {day} ({dateStr})
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Calendar Grid Body */}
@@ -308,7 +519,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                         </div>
                         <div className="flex items-center justify-between mt-auto opacity-0 group-hover:opacity-100 transition-opacity">
                           <span className="text-[9px] font-bold tracking-tighter">详情</span>
-                          <ArrowUpRight size={12} />
+                          <ElmIcon name="top-right" size={16} />
                         </div>
                       </div>
                     );
@@ -353,7 +564,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                         <div className="space-y-0.5">
                           <p className="text-sm font-bold text-slate-900 leading-tight">{lesson.className}</p>
                           <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                            <BookOpen size={12} className="opacity-40" />
+                            <ElmIcon name="reading" size={16} />
                             {lesson.courseName}
                           </div>
                         </div>
@@ -361,11 +572,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                       <td className="px-8 py-6">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                            <UserIcon size={14} className="text-slate-300" />
+                            <ElmIcon name="user" size={16} />
                             {lesson.teacherName}
                           </div>
                           <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                            <DoorOpen size={12} className="text-slate-300" />
+                            <ElmIcon name="house" size={16} />
                             {lesson.classroom}
                           </div>
                         </div>
@@ -383,11 +594,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                       <td className="px-8 py-6">
                         {lesson.usageStatus === 'confirmed' ? (
                           <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold">
-                            <CheckCircle2 size={14} /> 已确认消课
+                            <ElmIcon name="circle-check" size={16} /> 已确认消课
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 text-xs text-slate-300 font-bold">
-                            <Clock size={14} /> 待消课确认
+                            <ElmIcon name="clock" size={16} /> 待消课确认
                           </div>
                         )}
                       </td>
@@ -405,11 +616,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                                 onClick={() => confirmConsumption(lesson.id)}
                                 className="flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 transition-all active:scale-95"
                               >
-                                <TrendingDown size={14} /> 确认消课
+                                <ElmIcon name="data-analysis" size={16} /> 确认消课
                               </button>
                             ) : (
                               <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
-                                <ShieldCheck size={14} /> 已完成消课
+                                <ElmIcon name="finished" size={16} /> 已完成消课
                               </div>
                             )
                           ) : (
@@ -420,10 +631,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                               }}
                               className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 transition-all active:scale-95"
                             >
-                              <CheckCircle2 size={14} /> 录入考勤
+                              <ElmIcon name="circle-check" size={16} /> 录入考勤
                             </button>
                           )}
-                          <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreHorizontal size={16} /></button>
+                          <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><ElmIcon name="more-filled" size={16} /></button>
                         </div>
                       </td>
                       {isStudent && (
@@ -432,7 +643,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                             onClick={() => setSelectedLesson(lesson)}
                             className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
                           >
-                            <ChevronRight size={18} />
+                            <ElmIcon name="arrow-right" size={16} />
                           </button>
                         </div>
                       )}
@@ -448,17 +659,17 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                 <span>显示 1 - 10 / 共 156 课次</span>
                 <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
                   <button className="px-2 py-1 text-[10px] bg-slate-100 rounded">10 条/页</button>
-                  <ChevronDown size={12} />
+                  <ElmIcon name="arrow-down" size={16} />
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button disabled className="p-2 text-slate-300 cursor-not-allowed"><ChevronLeft size={20} /></button>
+                <button disabled className="p-2 text-slate-300 cursor-not-allowed"><ElmIcon name="arrow-left" size={16} /></button>
                 <div className="flex items-center gap-1 px-2">
                   <button className="w-9 h-9 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-100 transition-all">1</button>
                   <button className="w-9 h-9 bg-transparent text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all">2</button>
                   <button className="w-9 h-9 bg-transparent text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all">3</button>
                 </div>
-                <button className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><ChevronRight size={20} /></button>
+                <button className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><ElmIcon name="arrow-right" size={16} /></button>
               </div>
             </div>
           </div>
@@ -476,7 +687,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: {selectedLesson.id} · 系统流水档</p>
               </div>
               <button onClick={() => setSelectedLesson(null)} className="p-2.5 hover:bg-slate-200 text-slate-400 rounded-xl transition-all">
-                <X size={20} />
+                <ElmIcon name="close" size={16} />
               </button>
             </div>
 
@@ -484,7 +695,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
               {/* Basic Meta Card */}
               <section className="space-y-6">
                 <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em]">
-                  <AlertCircle size={14} /> 基础授课档案
+                  <ElmIcon name="warning" size={16} /> 基础授课档案
                 </div>
                 <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 grid grid-cols-2 gap-y-8 gap-x-6">
                   <div className="space-y-1">
@@ -494,7 +705,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                   <div className="space-y-1">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">授课教室</p>
                     <div className="flex items-center gap-2">
-                      <MapPin size={14} className="text-slate-300" />
+                      <ElmIcon name="location" size={16} />
                       <p className="text-sm font-bold text-slate-900">{selectedLesson.classroom}</p>
                     </div>
                   </div>
@@ -512,7 +723,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
               {/* Status Section */}
               <section className="space-y-6">
                 <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em]">
-                  <CheckCircle2 size={14} /> 考勤与消课状态
+                  <ElmIcon name="circle-check" size={16} /> 考勤与消课状态
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col gap-3">
@@ -552,25 +763,25 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                       }}
                       className="flex items-center justify-center gap-2 py-3.5 bg-white text-slate-900 rounded-2xl text-xs font-bold hover:bg-slate-100 transition-all shadow-lg active:scale-95"
                     >
-                      <CheckCircle2 size={16} /> 录入考勤
+                      <ElmIcon name="circle-check" size={16} /> 录入考勤
                     </button>
                     <button
                       onClick={() => confirmConsumption(selectedLesson.id)}
                       className="flex items-center justify-center gap-2 py-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-2xl text-xs font-bold transition-all border border-emerald-500/20 active:scale-95"
                     >
-                      <TrendingDown size={16} /> 消课确认
+                      <ElmIcon name="data-analysis" size={16} /> 消课确认
                     </button>
                     <button className="flex items-center justify-center gap-2 py-3.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-xs font-bold transition-all border border-white/10 active:scale-95">
-                      <Clock size={16} /> 调整时间
+                      <ElmIcon name="clock" size={16} /> 调整时间
                     </button>
                     <button className="flex items-center justify-center gap-2 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-2xl text-xs font-bold transition-all border border-red-500/20 active:scale-95">
-                      <X size={16} /> 取消课次
+                      <ElmIcon name="close" size={16} /> 取消课次
                     </button>
                   </div>
                 )}
                 {isStudent && (
                   <button className="w-full py-4 bg-emerald-500 text-white rounded-2xl text-sm font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
-                    <MessageCircle size={18} /> 向老师请假
+                    <ElmIcon name="chat-round" size={16} /> 向老师请假
                   </button>
                 )}
               </div>
@@ -579,20 +790,20 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
               <button className="w-full p-6 bg-slate-50 hover:bg-white border border-slate-100 hover:border-blue-100 rounded-3xl transition-all group flex items-center justify-between hover:shadow-lg">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                    <Users size={20} />
+                    <ElmIcon name="user" size={16} />
                   </div>
                   <div className="text-left">
                     <p className="text-sm font-bold text-slate-800">查看学员签到名单</p>
                     <p className="text-[10px] text-slate-400 font-medium">当前已报名人数 {selectedLesson.expected} 位</p>
                   </div>
                 </div>
-                <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                <ElmIcon name="arrow-right" size={16} />
               </button>
 
               {/* Internal Notes */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <FileText size={14} /> 内部授课备注
+                  <ElmIcon name="document" size={16} /> 内部授课备注
                 </div>
                 <div className="p-5 bg-white border border-slate-100 rounded-3xl min-h-[100px] text-sm text-slate-500 font-medium italic leading-relaxed">
                   "该班级学风较为活跃，本节课重点讲解 Figma 高级原型交互，需提醒学员带好个人笔记本电脑。"
@@ -625,6 +836,50 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
           }}
           lesson={attendanceLesson}
         />
+      )}
+
+      <ScheduleGenerationModal
+        isOpen={isGenModalOpen}
+        onClose={() => setIsGenModalOpen(false)}
+        assignmentId={selectedAssignmentId === 'all' ? undefined : selectedAssignmentId}
+        assignmentName={allAssignments.find(a => a.id === selectedAssignmentId)?.className + ' - ' + allAssignments.find(a => a.id === selectedAssignmentId)?.courseName}
+      />
+
+      {/* Conflict Modal */}
+      {isConflictModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsConflictModalOpen(false)} />
+          <div className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-red-50/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-500 text-white rounded-xl"><ElmIcon name="warning" size={16} /></div>
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">发现排课冲突</h2>
+              </div>
+              <button onClick={() => setIsConflictModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full"><ElmIcon name="close" size={16} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                部分课次发布失败，系统检测到以下资源冲突。请调整相关课次的时间、教师或教室后再试：
+              </p>
+              <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                {conflictData?.map((c: any, i: number) => (
+                  <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">{c.type === 'TEACHER' ? '教师时间冲突' : '教室占用冲突'}</span>
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">{c.lessonId}</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">{c.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-8 py-6 border-t border-slate-100 flex justify-end">
+              <button onClick={() => setIsConflictModalOpen(false)} className="px-10 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-black transition-all">
+                返回修改
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

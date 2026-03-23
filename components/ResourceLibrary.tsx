@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useRef } from 'react';
 import {
     FileText,
@@ -41,7 +42,7 @@ export const ResourceLibrary: React.FC = () => {
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'document': return <FileText size={20} className="text-blue-500" />;
+            case 'document': return <ElmIcon name="document" size={16} />;
             case 'video': return <Video size={20} className="text-purple-500" />;
             case 'image': return <ImageIcon size={20} className="text-emerald-500" />;
             default: return <FolderOpen size={20} className="text-amber-500" />;
@@ -55,11 +56,11 @@ export const ResourceLibrary: React.FC = () => {
                 <div className="space-y-1">
                     <nav className="flex items-center gap-2 text-sm text-slate-400 font-medium">
                         <span>教务管理</span>
-                        <ChevronRight size={14} />
+                        <ElmIcon name="arrow-right" size={16} />
                         <span className="text-slate-600">资源库</span>
                     </nav>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                        <BookOpen size={24} className="text-indigo-600" /> 教学资源管理
+                        <ElmIcon name="reading" size={16} /> 教学资源管理
                     </h1>
                 </div>
                 <div className="flex items-center gap-3">
@@ -74,7 +75,7 @@ export const ResourceLibrary: React.FC = () => {
                         onClick={handleUploadClick}
                         className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
                     >
-                        <Plus size={18} /> 上传新资源
+                        <ElmIcon name="plus" size={16} /> 上传新资源
                     </button>
                 </div>
             </div>
@@ -82,7 +83,7 @@ export const ResourceLibrary: React.FC = () => {
             {/* Search & Filter Bar */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4">
                 <div className="relative flex-1 group">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                    <ElmIcon name="search" size={16} />
                     <input
                         type="text"
                         placeholder="搜索资源名称、类别或关键词..."
@@ -93,7 +94,7 @@ export const ResourceLibrary: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                     <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all">
-                        <Filter size={18} /> 筛选
+                        <ElmIcon name="operation" size={16} /> 筛选
                     </button>
                     <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all font-mono">
                         分类: 全部
@@ -140,8 +141,8 @@ export const ResourceLibrary: React.FC = () => {
                                 </td>
                                 <td className="px-8 py-5 text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                        <button className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="下载"><Download size={18} /></button>
-                                        <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors"><MoreHorizontal size={18} /></button>
+                                        <button className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="下载"><ElmIcon name="download" size={16} /></button>
+                                        <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors"><ElmIcon name="more-filled" size={16} /></button>
                                     </div>
                                 </td>
                             </tr>

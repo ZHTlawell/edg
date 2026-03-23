@@ -1,3 +1,4 @@
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { X, CheckCircle2, UserCheck, UserX, Clock, Save, Info, Users, Search } from 'lucide-react';
 import { useStore } from '../store';
@@ -21,7 +22,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
     // Filter students belonging to this class
     const classStudents = useMemo(() => {
-        return students.filter(s => s.className === lesson.className);
+        return (students || []).filter(s => s.className === lesson.className);
     }, [students, lesson.className]);
 
     // Initial attendance state: everyone present by default
@@ -80,7 +81,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                 <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-100">
-                            <Users size={20} />
+                            <ElmIcon name="user" size={16} />
                         </div>
                         <div className="space-y-0.5">
                             <h2 className="text-xl font-bold text-slate-900 tracking-tight">课次考勤录入</h2>
@@ -90,14 +91,14 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-all">
-                        <X size={20} />
+                        <ElmIcon name="close" size={16} />
                     </button>
                 </div>
 
                 {/* Toolbar */}
                 <div className="px-8 py-4 border-b border-slate-50 flex items-center justify-between gap-4">
                     <div className="relative flex-1 max-w-xs group">
-                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                        <ElmIcon name="search" size={16} />
                         <input
                             type="text"
                             placeholder="搜索学员姓名..."
@@ -151,7 +152,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                                             onClick={() => updateStatus(student.id, 'leave')}
                                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${current.status === 'leave' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
                                         >
-                                            <Clock size={12} /> 请假
+                                            <ElmIcon name="clock" size={16} /> 请假
                                         </button>
                                         <button
                                             onClick={() => updateStatus(student.id, 'absent')}
@@ -167,7 +168,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                     {filteredStudents.length === 0 && (
                         <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3">
-                            <div className="p-4 bg-slate-50 rounded-full"><Users size={32} className="opacity-20" /></div>
+                            <div className="p-4 bg-slate-50 rounded-full"><ElmIcon name="user" size={16} /></div>
                             <p className="text-sm font-bold">该班级暂无符合搜索条件的学员</p>
                         </div>
                     )}

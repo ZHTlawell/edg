@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import {
     Search,
@@ -36,15 +37,15 @@ export const Payments: React.FC = () => {
 
     // Filter students
     const filteredStudents = useMemo(() => {
-        return students.filter(s => {
+        return (students || []).filter(s => {
             const matchesCampus = !selectedCampus || s.campus === selectedCampus || s.campus_id === selectedCampus;
             const matchesSearch = !searchTerm || s.name.includes(searchTerm) || s.phone.includes(searchTerm);
             return matchesCampus && matchesSearch;
         });
     }, [students, selectedCampus, searchTerm]);
 
-    const selectedStudent = useMemo(() => students.find(s => s.id === selectedStudentId), [students, selectedStudentId]);
-    const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
+    const selectedStudent = useMemo(() => (students || []).find(s => s.id === selectedStudentId), [students, selectedStudentId]);
+    const selectedCourse = useMemo(() => (courses || []).find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
 
     const handleEnroll = async () => {
         if (!selectedStudentId || !selectedCourseId) {
@@ -99,7 +100,7 @@ export const Payments: React.FC = () => {
                 <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 space-y-6">
                     <div className="space-y-4">
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <Building2 size={14} className="text-blue-500" /> 选择校区
+                            <ElmIcon name="house" size={16} /> 选择校区
                         </label>
                         <select
                             className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-700"
@@ -110,16 +111,16 @@ export const Payments: React.FC = () => {
                             }}
                         >
                             <option value="">全部校区</option>
-                            {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {(campuses || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
 
                     <div className="space-y-4">
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <Search size={14} className="text-blue-500" /> 查找学员
+                            <ElmIcon name="search" size={16} /> 查找学员
                         </label>
                         <div className="relative group">
-                            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                            <ElmIcon name="search" size={16} />
                             <input
                                 type="text"
                                 placeholder="输入姓名或手机号..."
@@ -144,7 +145,7 @@ export const Payments: React.FC = () => {
                                     <p className={`text-sm font-bold ${selectedStudentId === student.id ? 'text-white' : 'text-slate-800'}`}>{student.name}</p>
                                     <p className={`text-[10px] ${selectedStudentId === student.id ? 'text-blue-100' : 'text-slate-400'} font-medium`}>{student.phone}</p>
                                 </div>
-                                {selectedStudentId === student.id && <CheckCircle2 size={16} />}
+                                {selectedStudentId === student.id && <ElmIcon name="circle-check" size={16} />}
                             </button>
                         )) : (
                             <div className="py-10 text-center text-slate-300 text-xs italic">未找到匹配学员</div>
@@ -157,7 +158,7 @@ export const Payments: React.FC = () => {
                     {!selectedStudentId ? (
                         <div className="h-full bg-white rounded-[2.5rem] border border-dashed border-slate-200 flex flex-col items-center justify-center p-20 gap-4 text-center">
                             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
-                                <User size={32} />
+                                <ElmIcon name="user" size={16} />
                             </div>
                             <div className="space-y-1">
                                 <h3 className="text-lg font-bold text-slate-400">请选择需要办理报名的学员</h3>
@@ -192,10 +193,10 @@ export const Payments: React.FC = () => {
                             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-8">
                                 <div className="space-y-4">
                                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <BookOpen size={14} className="text-blue-500" /> 选择报考课程
+                                        <ElmIcon name="reading" size={16} /> 选择报考课程
                                     </label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {courses.filter(c => c.status === 'enabled').map(course => (
+                                        {(courses || []).filter(c => c.status === 'enabled').map(course => (
                                             <button
                                                 key={course.id}
                                                 onClick={() => setSelectedCourseId(course.id)}

@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useMemo } from 'react';
 import {
    Users,
@@ -25,12 +26,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
    const teacherName = currentUser?.role === 'teacher' ? '李建国老师' : '李老师';
 
    const myCourses = useMemo(() => {
-      return courses.filter(c => c.instructor === teacherName || c.instructor === '李老师');
+      return (courses || []).filter(c => c.instructor === teacherName || c.instructor === '李老师');
    }, [courses, teacherName]);
 
    const myStudentsCount = useMemo(() => {
       const myCourseIds = myCourses.map(c => c.id);
-      const studentIds = new Set(assetAccounts.filter(acc => myCourseIds.includes(acc.courseId)).map(acc => acc.studentId));
+      const studentIds = new Set((assetAccounts || []).filter(acc => myCourseIds.includes(acc.courseId)).map(acc => acc.studentId));
       return studentIds.size;
    }, [myCourses, assetAccounts]);
 
@@ -42,7 +43,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
          course: c.name,
          class: `${c.name}·春季精品班`,
          room: i === 0 ? 'A302室' : 'B101室',
-         students: assetAccounts.filter(acc => acc.courseId === c.id).length
+         students: (assetAccounts || []).filter(acc => acc.courseId === c.id).length
       }));
    }, [myCourses, assetAccounts]);
 
@@ -71,21 +72,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">本月授课课时</p>
                   <h3 className="text-3xl font-bold text-slate-900 font-mono tracking-tighter">84.0 <span className="text-sm">H</span></h3>
                </div>
-               <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform"><Clock size={28} /></div>
+               <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform"><ElmIcon name="clock" size={16} /></div>
             </div>
             <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
                <div className="space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">平均出勤率</p>
                   <h3 className="text-3xl font-bold text-emerald-600 font-mono tracking-tighter">98.5%</h3>
                </div>
-               <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform"><CheckCircle2 size={28} /></div>
+               <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform"><ElmIcon name="circle-check" size={16} /></div>
             </div>
             <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
                <div className="space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">负责班级学员</p>
                   <h3 className="text-3xl font-bold text-slate-900 font-mono tracking-tighter">{myStudentsCount} <span className="text-sm">人</span></h3>
                </div>
-               <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-110 transition-transform"><Users size={28} /></div>
+               <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-110 transition-transform"><ElmIcon name="user" size={16} /></div>
             </div>
          </div>
 
@@ -94,7 +95,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
             <div className="lg:col-span-2 space-y-6">
                <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-800 flex items-center gap-2 tracking-tight">
-                     <CalendarDays size={18} className="text-indigo-500" /> 今日实时排课报告
+                     <ElmIcon name="calendar" size={16} /> 今日实时排课报告
                   </h4>
                   <button
                      onClick={onViewSchedule}
@@ -113,9 +114,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
                            <div className="space-y-1">
                               <h5 className="font-bold text-slate-800 tracking-tight">{lesson.class}</h5>
                               <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
-                                 <span className="flex items-center gap-1"><MonitorPlay size={14} /> {lesson.course}</span>
-                                 <span className="flex items-center gap-1"><MapPin size={14} /> {lesson.room}</span>
-                                 <span className="flex items-center gap-1 text-slate-500 font-bold"><Users size={14} /> {lesson.students} 名学员</span>
+                                 <span className="flex items-center gap-1"><ElmIcon name="video-play" size={16} /> {lesson.course}</span>
+                                 <span className="flex items-center gap-1"><ElmIcon name="location" size={16} /> {lesson.room}</span>
+                                 <span className="flex items-center gap-1 text-slate-500 font-bold"><ElmIcon name="user" size={16} /> {lesson.students} 名学员</span>
                               </div>
                            </div>
                         </div>
@@ -128,7 +129,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
                      </div>
                   )) : (
                      <div className="py-20 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 flex flex-col items-center justify-center gap-4">
-                        <CalendarDays size={48} className="text-slate-200" />
+                        <ElmIcon name="calendar" size={16} />
                         <p className="text-sm font-bold text-slate-400">今日暂无分配的授课任务</p>
                      </div>
                   )}
@@ -138,12 +139,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
             {/* Reminders & Todo */}
             <div className="space-y-6">
                <h4 className="font-bold text-slate-800 flex items-center gap-2 tracking-tight">
-                  <AlertCircle size={18} className="text-amber-500" /> 教学运营观测
+                  <ElmIcon name="warning" size={16} /> 教学运营观测
                </h4>
                <div className="bg-white rounded-[2rem] border border-slate-200 p-8 space-y-6 shadow-sm">
                   <div className="flex gap-4">
                      <div className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center shrink-0 shadow-sm">
-                        <AlertCircle size={20} />
+                        <ElmIcon name="warning" size={16} />
                      </div>
                      <div className="space-y-1">
                         <p className="text-sm font-bold text-slate-800">课程异常提醒</p>
@@ -152,7 +153,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAtten
                   </div>
                   <div className="flex gap-4">
                      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 shadow-sm">
-                        <TrendingUp size={20} />
+                        <ElmIcon name="trend-charts" size={16} />
                      </div>
                      <div className="space-y-1">
                         <p className="text-sm font-bold text-slate-800">阶段测验统计</p>

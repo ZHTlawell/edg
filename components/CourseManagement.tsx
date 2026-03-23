@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Plus,
@@ -23,44 +24,61 @@ import { useStore } from '../store';
 import api from '../utils/api';
 
 export const CourseManagement: React.FC = () => {
-  const { courses, currentUser, setCourses, addToast, fetchCourses } = useStore();
+  const { courses, currentUser, fetchCourses, addToast, setCourses, campuses, fetchCampuses, deleteCourse } = useStore();
+
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const myCampus = currentUser?.campus || '总校区';
+
+  useEffect(() => {
+    fetchCampuses();
+    fetchCourses(isCampusAdmin ? currentUser?.campus_id : undefined);
+  }, [fetchCampuses, fetchCourses, isCampusAdmin, currentUser?.campus_id]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterLevel, setFilterLevel] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterCampus, setFilterCampus] = useState(isCampusAdmin ? myCampus : 'all');
+  const [filterCampus, setFilterCampus] = useState(isCampusAdmin ? (currentUser?.campus_id || 'all') : 'all');
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
-  useEffect(() => {
-    if (isCampusAdmin) {
-      setFilterCampus(myCampus);
-    }
-  }, [isCampusAdmin, myCampus]);
+  /* Removed useEffect that forced filterCampus, as backend already handles initial filtering */
 
   const filteredCourses = useMemo(() => {
-    return courses.filter(c => {
-      const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.code.includes(searchTerm);
+    console.log('[CourseManagement] Filtering courses. Total counts:', courses.length);
+    const result = (courses || []).filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || (c.code && c.code.includes(searchTerm));
       const matchesType = filterType === 'all' || c.category === filterType;
       const matchesLevel = filterLevel === 'all' || c.level === filterLevel;
       const matchesStatus = filterStatus === 'all' || c.status === filterStatus;
-      const matchesCampus = filterCampus === 'all' || c.campus === filterCampus;
+
+      const matchesCampus = filterCampus === 'all' ||
+        (c as any).campus_id === filterCampus ||
+        c.campus === filterCampus ||
+        c.campus === '总校区' || // 总部标准课程
+        !(c as any).campus_id;   // 没有明确校区ID的默认为标准课程
+
       return matchesSearch && matchesType && matchesLevel && matchesStatus && matchesCampus;
     });
+    console.log('[CourseManagement] Filtered count:', result.length);
+    return result;
   }, [searchTerm, filterType, filterLevel, filterStatus, filterCampus, courses]);
 
   const handleToggleStatus = (id: string) => {
-    setCourses(courses.map(c => {
+    setCourses((courses || []).map(c => {
       if (c.id === id) {
         return { ...c, status: c.status === 'enabled' ? 'disabled' : 'enabled' as CourseStatus };
       }
       return c;
     }));
+  };
+
+  const handleDeleteCourse = async (id: string, name: string) => {
+    if (window.confirm(`确认要删除课程《${name}》吗？此操作不可撤销。`)) {
+      await deleteCourse(id);
+    }
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,7 +102,7 @@ export const CourseManagement: React.FC = () => {
     setFilterType('all');
     setFilterLevel('all');
     setFilterStatus('all');
-    setFilterCampus(isCampusAdmin ? myCampus : 'all');
+    setFilterCampus(isCampusAdmin ? (currentUser?.campus_id || 'all') : 'all');
   };
 
   const handleSave = async (course: Course) => {
@@ -95,12 +113,13 @@ export const CourseManagement: React.FC = () => {
       await api.post('/api/academic/courses', {
         name: course.name,
         category: course.category,
-        price: parseFloat(course.price.replace(/[^\d.-]/g, '')),
+        price: parseFloat(course.price.toString().replace(/[^\d.-]/g, '')),
         total_lessons: course.totalLessons,
-        instructor_id: (course as any).instructor_id
+        instructor_id: (course as any).instructor_id,
+        standard_id: (course as any).standard_id
       });
       addToast('课程发布成功', 'success');
-      fetchCourses();
+      fetchCourses(isCampusAdmin ? currentUser?.campus_id : undefined);
     } catch (e: any) {
       addToast(e.message || '发布失败', 'error');
     }
@@ -112,7 +131,7 @@ export const CourseManagement: React.FC = () => {
       <nav className="flex items-center gap-2 text-sm text-slate-400">
         <Home size={16} className="text-slate-500" />
         <a href="#" className="hover:text-blue-600 transition-colors">首页</a>
-        <ChevronRight size={14} />
+        <ElmIcon name="arrow-right" size={16} />
         <span className="text-slate-600 font-medium">课程管理</span>
       </nav>
 
@@ -121,14 +140,14 @@ export const CourseManagement: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">课程管理</h1>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-            <Download size={18} />
+            <ElmIcon name="download" size={16} />
             导出数据
           </button>
           <button
             onClick={() => { setEditingCourse(null); setIsModalOpen(true); }}
             className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
           >
-            <Plus size={18} />
+            <ElmIcon name="plus" size={16} />
             新增课程
           </button>
         </div>
@@ -139,7 +158,7 @@ export const CourseManagement: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {/* Search Box */}
           <div className="xl:col-span-2 relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+            <ElmIcon name="search" size={16} />
             <input
               type="text"
               placeholder="搜索课程名称 / 课程编号..."
@@ -162,7 +181,7 @@ export const CourseManagement: React.FC = () => {
               <option value="数据">数据分析</option>
               <option value="艺术">艺术文化</option>
             </select>
-            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <ElmIcon name="arrow-down" size={16} />
           </div>
 
           {/* Level Select */}
@@ -177,7 +196,7 @@ export const CourseManagement: React.FC = () => {
               <option value="中级">中级课程</option>
               <option value="高级">高级研修</option>
             </select>
-            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <ElmIcon name="arrow-down" size={16} />
           </div>
 
           {/* Campus Select - Hidden for campus_admin */}
@@ -189,11 +208,11 @@ export const CourseManagement: React.FC = () => {
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none appearance-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-medium text-slate-600 cursor-pointer shadow-sm"
               >
                 <option value="all">全量适用校区</option>
-                <option value="总校区">总部旗舰校</option>
-                <option value="浦东校区">浦东分校</option>
-                <option value="静安校区">静安分校</option>
+                {(campuses || []).map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
               </select>
-              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <ElmIcon name="arrow-down" size={16} />
             </div>
           )}
         </div>
@@ -224,7 +243,7 @@ export const CourseManagement: React.FC = () => {
               onClick={resetFilters}
               className="flex items-center gap-2 px-6 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
             >
-              <RotateCcw size={16} />
+              <ElmIcon name="refresh" size={16} />
               重置
             </button>
             <button className="flex items-center gap-2 px-8 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
@@ -250,7 +269,7 @@ export const CourseManagement: React.FC = () => {
             )}
           </div>
           <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-            <Filter size={18} />
+            <ElmIcon name="operation" size={16} />
           </button>
         </div>
 
@@ -313,13 +332,13 @@ export const CourseManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-5 text-sm text-slate-500 font-medium">
-                      {course.campus}
+                      {(campuses || []).find(cp => cp.id === (course as any).campus_id)?.name || course.campus || '全量适用'}
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-2">
                         {course.status === 'enabled' ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            <CheckCircle2 size={12} /> 启用中
+                            <ElmIcon name="circle-check" size={16} /> 启用中
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-slate-50 text-slate-400 border border-slate-100">
@@ -333,13 +352,7 @@ export const CourseManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => { /* In a real app, navigate to ClassManagement with course pre-selected */ window.alert(`即将为课程《${course.name}》创建新班级`); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold hover:bg-blue-600 hover:text-white transition-all mr-2"
-                        >
-                          <Plus size={12} />
-                          快速开班
-                        </button>
+
                         <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="查看详情">
                           <Eye size={18} />
                         </button>
@@ -355,10 +368,17 @@ export const CourseManagement: React.FC = () => {
                           className={`p-2 transition-all rounded-lg ${course.status === 'enabled' ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
                           title={course.status === 'enabled' ? '停用' : '启用'}
                         >
-                          <RotateCcw size={18} />
+                          <ElmIcon name="refresh" size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCourse(course.id, course.name)}
+                          className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="删除课程"
+                        >
+                          <Trash2 size={18} />
                         </button>
                         <button className="p-2 text-slate-300 hover:text-slate-900 transition-all">
-                          <MoreHorizontal size={18} />
+                          <ElmIcon name="more-filled" size={16} />
                         </button>
                       </div>
                     </td>
@@ -369,7 +389,7 @@ export const CourseManagement: React.FC = () => {
                   <td colSpan={9} className="px-6 py-32 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-4">
                       <div className="p-6 bg-slate-50 rounded-full">
-                        <Users size={64} className="opacity-10 text-slate-900" />
+                        <ElmIcon name="user" size={16} />
                       </div>
                       <div className="space-y-1">
                         <p className="text-xl font-bold text-slate-700">未找到符合条件的课程档案</p>
@@ -389,7 +409,7 @@ export const CourseManagement: React.FC = () => {
             <span>显示 1 到 {filteredCourses.length} 条 / 共 {filteredCourses.length} 条数据</span>
             <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
               <button className="px-3 py-1 bg-slate-100 rounded-md text-slate-800">10 条/页</button>
-              <ChevronDown size={14} className="mx-2" />
+              <ElmIcon name="arrow-down" size={16} />
             </div>
           </div>
           <div className="flex items-center gap-2">

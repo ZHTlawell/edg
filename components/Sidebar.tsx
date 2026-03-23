@@ -1,28 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import {
-  LayoutDashboard,
-  Users,
-  BookOpen,
-  Layers,
-  CreditCard,
-  GraduationCap,
-  BarChart3,
-  Settings,
-  ChevronDown,
-  ChevronRight,
-  School,
-  MonitorPlay,
-  CalendarDays,
-  ClipboardCheck,
-  FileBadge,
-  ShieldCheck,
-  Wallet,
-  MessageSquareText,
-  Clock,
-  Briefcase,
-  ShoppingBag
-} from 'lucide-react';
+import { ElmIcon } from './ElmIcon';
+import { School } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -51,97 +30,100 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
 
   // Explicitly typed as MenuItem[] to resolve property 'children' access issues
   const adminMenu: MenuItem[] = [
-    { id: 'dashboard', label: '工作台概览', icon: <LayoutDashboard size={20} /> },
+    { id: 'dashboard', label: '工作台概览', icon: <ElmIcon name="odometer" size={20} /> },
     {
-      id: 'campus-group', label: '校区组织', icon: <School size={20} />, children: [
+      id: 'campus-group', label: '校区组织', icon: <ElmIcon name="school" size={20} />, children: [
         { id: 'campus-list', label: '校区管理' }
       ]
     },
     {
-      id: 'student-group', label: '学员管理', icon: <Users size={20} />, children: [
+      id: 'student-group', label: '学员管理', icon: <ElmIcon name="user" size={20} />, children: [
         { id: 'students', label: '学员档案' },
         { id: 'attendance-module', label: '考勤中心' }
       ]
     },
     {
-      id: 'course-group', label: '教研产品', icon: <BookOpen size={20} />, children: [
+      id: 'course-group', label: '教研产品', icon: <ElmIcon name="reading" size={20} />, children: [
         { id: 'courses', label: '课程库' },
         { id: 'classes', label: '班级管理' }
       ]
     },
     {
-      id: 'finance-group', label: '财务中心', icon: <CreditCard size={20} />, children: [
+      id: 'finance-group', label: '财务中心', icon: <ElmIcon name="credit-card" size={20} />, children: [
         { id: 'payments', label: '报名缴费' },
         { id: 'refund-management', label: '退费管理' }
       ]
     },
-    { id: 'teaching', label: '教学调度', icon: <GraduationCap size={20} /> },
+    { id: 'teaching', label: '教学调度', icon: <ElmIcon name="reading-lamp" size={20} /> },
     {
-      id: 'stats-group', label: '统计报表', icon: <BarChart3 size={20} />, children: [
+      id: 'stats-group', label: '统计报表', icon: <ElmIcon name="histogram" size={20} />, children: [
         { id: 'stats', label: '统计看板' },
         { id: 'report-details', label: '报表明细' }
       ]
     },
     {
-      id: 'system-group', label: '系统设置', icon: <Settings size={20} />, children: [
+      id: 'system-group', label: '系统设置', icon: <ElmIcon name="setting" size={20} />, children: [
         { id: 'roles', label: '权限配置' },
-        { id: 'logs', label: '审计日志' }
+        { id: 'logs', label: '审计日志' },
+        { id: 'announcemnt-mgmt', label: '公告管理' }
       ]
-    }
+    },
+    { id: 'course-standard', label: '课程中心', icon: <ElmIcon name="collection" size={20} /> },
   ];
 
   const campusMenu: MenuItem[] = [
-    { id: 'dashboard', label: '工作台首页', icon: <LayoutDashboard size={20} /> },
     {
-      id: 'campus-group', label: '教务组织', icon: <School size={20} />, children: [
-        { id: 'teacher-approval', label: '教师审核' }
+      id: 'campus-group', label: '教务组织', icon: <ElmIcon name="school" size={20} />, children: [
+        { id: 'teacher-registration', label: '教师档案' },
+        { id: 'teacher-approval', label: '教师注册审核' }
       ]
     },
     {
-      id: 'student-group', label: '学员管理', icon: <Users size={20} />, children: [
+      id: 'student-group', label: '学员管理', icon: <ElmIcon name="user" size={20} />, children: [
         { id: 'students', label: '学员档案' }
       ]
     },
     {
-      id: 'course-group', label: '课程与班级管理', icon: <BookOpen size={20} />, children: [
+      id: 'course-group', label: '课程与班级管理', icon: <ElmIcon name="reading" size={20} />, children: [
         { id: 'courses', label: '课程库' },
         { id: 'classes', label: '班级管理' }
       ]
     },
-    { id: 'teaching', label: '教务排课', icon: <CalendarDays size={20} /> },
-    { id: 'attendance-module', label: '考勤', icon: <ClipboardCheck size={20} /> },
+    { id: 'teaching', label: '教务排课', icon: <ElmIcon name="calendar" size={20} /> },
+    { id: 'attendance-module', label: '考勤', icon: <ElmIcon name="finished" size={20} /> },
     {
-      id: 'admission-group', label: '招生缴费', icon: <CreditCard size={20} />, children: [
+      id: 'admission-group', label: '招生缴费', icon: <ElmIcon name="credit-card" size={20} />, children: [
         { id: 'payments', label: '报名缴费' },
         { id: 'refund-management', label: '退费管理' }
       ]
     },
     {
-      id: 'stats-group', label: '统计报表', icon: <BarChart3 size={20} />, children: [
+      id: 'stats-group', label: '统计报表', icon: <ElmIcon name="histogram" size={20} />, children: [
         { id: 'stats', label: '统计看板' },
         { id: 'report-details', label: '报表明细' },
         { id: 'finance-report', label: '财务报表' }
       ]
-    }
+    },
+    { id: 'announcement-view', label: '系统公告', icon: <ElmIcon name="notification" size={20} /> }
   ];
 
   const teacherMenu: MenuItem[] = [
-    { id: 'teaching', label: '今日教学', icon: <LayoutDashboard size={20} /> },
-    { id: 'schedule', label: '我的课表', icon: <CalendarDays size={20} /> },
-    { id: 'classes', label: '班级学员', icon: <Users size={20} /> },
-    { id: 'teacher-homework', label: '作业分发', icon: <ClipboardCheck size={20} /> },
-    { id: 'resources', label: '学习资源', icon: <BookOpen size={20} /> },
-    { id: 'my-stats', label: '教学统计', icon: <BarChart3 size={20} /> }
+    { id: 'teaching', label: '今日教学', icon: <ElmIcon name="odometer" size={20} /> },
+    { id: 'schedule', label: '我的课表', icon: <ElmIcon name="calendar" size={20} /> },
+    { id: 'classes', label: '班级学员', icon: <ElmIcon name="user" size={20} /> },
+    { id: 'teacher-homework', label: '作业分发', icon: <ElmIcon name="finished" size={20} /> },
+    { id: 'resources', label: '学习资源', icon: <ElmIcon name="reading" size={20} /> },
+    { id: 'my-stats', label: '教学统计', icon: <ElmIcon name="histogram" size={20} /> }
   ];
 
   const studentMenu: MenuItem[] = [
-    { id: 'student-dashboard', label: '学生首页', icon: <LayoutDashboard size={20} /> },
-    { id: 'student-schedule', label: '我的课表', icon: <CalendarDays size={20} /> },
-    { id: 'student-learning', label: '在线学习', icon: <MonitorPlay size={20} /> },
-    { id: 'student-homework', label: '我的作业', icon: <ClipboardCheck size={20} /> },
-    { id: 'student-market', label: '精品市场', icon: <ShoppingBag size={20} /> },
-    { id: 'student-orders', label: '订单与课时', icon: <Wallet size={20} /> },
-    { id: 'student-notifications', label: '通知中心', icon: <MessageSquareText size={20} /> }
+    { id: 'student-dashboard', label: '学生首页', icon: <ElmIcon name="odometer" size={20} /> },
+    { id: 'student-schedule', label: '我的课表', icon: <ElmIcon name="calendar" size={20} /> },
+    { id: 'student-learning', label: '在线学习', icon: <ElmIcon name="video-play" size={20} /> },
+    { id: 'student-homework', label: '我的作业', icon: <ElmIcon name="finished" size={20} /> },
+    { id: 'student-market', label: '精品市场', icon: <ElmIcon name="shopping-bag" size={20} /> },
+    { id: 'student-orders', label: '订单与课时', icon: <ElmIcon name="wallet" size={20} /> },
+    { id: 'student-notifications', label: '通知中心', icon: <ElmIcon name="comment" size={20} /> }
   ];
 
   const menuItems = useMemo(() => {
@@ -187,7 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
                 {isOpen && <span className="font-bold text-sm">{item.label}</span>}
               </div>
               {isOpen && item.children && (
-                openGroups.includes(item.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                openGroups.includes(item.id) ? <ElmIcon name="arrow-down" size={14} /> : <ElmIcon name="arrow-right" size={14} />
               )}
             </button>
 

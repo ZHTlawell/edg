@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
     Search,
@@ -67,7 +68,7 @@ export const RefundManagement: React.FC = () => {
 
     // Filter students by campus and search term
     const filteredStudents = useMemo(() => {
-        return students.filter(s => {
+        return (students || []).filter(s => {
             const matchesCampus = !selectedCampus || s.campus === selectedCampus || s.campus_id === selectedCampus;
             const matchesSearch = !searchTerm || s.name.includes(searchTerm) || s.phone.includes(searchTerm);
             return matchesCampus && matchesSearch;
@@ -75,22 +76,22 @@ export const RefundManagement: React.FC = () => {
     }, [students, selectedCampus, searchTerm]);
 
     const selectedStudent = useMemo(() => {
-        return students.find(s => s.id === selectedStudentId);
+        return (students || []).find(s => s.id === selectedStudentId);
     }, [students, selectedStudentId]);
 
     // Get asset accounts for the selected student
     const studentAssets = useMemo(() => {
         if (!selectedStudentId) return [];
-        return assetAccounts.filter(acc => acc.student_id === selectedStudentId && acc.remaining_qty > 0);
+        return (assetAccounts || []).filter(acc => acc.student_id === selectedStudentId && acc.remaining_qty > 0);
     }, [assetAccounts, selectedStudentId]);
 
     const selectedAccount = useMemo(() => {
-        return assetAccounts.find(acc => acc.id === selectedAccountId);
+        return (assetAccounts || []).find(acc => acc.id === selectedAccountId);
     }, [assetAccounts, selectedAccountId]);
 
     const selectedCourse = useMemo(() => {
         if (!selectedAccount) return null;
-        return courses.find(c => c.id === selectedAccount.course_id);
+        return (courses || []).find(c => c.id === selectedAccount.course_id);
     }, [courses, selectedAccount]);
 
     // Calculate Refund Amount
@@ -164,7 +165,7 @@ export const RefundManagement: React.FC = () => {
                 <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
                     <div className="px-10 py-6 border-b border-slate-50 flex items-center justify-between">
                         <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Clock size={18} className="text-amber-500" /> 退费审批队列
+                            <ElmIcon name="clock" size={16} /> 退费审批队列
                         </h4>
                         <button onClick={fetchPending} className="text-xs font-bold text-blue-600 hover:rotate-180 transition-transform duration-500">刷新列表</button>
                     </div>
@@ -209,7 +210,7 @@ export const RefundManagement: React.FC = () => {
                                                     onClick={() => handleApprove(refund.id, true)}
                                                     className="p-2 text-emerald-500 hover:text-emerald-700 transition-colors"
                                                 >
-                                                    <CheckCircle size={20} />
+                                                    <ElmIcon name="circle-check" size={16} />
                                                 </button>
                                             </div>
                                         </td>
@@ -230,7 +231,7 @@ export const RefundManagement: React.FC = () => {
                         <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 space-y-6">
                             <div className="space-y-4">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Building2 size={14} className="text-blue-500" /> 选择校区
+                                    <ElmIcon name="house" size={16} /> 选择校区
                                 </label>
                                 <select
                                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-700"
@@ -242,16 +243,16 @@ export const RefundManagement: React.FC = () => {
                                     }}
                                 >
                                     <option value="">全部校区</option>
-                                    {campuses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                    {(campuses || []).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                             </div>
 
                             <div className="space-y-4 pt-2">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Search size={14} className="text-blue-500" /> 查找学员
+                                    <ElmIcon name="search" size={16} /> 查找学员
                                 </label>
                                 <div className="relative group">
-                                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                    <ElmIcon name="search" size={16} />
                                     <input
                                         type="text"
                                         placeholder="输入姓名或手机号..."
@@ -279,7 +280,7 @@ export const RefundManagement: React.FC = () => {
                                             <p className={`text-sm font-bold ${selectedStudentId === student.id ? 'text-white' : 'text-slate-800'}`}>{student.name}</p>
                                             <p className={`text-[10px] ${selectedStudentId === student.id ? 'text-blue-100' : 'text-slate-400'} font-medium`}>{student.phone}</p>
                                         </div>
-                                        {selectedStudentId === student.id && <CheckCircle2 size={16} />}
+                                        {selectedStudentId === student.id && <ElmIcon name="circle-check" size={16} />}
                                     </button>
                                 )) : (
                                     <div className="py-10 text-center text-slate-300 text-xs italic">未找到匹配学员</div>
@@ -293,7 +294,7 @@ export const RefundManagement: React.FC = () => {
                         {!selectedStudentId ? (
                             <div className="h-full bg-white rounded-[2.5rem] border border-dashed border-slate-200 flex flex-col items-center justify-center p-20 gap-4 text-center">
                                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
-                                    <User size={32} />
+                                    <ElmIcon name="user" size={16} />
                                 </div>
                                 <div className="space-y-1">
                                     <h3 className="text-lg font-bold text-slate-400">请选择需要办理退费的学员</h3>
@@ -331,11 +332,11 @@ export const RefundManagement: React.FC = () => {
                                 <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-8">
                                     <div className="space-y-4">
                                         <h4 className="text-sm font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                                            <BookOpen size={18} className="text-blue-500" /> 选择退费课程资产
+                                            <ElmIcon name="reading" size={16} /> 选择退费课程资产
                                         </h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {studentAssets.length > 0 ? studentAssets.map(acc => {
-                                                const course = courses.find(c => c.id === acc.course_id);
+                                                const course = (courses || []).find(c => c.id === acc.course_id);
                                                 return (
                                                     <button
                                                         key={acc.id}
@@ -386,7 +387,7 @@ export const RefundManagement: React.FC = () => {
                                                 <div className="w-full md:w-64 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
-                                                            <RotateCcw size={10} /> 课程单价参考
+                                                            <ElmIcon name="refresh" size={16} /> 课程单价参考
                                                         </p>
                                                         <p className="text-lg font-mono font-bold text-slate-800 tracking-tight">¥{calculation.unitPrice.toFixed(2)} <span className="text-[10px] text-slate-400">/ H</span></p>
                                                     </div>
@@ -407,7 +408,7 @@ export const RefundManagement: React.FC = () => {
                                             >
                                                 {isSubmitting ? <Loader2 className="animate-spin" /> : (
                                                     <>
-                                                        <RotateCcw size={20} className="group-hover:-rotate-180 transition-transform duration-500" />
+                                                        <ElmIcon name="refresh" size={16} />
                                                         <span>生成并确认退费申请</span>
                                                         <ArrowRight size={20} />
                                                     </>

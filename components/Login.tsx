@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect } from 'react';
 import {
   School,
@@ -26,7 +27,6 @@ type UserRole = 'admin' | 'campus_admin' | 'teacher' | 'student';
 
 import { Registration } from './Registration';
 import { StudentRegistration } from './StudentRegistration';
-import { TeacherRegistration } from './TeacherRegistration';
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const { login, addToast } = useStore();
@@ -76,11 +76,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className={`w-full ${isRegistering === 'teacher' ? 'max-w-[900px]' : 'max-w-[480px]'} bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden relative p-10 md:p-12 transition-all duration-500`}>
           {isRegistering === 'student' ? (
             <StudentRegistration onBack={() => setIsRegistering(false)} />
-          ) : isRegistering === 'teacher' ? (
-            <TeacherRegistration onBack={() => setIsRegistering(false)} />
           ) : (
             <Registration
-              role={isRegistering as 'campus_admin'}
+              role={isRegistering as 'campus_admin' | 'teacher'}
               onBack={() => setIsRegistering(false)}
             />
           )}
@@ -122,7 +120,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           ring: 'focus:ring-blue-100',
           border: 'focus:border-blue-600',
           label: '总部管理员账号 / 工号',
-          icon: <LayoutDashboard size={20} />
+          icon: <ElmIcon name="odometer" size={16} />
         };
       case 'campus_admin':
         return {
@@ -148,7 +146,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           ring: 'focus:ring-indigo-100',
           border: 'focus:border-indigo-600',
           label: '教师编号 / 手机号',
-          icon: <Users size={20} />
+          icon: <ElmIcon name="user" size={16} />
         };
       case 'student':
         return {
@@ -196,9 +194,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   }`}
               >
                 <div className={`mb-2 transition-transform duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
-                  {role === 'admin' && <LayoutDashboard size={20} />}
+                  {role === 'admin' && <ElmIcon name="odometer" size={16} />}
                   {role === 'campus_admin' && <School size={20} />}
-                  {role === 'teacher' && <Users size={20} />}
+                  {role === 'teacher' && <ElmIcon name="user" size={16} />}
                   {role === 'student' && <GraduationCap size={20} />}
                 </div>
                 <span className="text-xs font-bold tracking-wider uppercase whitespace-nowrap">
@@ -241,7 +239,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">绑定账号 / 手机号</label>
                   <div className="relative group">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-slate-900 transition-colors pointer-events-none">
-                      <User size={18} />
+                      <ElmIcon name="user" size={16} />
                     </div>
                     <input
                       type="text"
@@ -314,7 +312,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   ) : (
                     <>
                       <span className="tracking-tight">确认重置</span>
-                      <CheckCircle2 size={18} className="group-hover:scale-110 transition-transform" />
+                      <ElmIcon name="circle-check" size={16} />
                     </>
                   )}
                 </button>
@@ -326,7 +324,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div className="mb-10 text-center sm:text-left space-y-2">
                 <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
                   {config.title}
-                  <CheckCircle2 size={24} className={isActiveRole('admin') ? 'text-blue-500' : isActiveRole('teacher') ? 'text-indigo-500' : 'text-emerald-500'} />
+                  <ElmIcon name="circle-check" size={16} />
                 </h2>
                 <p className="text-slate-400 text-sm font-medium">{config.desc}</p>
               </div>
@@ -337,7 +335,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{config.label}</label>
                     <div className="relative group">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-slate-900 transition-colors pointer-events-none">
-                        {activeRole === 'student' ? <Smartphone size={18} /> : <User size={18} />}
+                        {activeRole === 'student' ? <Smartphone size={18} /> : <ElmIcon name="user" size={16} />}
                       </div>
                       <input
                         type="text"

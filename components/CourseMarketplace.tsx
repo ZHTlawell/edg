@@ -1,4 +1,5 @@
 
+import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import {
@@ -30,7 +31,7 @@ export const CourseMarketplace: React.FC = () => {
 
     const studentName = useMemo(() => {
         if (!currentUser?.bindStudentId) return '未知学员';
-        return students.find(s => s.id === currentUser.bindStudentId)?.name || '学员';
+        return (students || []).find(s => s.id === currentUser.bindStudentId)?.name || '学员';
     }, [students, currentUser]);
 
     // Track purchased courses for current student
@@ -44,12 +45,12 @@ export const CourseMarketplace: React.FC = () => {
     }, [assetAccounts, currentUser]);
 
     const categories = useMemo(() => {
-        const cats = new Set(courses.map(c => c.category));
+        const cats = new Set((courses || []).map(c => c.category));
         return ['全部', ...Array.from(cats)];
     }, [courses]);
 
     const filteredCourses = useMemo(() => {
-        return courses.filter(c => {
+        return (courses || []).filter(c => {
             const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 c.code.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesCategory = selectedCategory === '全部' || c.category === selectedCategory;
@@ -165,7 +166,7 @@ export const CourseMarketplace: React.FC = () => {
                 </div>
 
                 <div className="relative w-full md:w-96 group">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                    <ElmIcon name="search" size={16} />
                     <input
                         type="text"
                         placeholder="搜索您感兴趣的课程名称..."
@@ -190,12 +191,12 @@ export const CourseMarketplace: React.FC = () => {
                             <div className="h-56 bg-slate-50 relative overflow-hidden flex items-center justify-center">
                                 <div className={`absolute inset-0 bg-gradient-to-br from-blue-600/5 to-indigo-600/5 ${!isPurchased && 'group-hover:bg-blue-600/10'} transition-all duration-700`}></div>
                                 <div className={`relative z-10 w-28 h-28 bg-white rounded-[2rem] shadow-2xl border border-slate-100 flex items-center justify-center text-slate-200 ${!isPurchased && 'group-hover:scale-110 group-hover:rotate-6'} transition-all duration-700`}>
-                                    {course.category === '设计' ? <BookOpen size={56} className={`text-blue-100 ${!isPurchased && 'group-hover:text-blue-500'} transition-colors`} /> : <Clock size={56} className={`text-indigo-100 ${!isPurchased && 'group-hover:text-indigo-500'} transition-colors`} />}
+                                    {course.category === '设计' ? <ElmIcon name="reading" size={16} /> : <ElmIcon name="clock" size={16} />}
                                 </div>
 
                                 {isPurchased ? (
                                     <div className="absolute top-6 left-6 px-4 py-1.5 bg-emerald-500 text-white rounded-full text-[10px] font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-200 border border-emerald-400/50">
-                                        <CheckCircle2 size={14} /> 已在学习中
+                                        <ElmIcon name="circle-check" size={16} /> 已在学习中
                                     </div>
                                 ) : (
                                     <div className="absolute top-6 left-6 px-4 py-1.5 bg-white/90 backdrop-blur rounded-full text-[10px] font-bold text-slate-900 flex items-center gap-1.5 shadow-xl border border-white/50">
@@ -233,10 +234,10 @@ export const CourseMarketplace: React.FC = () => {
 
                                 <div className="flex items-center gap-6 py-4 border-y border-slate-50/50">
                                     <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                                        <Clock size={16} className={isPurchased ? 'text-slate-300' : 'text-blue-500'} /> {course.totalLessons} 课时
+                                        <ElmIcon name="clock" size={16} /> {course.totalLessons} 课时
                                     </div>
                                     <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                                        <Users size={16} className={isPurchased ? 'text-slate-300' : 'text-indigo-500'} /> 1.2k 学员
+                                        <ElmIcon name="user" size={16} /> 1.2k 学员
                                     </div>
                                 </div>
 
@@ -250,7 +251,7 @@ export const CourseMarketplace: React.FC = () => {
 
                                     {isPurchased ? (
                                         <div className="flex items-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-600 rounded-3xl font-bold text-sm border border-emerald-100 shadow-inner">
-                                            <CheckCircle2 size={18} />
+                                            <ElmIcon name="circle-check" size={16} />
                                             <span>已购买</span>
                                         </div>
                                     ) : (
@@ -282,7 +283,7 @@ export const CourseMarketplace: React.FC = () => {
 
                 <div className="flex items-center gap-8 relative z-10">
                     <div className="w-20 h-20 bg-white/20 backdrop-blur-xl rounded-[2rem] flex items-center justify-center text-white shadow-xl border border-white/20">
-                        <CheckCircle2 size={40} />
+                        <ElmIcon name="circle-check" size={16} />
                     </div>
                     <div className="space-y-1">
                         <h4 className="text-2xl font-bold text-white tracking-tight">VIP 选课保障协议</h4>
