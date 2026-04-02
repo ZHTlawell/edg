@@ -15,7 +15,6 @@ import {
   MapPin,
   CreditCard,
   ChevronDown,
-  Info,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -49,13 +48,37 @@ export const ReportDetails: React.FC = () => {
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
+  const [filterOrderStatus, setFilterOrderStatus] = useState('all');
+  const [filterPayStatus, setFilterPayStatus] = useState('all');
+
+  // Dynamic date range: current month
+  const now = new Date();
+  const defaultDateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const defaultDateTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const [dateFrom, setDateFrom] = useState(defaultDateFrom);
+  const [dateTo, setDateTo] = useState(defaultDateTo);
 
   const displayData = useMemo(() => {
     const data = orders.filter(o => {
-      if (isCampusAdmin && o.campusId !== currentUser?.campus) return false;
+      if (isCampusAdmin && o.campusId !== currentUser?.campus_id) return false;
+      // Date filter
+      if (dateFrom && o.createdAt && o.createdAt.split('T')[0] < dateFrom) return false;
+      if (dateTo && o.createdAt && o.createdAt.split('T')[0] > dateTo) return false;
+      // Order status filter
+      if (filterOrderStatus !== 'all') {
+        if (filterOrderStatus === 'valid' && !['PAID', 'PARTIAL_REFUNDED'].includes(o.status)) return false;
+        if (filterOrderStatus === 'refunded' && o.status !== 'REFUNDED') return false;
+        if (filterOrderStatus === 'canceled' && !['CANCELLED', 'VOID'].includes(o.status)) return false;
+      }
+      // Payment status filter
+      if (filterPayStatus !== 'all') {
+        if (filterPayStatus === 'paid' && o.status !== 'PAID') return false;
+        if (filterPayStatus === 'unpaid' && o.status !== 'PENDING_PAYMENT') return false;
+      }
+      // Keyword filter
       if (keyword) {
-        const student = (students || []).find(s => s.id === o.studentId);
-        return student?.name.includes(keyword) || o.id.includes(keyword);
+        const student = (students || []).find(s => s.id === (o.studentId || o.student_id));
+        return student?.name.includes(keyword) || student?.phone?.includes(keyword) || o.id.includes(keyword);
       }
       return true;
     });
@@ -73,7 +96,7 @@ export const ReportDetails: React.FC = () => {
       payStatus: o.status === 'PAID' ? 'paid' : 'unpaid',
       createdAt: o.createdAt
     }));
-  }, [orders, students, courses, isCampusAdmin, currentUser?.campus, keyword]);
+  }, [orders, students, courses, isCampusAdmin, currentUser?.campus_id, keyword, filterOrderStatus, filterPayStatus, dateFrom, dateTo]);
 
   const stats = useMemo(() => {
     const total = displayData.reduce((acc, curr) => acc + curr.totalAmount, 0);
@@ -161,8 +184,8 @@ export const ReportDetails: React.FC = () => {
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">统计时间区间 <span className="text-red-500">*</span></label>
             <div className="relative group">
-              <ElmIcon name="calendar" size={16} />
-              <input type="text" defaultValue="2024-05-01 ~ 2024-05-31" className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all" />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="calendar" size={16} /></span>
+              <input type="text" value={`${dateFrom} ~ ${dateTo}`} readOnly className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all" />
             </div>
           </div>
 
@@ -170,42 +193,41 @@ export const ReportDetails: React.FC = () => {
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">筛选校区 <span className="text-red-500">*</span></label>
               <div className="relative">
-                <ElmIcon name="location" size={16} />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="location" size={16} /></span>
                 <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
                   <option value="all">全部校区</option>
                   {(campuses || []).map(c => (
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
                 </select>
-                <ElmIcon name="arrow-down" size={16} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="arrow-down" size={16} /></span>
               </div>
             </div>
           )}
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">订单状态</label>
-            <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
-              <option>全部状态</option>
-              <option>有效订单</option>
-              <option>已退款</option>
-              <option>已取消</option>
+            <select value={filterOrderStatus} onChange={e => setFilterOrderStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
+              <option value="all">全部状态</option>
+              <option value="valid">有效订单</option>
+              <option value="refunded">已退款</option>
+              <option value="canceled">已取消</option>
             </select>
           </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">支付状态</label>
-            <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
-              <option>全部状态</option>
-              <option>已收全款</option>
-              <option>部分支付</option>
-              <option>未支付</option>
+            <select value={filterPayStatus} onChange={e => setFilterPayStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
+              <option value="all">全部状态</option>
+              <option value="paid">已收全款</option>
+              <option value="unpaid">未支付</option>
             </select>
           </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">关键字检索</label>
             <div className="relative group">
-              <ElmIcon name="search" size={16} />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="search" size={16} /></span>
               <input
                 type="text"
                 placeholder="学员姓名/手机号/订单号"
@@ -218,7 +240,7 @@ export const ReportDetails: React.FC = () => {
         </div>
 
         <div className="pt-2 flex justify-end">
-          <button className="flex items-center gap-2 px-10 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
+          <button onClick={() => addToast(`已筛选 ${displayData.length} 条记录`, 'info')} className="flex items-center gap-2 px-10 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
             <ElmIcon name="search" size={16} /> 执行筛选
           </button>
         </div>
@@ -366,22 +388,6 @@ export const ReportDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Audit Hint Card */}
-      <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white flex items-center justify-between relative overflow-hidden group shadow-2xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-32 translate-x-32 group-hover:scale-150 transition-transform duration-1000"></div>
-        <div className="flex items-center gap-8 relative z-10">
-          <div className="w-16 h-16 bg-white/10 rounded-[1.5rem] flex items-center justify-center text-blue-400 backdrop-blur-md border border-white/10 shadow-inner">
-            <Info size={32} />
-          </div>
-          <div className="space-y-1">
-            <h4 className="text-xl font-bold tracking-tight">报表数据合规审计提示</h4>
-            <p className="text-sm opacity-60 font-medium">当前明细数据已通过财务系统 T+1 自动对账。如发现入账金额与流水不符，请立即联系校区财务专员发起审计申请。</p>
-          </div>
-        </div>
-        <button className="relative z-10 px-8 py-3.5 bg-white text-slate-900 rounded-2xl font-bold text-sm shadow-xl active:scale-95 transition-all hover:bg-blue-50">
-          查阅审计规范指引
-        </button>
-      </div>
 
       <style dangerouslySetInnerHTML={{
         __html: `

@@ -72,6 +72,91 @@ export class TeachingService {
     }
 
     // =====================================
+    // 学员作业查询
+    // =====================================
+    async getStudentHomeworks(studentId: string) {
+        // 1. Find classes the student is enrolled in
+        const enrollments = await this.prisma.eduStudentInClass.findMany({
+            where: { student_id: studentId },
+            select: { class_id: true },
+        });
+        const classIds = enrollments.map(e => e.class_id);
+        if (classIds.length === 0) return [];
+
+        // 2. Find class assignments for those classes
+        const assignments = await this.prisma.edClassAssignment.findMany({
+            where: { class_id: { in: classIds } },
+            select: { id: true },
+        });
+        const assignmentIds = assignments.map(a => a.id);
+        if (assignmentIds.length === 0) return [];
+
+        // 3. Find homeworks + student's submissions
+        return this.prisma.teachHomework.findMany({
+            where: { assignment_id: { in: assignmentIds } },
+            include: {
+                teacher: { select: { id: true, name: true } },
+                submissions: {
+                    where: { student_id: studentId },
+                    take: 1,
+                },
+                assignment: {
+                    include: { course: { select: { id: true, name: true } } },
+                },
+            },
+            orderBy: { deadline: 'desc' },
+        });
+    }
+
+    // =====================================
+    // 作业种子数据（开发用）
+    // =====================================
+    async seedHomeworks() {
+        // Find an assignment + teacher to attach homeworks to
+        const assignment = await this.prisma.edClassAssignment.findFirst({
+            include: { course: true, teacher: true },
+        });
+        if (!assignment) throw new NotFoundException('没有班级课程分配记录，请先购买课程以触发自动分班');
+
+        const existing = await this.prisma.teachHomework.count({
+            where: { assignment_id: assignment.id },
+        });
+        if (existing >= 3) return { message: '作业数据已存在', count: existing };
+
+        const now = new Date();
+        const homeworks = [
+            {
+                title: '第一阶段：核心组件实战',
+                content: '请完成一个带有状态流转的订单卡片组件，要求使用 TailwindCSS 实现响应式布局。提交代码截图或在线链接。',
+                deadline: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), // +7 days
+                assignment_id: assignment.id,
+                teacher_id: assignment.teacher_id,
+            },
+            {
+                title: '第二阶段：数据可视化图表',
+                content: '使用 ECharts 或 Recharts 实现一个包含柱状图和折线图的数据仪表盘页面，数据源可自拟。',
+                deadline: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000), // +14 days
+                assignment_id: assignment.id,
+                teacher_id: assignment.teacher_id,
+            },
+            {
+                title: '第三阶段：全栈 CRUD 模块',
+                content: '实现一个完整的学员管理模块，包含列表查询、新增、编辑、删除功能。前端使用 React，后端使用 NestJS + Prisma。',
+                deadline: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000), // +21 days
+                assignment_id: assignment.id,
+                teacher_id: assignment.teacher_id,
+            },
+        ];
+
+        const created = [];
+        for (const hw of homeworks) {
+            const record = await this.prisma.teachHomework.create({ data: hw });
+            created.push(record);
+        }
+        return { message: `已创建 ${created.length} 条作业`, homeworks: created };
+    }
+
+    // =====================================
     // 考勤数据查询
     // =====================================
     async getAttendanceRecords(campusId?: string) {

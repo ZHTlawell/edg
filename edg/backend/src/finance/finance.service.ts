@@ -13,6 +13,18 @@ export class FinanceService {
         const course = await this.prisma.edCourse.findUnique({ where: { id: data.courseId } });
         if (!course) throw new NotFoundException('找不到该课程');
 
+        // Prevent duplicate orders for same student + course
+        const existingOrder = await this.prisma.finOrder.findFirst({
+            where: {
+                student_id: data.studentId,
+                course_id: data.courseId,
+                status: { in: ['PENDING_PAYMENT', 'PAID'] },
+            },
+        });
+        if (existingOrder) {
+            throw new BadRequestException('该课程已有有效订单，无需重复下单');
+        }
+
         const order = await this.prisma.finOrder.create({
             data: {
                 student_id: data.studentId,
@@ -76,11 +88,107 @@ export class FinanceService {
                 },
             });
 
+            // ── 自动分班：购课成功后将学员加入班级 ──
+            const course = await prisma.edCourse.findUnique({
+                where: { id: order.course_id },
+                include: { instructor: true }
+            });
+
+            let assignedClassName = '';
+            if (course) {
+                // 查找该课程在**同校区**的现有未满班级
+                const existingClass = await prisma.edClass.findFirst({
+                    where: {
+                        assignments: { some: { course_id: order.course_id } },
+                        campus_id: data.campusId,
+                        status: 'ONGOING',
+                    },
+                    include: { assignments: true }
+                });
+
+                if (existingClass && existingClass.enrolled < existingClass.capacity) {
+                    const alreadyEnrolled = await prisma.eduStudentInClass.findUnique({
+                        where: { student_id_class_id: { student_id: order.student_id, class_id: existingClass.id } }
+                    });
+                    if (!alreadyEnrolled) {
+                        await prisma.eduStudentInClass.create({
+                            data: { student_id: order.student_id, class_id: existingClass.id }
+                        });
+                        await prisma.edClass.update({
+                            where: { id: existingClass.id },
+                            data: { enrolled: { increment: 1 } }
+                        });
+                    }
+                    assignedClassName = existingClass.name;
+                } else {
+                    // 创建新班级
+                    const monthStr = new Date().toISOString().slice(0, 7);
+                    const newClass = await prisma.edClass.create({
+                        data: {
+                            name: `${course.name}-${monthStr}班`,
+                            capacity: 30,
+                            enrolled: 1,
+                            campus_id: data.campusId,
+                            status: 'ONGOING',
+                        }
+                    });
+
+                    // 创建班级-课程-教师分配（课程必须有授课教师才能排课）
+                    const teacherId = course.instructor_id;
+                    if (teacherId) {
+                        const assignment = await prisma.edClassAssignment.create({
+                            data: {
+                                class_id: newClass.id,
+                                course_id: order.course_id,
+                                teacher_id: teacherId,
+                            }
+                        });
+
+                        // 自动排课：每周一节，从下周一开始
+                        const startDate = new Date();
+                        const dayOfWeek = startDate.getDay(); // 0=Sun … 6=Sat
+                        const daysUntilNextMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek); // Mon=7 days, not 0
+                        startDate.setDate(startDate.getDate() + daysUntilNextMonday);
+                        startDate.setHours(10, 0, 0, 0);
+                        const lessonDuration = course.duration || 45;
+
+                        const scheduleData = [];
+                        for (let i = 0; i < Math.min(order.total_qty, 48); i++) {
+                            const lessonStart = new Date(startDate);
+                            lessonStart.setDate(lessonStart.getDate() + i * 7);
+                            const lessonEnd = new Date(lessonStart);
+                            lessonEnd.setMinutes(lessonEnd.getMinutes() + lessonDuration);
+                            scheduleData.push({
+                                assignment_id: assignment.id,
+                                lesson_no: i + 1,
+                                start_time: lessonStart,
+                                end_time: lessonEnd,
+                                status: 'PUBLISHED',
+                            });
+                        }
+                        if (scheduleData.length > 0) {
+                            await prisma.edLessonSchedule.createMany({ data: scheduleData });
+                        }
+                    } else {
+                        // 课程无教师时不创建排课，仅记录日志
+                        console.warn(`[Finance] 课程 ${course.name} 无授课教师，跳过自动排课`);
+                    }
+
+                    await prisma.eduStudentInClass.create({
+                        data: { student_id: order.student_id, class_id: newClass.id }
+                    });
+                    assignedClassName = newClass.name;
+                }
+            }
+
             return {
-                message: '支付成功，已生成课时资产',
+                message: assignedClassName
+                    ? `支付成功！已分配至「${assignedClassName}」`
+                    : '支付成功，已生成课时资产',
                 paymentId: payment.id,
                 accountId: account.id,
-                lessons: order.total_qty
+                lessons: order.total_qty,
+                className: assignedClassName || null,
             };
         });
     }
@@ -202,15 +310,19 @@ export class FinanceService {
             const order = refund.order;
             const unitPrice = order.total_qty > 0 ? order.amount / order.total_qty : 0;
             const approvedQty = Math.min(refund.requested_qty, account.remaining_qty);
-            const approvedAmount = Math.max(0, Number((unitPrice * approvedQty).toFixed(2)));
+            const isFullRefund = approvedQty >= account.remaining_qty;
+
+            // For full refund, use exact remaining balance to avoid penny-loss from rounding
+            const rawAmount = isFullRefund
+                ? Math.max(0, order.amount - account.refunded_amount)
+                : Math.max(0, unitPrice * approvedQty);
+            const approvedAmount = Number(rawAmount.toFixed(2));
 
             // Cap cumulative refund at order total
             const totalRefunded = account.refunded_amount + approvedAmount;
-            const finalAmount = totalRefunded > order.amount
+            const finalAmount = Math.max(0, totalRefunded > order.amount
                 ? Number((order.amount - account.refunded_amount).toFixed(2))
-                : approvedAmount;
-
-            const isFullRefund = approvedQty >= account.remaining_qty;
+                : approvedAmount);
 
             // Update refund record
             await prisma.finRefundRecord.update({
@@ -283,13 +395,21 @@ export class FinanceService {
                 throw new BadRequestException(`可退课时(${availableQty})不足`);
             }
 
+            // Check no pending refund for this account
+            const existingPending = await prisma.finRefundRecord.findFirst({
+                where: { account_id: account.id, status: 'PENDING' }
+            });
+            if (existingPending) {
+                throw new BadRequestException('该课程已有待审批的退费申请');
+            }
+
             const order = await prisma.finOrder.findFirst({
                 where: { student_id: account.student_id, course_id: account.course_id, status: { in: ['PAID', 'PARTIAL_REFUNDED'] } },
                 orderBy: { createdAt: 'desc' }
             });
             if (!order) throw new NotFoundException('找不到对应的已付款订单');
 
-            const unitPrice = order.amount / order.total_qty;
+            const unitPrice = order.total_qty > 0 ? order.amount / order.total_qty : 0;
             const estimatedAmount = Math.max(0, Number((unitPrice * data.refundQty).toFixed(2)));
 
             // Lock qty
@@ -333,6 +453,21 @@ export class FinanceService {
         });
 
         return { balance: student?.balance || 0, accounts };
+    }
+
+    async getAllAssets(campusId?: string) {
+        const where: any = {};
+        if (campusId) {
+            where.campus_id = campusId;
+        }
+        return this.prisma.finAssetAccount.findMany({
+            where,
+            include: {
+                course: true,
+                student: true,
+                ledgers: { orderBy: { occurTime: 'desc' }, take: 5 }
+            }
+        });
     }
 
     async getAllOrders(campusId?: string) {

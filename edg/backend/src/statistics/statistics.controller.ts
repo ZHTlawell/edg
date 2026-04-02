@@ -9,9 +9,10 @@ export class StatisticsController {
     @UseGuards(AuthGuard('jwt'))
     @Get('workbench-overview')
     async getWorkbenchOverview(@Request() req: any) {
-        if (req.user.role !== 'ADMIN') {
-            throw new UnauthorizedException('仅总部管理员可访问此接口');
+        if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
+            throw new UnauthorizedException('仅管理员可访问此接口');
         }
-        return this.statisticsService.getWorkbenchOverview();
+        const campusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : undefined;
+        return this.statisticsService.getWorkbenchOverview(campusId);
     }
 }

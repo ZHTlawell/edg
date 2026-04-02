@@ -98,14 +98,19 @@ const EduDatePicker: React.FC<{
 };
 
 export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDetail }) => {
-  const { students, currentUser, addStudent, updateStudent, deleteStudent, addToast } = useStore();
+  const { students, currentUser, addStudent, updateStudent, deleteStudent, addToast, fetchStudents } = useStore();
+
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const myCampus = currentUser?.campus || '总校区';
+  const myCampusId = currentUser?.campus_id || '';
 
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedCampus, setSelectedCampus] = useState<string>(isCampusAdmin ? myCampus : 'all');
+  const [selectedCampus, setSelectedCampus] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'all' | 'alert' | 'unpaid' | 'suspended'>('all');
 
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
@@ -120,7 +125,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
   useEffect(() => {
     if (isCampusAdmin) {
-      setSelectedCampus(myCampus);
+      // Backend already filters by campus_id for campus_admin, keep 'all' to avoid mismatch
+      setSelectedCampus('all');
     }
   }, [isCampusAdmin, myCampus]);
 

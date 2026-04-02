@@ -51,6 +51,19 @@ const REFUND_STATUS_CONFIG: Record<string, { label: string; icon: any; badge: st
         badge: 'bg-slate-50 text-slate-500 border border-slate-200',
         dot: 'bg-slate-400',
     },
+    // Legacy status compatibility
+    PENDING_APPROVAL: {
+        label: '审批中',
+        icon: Clock,
+        badge: 'bg-amber-50 text-amber-600 border border-amber-100',
+        dot: 'bg-amber-400',
+    },
+    PENDING_HQ_APPROVAL: {
+        label: '审批中',
+        icon: Clock,
+        badge: 'bg-amber-50 text-amber-600 border border-amber-100',
+        dot: 'bg-amber-400',
+    },
 };
 
 const QUICK_REASONS = [
@@ -71,6 +84,13 @@ const REFUND_STEPS = [
 export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
     const { currentUser, students, orders, assetAccounts, courses, processPayment, applyRefund, fetchOrders, fetchMyAssets, addToast } = useStore();
 
+    useEffect(() => {
+        if (currentUser?.role === 'student') {
+            fetchMyAssets();
+            fetchOrders();
+        }
+    }, [currentUser, fetchMyAssets, fetchOrders]);
+
     const [isPayModalOpen, setPayModalOpen] = useState(false);
     const [isRefundModalOpen, setRefundModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -83,7 +103,13 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
 
     const currentStudent = React.useMemo(() => {
         if (currentUser?.role === 'student') {
-            return (students || []).find(s => s.id === currentUser.bindStudentId || (s as any).user_id === currentUser.id);
+            // First try finding in students array
+            const found = (students || []).find(s => s.id === currentUser.bindStudentId || (s as any).user_id === currentUser.id);
+            if (found) return found;
+            // Fallback: use bindStudentId directly (students array may not be loaded for student role)
+            if (currentUser.bindStudentId) {
+                return { id: currentUser.bindStudentId, name: currentUser.name } as any;
+            }
         }
         return null;
     }, [currentUser, students]);
@@ -122,7 +148,11 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
         return { remaining, consumed };
     }, [studentAssets]);
 
-    const studentOrders = React.useMemo(() => orders.filter(o => o.student_id === currentStudent?.id), [orders, currentStudent]);
+    const studentOrders = React.useMemo(() => {
+        return orders
+            .filter(o => o.student_id === currentStudent?.id)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [orders, currentStudent]);
 
     const totalSpent = React.useMemo(() => (
         studentOrders.filter(o => o.status === 'PAID').reduce((sum, o) => sum + (o.amount || 0), 0)
@@ -187,10 +217,11 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
         const refund = refundMap[order.id];
 
         if (refund) {
-            const cfg = REFUND_STATUS_CONFIG[refund.status];
+            const cfg = REFUND_STATUS_CONFIG[refund.status] || REFUND_STATUS_CONFIG['PENDING'];
             const Icon = cfg.icon;
 
-            if (refund.status === 'PENDING') {
+            const isPending = refund.status === 'PENDING' || refund.status === 'PENDING_APPROVAL' || refund.status === 'PENDING_HQ_APPROVAL';
+            if (isPending) {
                 return (
                     <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-xl ${cfg.badge} cursor-default`}>
                         <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${cfg.dot}`} />

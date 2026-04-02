@@ -64,6 +64,7 @@ interface AppState {
     deleteCourse: (id: string) => Promise<void>;
     fetchClasses: (campusId?: string) => Promise<void>;
     fetchMyAssets: () => Promise<void>;
+    fetchAssetAccounts: (campusId?: string) => Promise<void>;
     fetchOrders: (campusId?: string) => Promise<void>;
     voidOrder: (orderId: string) => Promise<void>;
     fetchAttendanceRecords: (campusId?: string) => Promise<void>;
@@ -108,6 +109,7 @@ interface AppState {
     getExportData: (type: 'orders' | 'attendance' | 'assets', filters?: { campus_id?: string; keyword?: string }) => any[];
 
     // Homework Actions
+    fetchMyHomeworks: () => Promise<void>;
     publishHomework: (homeworkData: { title: string; content: string; class_id: string; deadline: string; teacher_id: string; attachmentName?: string; attachmentUrl?: string }) => Promise<string>;
     submitHomework: (submissionData: { homework_id: string; student_id: string; content: string }) => Promise<string>;
     gradeHomework: (submission_id: string, score: number, feedback: string, teacher_id: string) => Promise<void>;
@@ -119,6 +121,7 @@ interface AppState {
     updateAnnouncement: (id: string, data: { title?: string; content?: string; scope?: string; campusIds?: string[] }) => Promise<void>;
     publishAnnouncement: (id: string) => Promise<void>;
     withdrawAnnouncement: (id: string) => Promise<void>;
+    deleteAnnouncement: (id: string) => Promise<void>;
 
     setClassTeacherFilter: (teacherName: string | null) => void;
 
@@ -163,9 +166,7 @@ export const useStore = create<AppState>()(
                 { id: 'ACC001', student_id: 'S10001', course_id: '1', campus_id: 'C001', total_qty: 32, remaining_qty: 20, locked_qty: 0, refunded_qty: 0, refunded_amount: 0, status: 'ACTIVE', updatedAt: '2024-05-21' },
                 { id: 'ACC002', student_id: 'S10002', course_id: '2', campus_id: 'C001', total_qty: 48, remaining_qty: 12, locked_qty: 0, refunded_qty: 0, refunded_amount: 0, status: 'ACTIVE', updatedAt: '2024-05-21' }
             ],
-            homeworks: [
-                { id: 'HW1001', title: '第一阶段核心组件实战', content: '请完成一个带有状态流转的订单卡片组件，要求使用 TailwindCSS 实现响应式。', course_id: '1', class_id: 'C-001', teacher_id: 'T001', deadline: '2024-05-25 23:59', status: 'active', createdAt: '2024-05-21 15:00' }
-            ],
+            homeworks: [],
             homeworkSubmissions: [],
             teachers: [],
             classrooms: [],
@@ -282,14 +283,19 @@ export const useStore = create<AppState>()(
                 ]);
 
                 if (user.role === 'student') {
-                    await get().fetchMyAssets();
+                    await Promise.all([
+                        get().fetchMyAssets(),
+                        get().fetchOrders()
+                    ]);
                 }
 
                 if (['admin', 'campus_admin'].includes(user.role)) {
+                    const cid = user.role === 'campus_admin' ? user.campus_id : undefined;
                     await Promise.all([
                         get().fetchStudents(),
                         get().fetchTeachers(),
-                        get().fetchClassrooms(user.role === 'campus_admin' ? user.campus_id : undefined)
+                        get().fetchClassrooms(cid),
+                        get().fetchAssetAccounts(cid)
                     ]);
                 }
 
@@ -339,7 +345,12 @@ export const useStore = create<AppState>()(
 
             fetchStudents: async () => {
                 try {
-                    const res = await api.get('/api/users/students', { params: { pageSize: 200 } });
+                    const state = get();
+                    const params: any = { pageSize: 200 };
+                    if (state.currentUser?.role === 'campus_admin' && state.currentUser?.campus_id) {
+                        params.campusId = state.currentUser.campus_id;
+                    }
+                    const res = await api.get('/api/users/students', { params });
                     const rawData = res.data?.data || res.data;
                     const students = Array.isArray(rawData) ? rawData : [];
                     // Map backendEduStudent to frontend Student type
@@ -350,9 +361,10 @@ export const useStore = create<AppState>()(
                         gender: bs.gender === 'FEMALE' ? 'female' : 'male',
                         balance: bs.balance,
                         className: bs.classes?.[0]?.class?.name || '未分班',
+                        campus: bs.classes?.[0]?.class?.campus_id || '',
                         balanceAmount: bs.balance || 0,
                         balanceLessons: bs.accounts?.reduce((sum: number, acc: any) => sum + acc.remaining_qty, 0) || 0,
-                        createdAt: bs.createdAt.split('T')[0],
+                        createdAt: bs.createdAt?.split('T')[0] || '',
                         lastStudyTime: '最近学习',
                         status: bs.status === 'ACTIVE' ? 'active' : 'paused'
                     }));
@@ -412,21 +424,40 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            fetchAssetAccounts: async (campusId?: string) => {
+                try {
+                    const params: any = {};
+                    if (campusId) params.campusId = campusId;
+                    const res = await api.get('/api/finance/assets', { params });
+                    const data = Array.isArray(res.data) ? res.data : [];
+                    set({ assetAccounts: data });
+                } catch (error: any) {
+                    console.error('Fetch asset accounts failed', error);
+                }
+            },
+
             fetchOrders: async (campusId?: string) => {
                 try {
                     const state = get();
                     const isStudent = state.currentUser?.role === 'student';
+                    let data: any[];
                     if (isStudent) {
                         const res = await api.get('/api/finance/my-orders');
-                        const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-                        set({ orders: data });
+                        data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
                     } else {
                         const params: any = {};
                         if (campusId) params.campusId = campusId;
                         const res = await api.get('/api/finance/orders', { params });
-                        const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-                        set({ orders: data });
+                        data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
                     }
+                    // Normalize field names: backend returns snake_case, frontend expects both
+                    const normalized = data.map((o: any) => ({
+                        ...o,
+                        courseId: o.course_id || o.courseId,
+                        studentId: o.student_id || o.studentId,
+                        campusId: o.campus_id || o.course?.campus_id || o.campusId,
+                    }));
+                    set({ orders: normalized });
                 } catch (error: any) {
                     console.error('Fetch orders failed', error);
                 }
@@ -705,6 +736,44 @@ export const useStore = create<AppState>()(
                     });
             },
 
+            fetchMyHomeworks: async () => {
+                try {
+                    const res = await api.get('/api/teaching/my-homeworks');
+                    const homeworks = (res.data || []).map((hw: any) => ({
+                        id: hw.id,
+                        title: hw.title,
+                        content: hw.content,
+                        course_id: hw.assignment?.course?.id || '',
+                        class_id: hw.assignment?.class_id || '',
+                        teacher_id: hw.teacher_id,
+                        teacher_name: hw.teacher?.name || '',
+                        deadline: hw.deadline,
+                        status: new Date(hw.deadline) > new Date() ? 'active' : 'expired',
+                        createdAt: hw.createdAt,
+                        attachmentName: hw.attachmentName,
+                        attachmentUrl: hw.attachmentUrl,
+                    }));
+                    const submissions = (res.data || [])
+                        .filter((hw: any) => hw.submissions?.length > 0)
+                        .map((hw: any) => {
+                            const sub = hw.submissions[0];
+                            return {
+                                id: sub.id,
+                                homework_id: hw.id,
+                                student_id: sub.student_id,
+                                content: sub.content,
+                                score: sub.score,
+                                feedback: sub.feedback,
+                                status: sub.status?.toLowerCase() || 'submitted',
+                                submittedAt: sub.submittedAt,
+                            };
+                        });
+                    set({ homeworks, homeworkSubmissions: submissions });
+                } catch (error: any) {
+                    console.error('fetchMyHomeworks failed:', error);
+                }
+            },
+
             publishHomework: async (homeworkData) => {
                 try {
                     const res = await api.post('/api/teaching/homeworks', homeworkData);
@@ -794,8 +863,19 @@ export const useStore = create<AppState>()(
 
             withdrawAnnouncement: async (id) => {
                 try {
-                    await api.delete(`/api/users/announcements/${id}`);
+                    await api.post(`/api/announcements/${id}/withdraw`);
                     get().addToast('公告已撤回', 'success');
+                    await get().fetchAnnouncementsAdmin();
+                } catch (error: any) {
+                    get().addToast(error.message, 'error');
+                    throw error;
+                }
+            },
+
+            deleteAnnouncement: async (id) => {
+                try {
+                    await api.delete(`/api/announcements/${id}`);
+                    get().addToast('公告已删除', 'success');
                     await get().fetchAnnouncementsAdmin();
                 } catch (error: any) {
                     get().addToast(error.message, 'error');

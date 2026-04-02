@@ -257,7 +257,7 @@ const App: React.FC = () => {
               )}
               {activeView === 'refund-management' && <RefundManagement />}
               {activeView === 'finance-report' && <FinanceReport onNavigate={setActiveView} onViewOrder={(id) => { setSelectedOrderId(id); setActiveView('order-detail'); }} />}
-              {activeView === 'announcemnt-mgmt' && userRole === 'admin' && <AnnouncementMgmt />}
+              {activeView === 'announcemnt-mgmt' && (userRole === 'admin' || userRole === 'campus_admin') && <AnnouncementMgmt />}
               {activeView === 'announcement-view' && (userRole === 'admin' || userRole === 'campus_admin') && <AnnouncementView />}
               {activeView === 'course-standard' && userRole === 'admin' && <CourseStandardMgmt />}
               {activeView === 'course-resource' && (userRole === 'admin' || userRole === 'campus_admin') && <CourseResourceMgmt />}
@@ -278,7 +278,7 @@ const App: React.FC = () => {
               {activeView === 'student-detail' && selectedStudent && <StudentDetailView student={selectedStudent} onBack={handleBackToList} />}
 
               {/* Fallback */}
-              {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market', 'teacher-homework', 'student-homework', 'teacher-registration', 'teacher-approval', 'refund-management', 'finance-report', 'announcemnt-mgmt', 'announcement-view', 'course-standard', 'course-resource'].includes(activeView) && (
+              {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market', 'teacher-homework', 'student-homework', 'teacher-registration', 'teacher-approval', 'refund-management', 'finance-report', 'announcemnt-mgmt', 'announcement-view', 'course-standard', 'course-resource', 'course-preview'].includes(activeView) && (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-white rounded-2xl border border-slate-100">
                   <ClipboardList size={48} className="opacity-10 mb-4" />
                   <p className="text-xl font-bold text-slate-600">模块开发中</p>

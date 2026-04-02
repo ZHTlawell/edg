@@ -1,5 +1,5 @@
 import { ElmIcon } from './ElmIcon';
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { UploadCloud, Link2, FileText, ChevronDown, ChevronUp, Paperclip, X } from 'lucide-react';
 
@@ -7,8 +7,14 @@ type FilterTab = 'all' | 'pending' | 'submitted' | 'graded';
 type SubmitMode = 'text' | 'link' | 'file';
 
 export const StudentHomework: React.FC = () => {
-    const { currentUser, homeworks, homeworkSubmissions, submitHomework, addToast } = useStore();
+    const { currentUser, homeworks, homeworkSubmissions, submitHomework, fetchMyHomeworks, addToast } = useStore();
     const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+
+    useEffect(() => {
+        if (currentUser?.role === 'student') {
+            fetchMyHomeworks?.();
+        }
+    }, [currentUser]);
     const [expandedHw, setExpandedHw] = useState<string | null>(null);
     const [submitMode, setSubmitMode] = useState<SubmitMode>('text');
     const [submissionContent, setSubmissionContent] = useState('');
@@ -82,7 +88,9 @@ export const StudentHomework: React.FC = () => {
             homework_id: hwId,
             student_id: currentUser?.bindStudentId || 'S10001',
             content,
-        });
+        }).then(() => {
+            fetchMyHomeworks?.(); // Refresh homework list after submission
+        }).catch(() => {});
         setSubmissionContent('');
         setLinkInput('');
         setSelectedFile(null);

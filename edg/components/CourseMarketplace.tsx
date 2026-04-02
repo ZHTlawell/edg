@@ -292,13 +292,25 @@ export const CourseMarketplace: React.FC<CourseMarketplaceProps> = ({ onViewCour
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-6 py-4 border-y border-slate-50/50">
+                                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 py-4 border-y border-slate-50/50">
                                     <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
                                         <ElmIcon name="clock" size={16} /> {course.totalLessons} 课时
                                     </div>
-                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                                        <ElmIcon name="user" size={16} /> 1.2k 学员
-                                    </div>
+                                    {(course as any).instructor?.name && (
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                                            <ElmIcon name="user" size={16} /> {(course as any).instructor.name}
+                                        </div>
+                                    )}
+                                    {(course as any).duration && (
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                                            <ElmIcon name="clock" size={16} /> {(course as any).duration}分钟/节
+                                        </div>
+                                    )}
+                                    {(course as any).campus_id && (
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                                            <ElmIcon name="house" size={16} /> {(course as any).campus_id === 'CAMPUS_PUDONG' ? '浦东校区' : (course as any).campus_id === 'CAMPUS_XUHUI' ? '徐汇校区' : (course as any).campus_id}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="pt-2 flex items-center justify-between">

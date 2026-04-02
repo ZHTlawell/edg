@@ -273,22 +273,6 @@ export const CoursePreviewPage: React.FC<Props> = ({ courseId, onBack, onStartSt
                 </div>
             </div>
 
-            {/* Bottom CTA for unpurchased */}
-            {!isPurchased && (
-                <div className="bg-slate-900 rounded-[2rem] p-8 flex items-center justify-between">
-                    <div className="text-white space-y-1">
-                        <p className="text-lg font-bold">开启你的学习之旅</p>
-                        <p className="text-sm text-white/50">购买课程后即可解锁全部课时资料与练习</p>
-                    </div>
-                    <button
-                        onClick={() => setIsConfirmModalOpen(true)}
-                        className="px-8 py-3.5 bg-white text-slate-900 rounded-2xl text-sm font-bold hover:bg-blue-50 transition-all shadow-lg"
-                    >
-                        立即购买
-                    </button>
-                </div>
-            )}
-
             {/* Purchase Modal */}
             <PurchaseConfirmationModal
                 isOpen={isConfirmModalOpen}

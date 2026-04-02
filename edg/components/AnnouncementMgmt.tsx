@@ -24,19 +24,20 @@ import { useStore } from '../store';
 import { Announcement, AnnouncementStatus } from '../types';
 
 export const AnnouncementMgmt: React.FC = () => {
-    const { announcements, campuses, fetchCampuses, fetchAnnouncementsAdmin, createAnnouncement, updateAnnouncement, publishAnnouncement, withdrawAnnouncement } = useStore();
+    const { announcements, campuses, currentUser, fetchCampuses, fetchAnnouncementsAdmin, createAnnouncement, updateAnnouncement, publishAnnouncement, withdrawAnnouncement, deleteAnnouncement } = useStore();
+    const isCampusAdmin = currentUser?.role === 'campus_admin';
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
 
-    // Form state
+    // Form state — campus admin always uses SPECIFIC scope with their campus
     const [formData, setFormData] = useState({
         title: '',
         content: '',
-        scope: 'ALL' as 'ALL' | 'SPECIFIC',
-        campusIds: [] as string[]
+        scope: (isCampusAdmin ? 'SPECIFIC' : 'ALL') as 'ALL' | 'SPECIFIC',
+        campusIds: (isCampusAdmin && currentUser?.campus_id ? [currentUser.campus_id] : []) as string[]
     });
 
     useEffect(() => {
@@ -66,8 +67,8 @@ export const AnnouncementMgmt: React.FC = () => {
             setFormData({
                 title: '',
                 content: '',
-                scope: 'ALL',
-                campusIds: []
+                scope: isCampusAdmin ? 'SPECIFIC' : 'ALL',
+                campusIds: isCampusAdmin && currentUser?.campus_id ? [currentUser.campus_id] : []
             });
         }
         setIsModalOpen(true);
@@ -193,7 +194,7 @@ export const AnnouncementMgmt: React.FC = () => {
 
                         <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                {ann.status === 'DRAFT' && (
+                                {(ann.status === 'DRAFT' || ann.status === 'WITHDRAWN') && (
                                     <button onClick={() => handleOpenModal(ann)} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-indigo-600 transition-all" title="编辑">
                                         <Edit3 size={18} />
                                     </button>
@@ -203,18 +204,23 @@ export const AnnouncementMgmt: React.FC = () => {
                                         <ElmIcon name="refresh" size={16} />
                                     </button>
                                 )}
+                                {(ann.status === 'DRAFT' || ann.status === 'WITHDRAWN') && (
+                                    <button onClick={() => { if (window.confirm('确定删除该公告？此操作不可恢复。')) deleteAnnouncement(ann.id); }} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-red-600 transition-all" title="删除">
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
                                 <button className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-indigo-600 transition-all" title="详情预览">
                                     <Eye size={18} />
                                 </button>
                             </div>
 
-                            {ann.status === 'DRAFT' && (
+                            {(ann.status === 'DRAFT' || ann.status === 'WITHDRAWN') && (
                                 <button
                                     onClick={() => publishAnnouncement(ann.id)}
                                     className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-emerald-100 transition-all active:scale-95"
                                 >
                                     <Send size={14} />
-                                    发布
+                                    {ann.status === 'WITHDRAWN' ? '重新发布' : '发布'}
                                 </button>
                             )}
                         </div>
@@ -273,29 +279,40 @@ export const AnnouncementMgmt: React.FC = () => {
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">发布范围</label>
-                                        <div className="flex gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, scope: 'ALL' })}
-                                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${formData.scope === 'ALL' ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'bg-white border-slate-200 text-slate-400'}`}
-                                            >
-                                                <ElmIcon name="location" size={16} /> 全校区
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, scope: 'SPECIFIC' })}
-                                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${formData.scope === 'SPECIFIC' ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'bg-white border-slate-200 text-slate-400'}`}
-                                            >
-                                                <ElmIcon name="house" size={16} /> 指定校区
-                                            </button>
+                                {/* Scope selector - hidden for campus admin (auto-set to SPECIFIC) */}
+                                {!isCampusAdmin && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">发布范围</label>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, scope: 'ALL' })}
+                                                    className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${formData.scope === 'ALL' ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'bg-white border-slate-200 text-slate-400'}`}
+                                                >
+                                                    <ElmIcon name="location" size={16} /> 全校区
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, scope: 'SPECIFIC' })}
+                                                    className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${formData.scope === 'SPECIFIC' ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'bg-white border-slate-200 text-slate-400'}`}
+                                                >
+                                                    <ElmIcon name="house" size={16} /> 指定校区
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {formData.scope === 'SPECIFIC' && (
+                                {isCampusAdmin && (
+                                    <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                        <p className="text-xs font-bold text-blue-600 flex items-center gap-1.5">
+                                            <Building2 size={14} /> 公告将发布至本校区：{currentUser?.campus || '本校区'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {formData.scope === 'SPECIFIC' && !isCampusAdmin && (
                                     <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
                                         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">受众校区 ({formData.campusIds.length})</label>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

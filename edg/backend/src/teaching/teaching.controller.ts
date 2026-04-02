@@ -28,6 +28,22 @@ export class TeachingController {
         return this.teachingService.gradeHomework(body.teacherId, body);
     }
 
+    @Get('my-homeworks')
+    async getMyHomeworks(@Request() req: any) {
+        if (req.user.role !== 'STUDENT') {
+            throw new UnauthorizedException('仅学生账户可查询作业');
+        }
+        return this.teachingService.getStudentHomeworks(req.user.studentId);
+    }
+
+    @Post('homeworks/seed')
+    async seedHomeworks(@Request() req: any) {
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅管理员可执行种子数据');
+        }
+        return this.teachingService.seedHomeworks();
+    }
+
     @Get('homeworks/lesson/:lessonId')
     async getHomeworkByLesson(@Param('lessonId') lessonId: string) {
         return this.teachingService.getHomeworkByLesson(lessonId);

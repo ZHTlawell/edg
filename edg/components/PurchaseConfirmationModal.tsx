@@ -65,12 +65,20 @@ export const PurchaseConfirmationModal: React.FC<PurchaseConfirmationModalProps>
                     {/* Course Summary */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-start">
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 <h3 className="text-lg font-bold text-slate-900 leading-tight">{course.name}</h3>
-                                <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 font-medium">
                                     <span className="flex items-center gap-1"><ElmIcon name="clock" size={16} /> {course.totalLessons} 课时</span>
+                                    {(course as any).duration && (
+                                        <span className="flex items-center gap-1"><ElmIcon name="clock" size={16} /> {(course as any).duration}分钟/节</span>
+                                    )}
                                     <span className="flex items-center gap-1"><ElmIcon name="circle-check" size={16} /> {course.category}课程</span>
                                 </div>
+                                {(course as any).instructor?.name && (
+                                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg w-fit border border-indigo-100">
+                                        <ElmIcon name="user" size={14} /> 授课教师：{(course as any).instructor.name}
+                                    </div>
+                                )}
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">预估结算</p>
@@ -105,7 +113,7 @@ export const PurchaseConfirmationModal: React.FC<PurchaseConfirmationModalProps>
                         <div className="space-y-1">
                             <p className="text-xs font-bold text-amber-800">支付与退收须知</p>
                             <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                                确认购买后，对应课时将立即存入您的资产账户。根据《学员退收协议》，支持 24 小时内未开课全额退款。
+                                确认购买后，系统将自动为您分配班级、课表和授课教师。课时资产存入资产账户，支持未开课全额退款。
                             </p>
                         </div>
                     </div>

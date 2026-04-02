@@ -40,7 +40,7 @@ export class AnnouncementsService {
     async update(id: string, data: { title?: string; content?: string; scope?: string; campusIds?: string[] }) {
         const existing = await this.prisma.sysAnnouncement.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException('公告不存在');
-        if (existing.status !== 'DRAFT') throw new ForbiddenException('仅草稿状态可编辑');
+        if (!['DRAFT', 'WITHDRAWN'].includes(existing.status)) throw new ForbiddenException('仅草稿或已撤回状态可编辑');
 
         return this.prisma.$transaction(async (tx) => {
             const updated = await tx.sysAnnouncement.update({
@@ -97,8 +97,25 @@ export class AnnouncementsService {
         });
     }
 
-    async findAllForAdmin() {
+    async remove(id: string) {
+        const existing = await this.prisma.sysAnnouncement.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundException('公告不存在');
+        if (!['DRAFT', 'WITHDRAWN'].includes(existing.status)) {
+            throw new ForbiddenException('仅草稿或已撤回状态可删除');
+        }
+        return this.prisma.$transaction(async (tx) => {
+            await tx.sysAnnouncementTarget.deleteMany({ where: { announcement_id: id } });
+            return tx.sysAnnouncement.delete({ where: { id } });
+        });
+    }
+
+    async findAllForAdmin(publisherId?: string) {
+        const where: any = {};
+        if (publisherId) {
+            where.publisher_id = publisherId;
+        }
         return this.prisma.sysAnnouncement.findMany({
+            where,
             include: { targets: true },
             orderBy: { createdAt: 'desc' },
         });

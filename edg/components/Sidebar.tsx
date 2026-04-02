@@ -107,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
         { id: 'finance-report', label: '财务报表' }
       ]
     },
-    { id: 'announcement-view', label: '系统公告', icon: <ElmIcon name="notification" size={20} /> }
+    { id: 'announcemnt-mgmt', label: '公告管理', icon: <ElmIcon name="notification" size={20} /> }
   ];
 
   const teacherMenu: MenuItem[] = [

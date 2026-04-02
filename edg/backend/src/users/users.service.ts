@@ -235,12 +235,18 @@ export class UsersService {
         });
     }
 
-    async findAllStudents(page?: number, pageSize?: number) {
+    async findAllStudents(page?: number, pageSize?: number, campusId?: string) {
         const take = pageSize || 50;
         const skip = page && page > 1 ? (page - 1) * take : 0;
 
+        const where: any = {};
+        if (campusId) {
+            where.classes = { some: { class: { campus_id: campusId } } };
+        }
+
         const [data, total] = await Promise.all([
             this.prisma.eduStudent.findMany({
+                where,
                 skip,
                 take,
                 include: {
@@ -261,7 +267,7 @@ export class UsersService {
                 },
                 orderBy: { createdAt: 'desc' }
             }),
-            this.prisma.eduStudent.count()
+            this.prisma.eduStudent.count({ where })
         ]);
 
         return { data, total, page: page || 1, pageSize: take };

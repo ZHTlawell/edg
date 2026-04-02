@@ -127,6 +127,16 @@ export class FinanceController {
     }
 
     @UseGuards(AuthGuard('jwt'))
+    @Get('assets')
+    async getAllAssets(@Request() req: any, @Query('campusId') campusId?: string) {
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅管理员可查看全部资产');
+        }
+        const effectiveCampusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
+        return this.financeService.getAllAssets(effectiveCampusId);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get('orders')
     async getAllOrders(@Request() req: any, @Query('campusId') campusId?: string) {
         if (req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {

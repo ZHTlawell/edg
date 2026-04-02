@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class StatisticsService {
     constructor(private prisma: PrismaService) { }
 
-    async getWorkbenchOverview() {
+    async getWorkbenchOverview(campusId?: string) {
         const now = new Date();
         const twelveMonthsAgo = new Date();
         twelveMonthsAgo.setMonth(now.getMonth() - 11);
@@ -13,6 +13,12 @@ export class StatisticsService {
         twelveMonthsAgo.setHours(0, 0, 0, 0);
 
         const currentYearStart = new Date(now.getFullYear(), 0, 1);
+
+        // Campus filter for scoped queries
+        const campusOrderFilter: any = campusId ? { course: { campus_id: campusId } } : {};
+        const campusClassFilter: any = campusId ? { campus_id: campusId } : {};
+        const campusStudentFilter: any = campusId ? { classes: { some: { class: { campus_id: campusId } } } } : {};
+        const campusRefundFilter: any = campusId ? { account: { campus_id: campusId } } : {};
 
         // 1. KPI Stats
         const [
@@ -24,27 +30,31 @@ export class StatisticsService {
             refunds,
             pendingCampusAdmins
         ] = await Promise.all([
-            this.prisma.eduStudent.count(),
+            this.prisma.eduStudent.count({ where: campusStudentFilter }),
             this.prisma.finOrder.aggregate({
                 where: {
                     status: 'PAID',
-                    createdAt: { gte: currentYearStart }
+                    createdAt: { gte: currentYearStart },
+                    ...campusOrderFilter
                 },
                 _sum: { amount: true }
             }),
             this.prisma.edClass.findMany({
+                where: campusClassFilter,
                 select: { capacity: true, enrolled: true }
             }),
             this.prisma.finOrder.count({
                 where: {
                     status: 'PAID',
-                    createdAt: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) }
+                    createdAt: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
+                    ...campusOrderFilter
                 }
             }),
             this.prisma.finOrder.findMany({
                 where: {
                     createdAt: { gte: twelveMonthsAgo },
-                    status: 'PAID'
+                    status: 'PAID',
+                    ...campusOrderFilter
                 },
                 include: {
                     student: { select: { name: true, user: { select: { campusName: true, campus_id: true } } } },
@@ -52,7 +62,7 @@ export class StatisticsService {
                 }
             }),
             this.prisma.finRefundRecord.count({
-                where: { status: 'PENDING_APPROVAL' }
+                where: { status: 'PENDING', ...campusRefundFilter }
             }),
             this.prisma.sysUser.count({
                 where: { role: 'CAMPUS_ADMIN', status: 'PENDING_APPROVAL' }

@@ -8,13 +8,16 @@ export class UsersController {
 
     @UseGuards(AuthGuard('jwt'))
     @Get('students')
-    async getStudents(@Request() req: any, @Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    async getStudents(@Request() req: any, @Query('page') page?: string, @Query('pageSize') pageSize?: string, @Query('campusId') campusId?: string) {
         if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
             throw new UnauthorizedException('无权访问');
         }
+        // Campus admin can only see their own campus students
+        const effectiveCampusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
         return this.usersService.findAllStudents(
             page ? parseInt(page) : undefined,
-            pageSize ? parseInt(pageSize) : undefined
+            pageSize ? parseInt(pageSize) : undefined,
+            effectiveCampusId
         );
     }
 

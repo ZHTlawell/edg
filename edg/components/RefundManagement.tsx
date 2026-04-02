@@ -32,7 +32,8 @@ export const RefundManagement: React.FC = () => {
         approveRefund,
         getPendingRefunds,
         currentUser,
-        addToast
+        addToast,
+        fetchAssetAccounts
     } = useStore();
 
     const [activeTab, setActiveTab] = useState<'pending' | 'manual'>('pending');
@@ -48,6 +49,8 @@ export const RefundManagement: React.FC = () => {
 
     useEffect(() => {
         fetchPending();
+        const campusId = currentUser?.role === 'campus_admin' ? currentUser.campus_id : undefined;
+        fetchAssetAccounts(campusId);
     }, []);
 
     const fetchPending = async () => {
