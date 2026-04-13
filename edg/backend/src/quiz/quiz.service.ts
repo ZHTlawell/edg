@@ -62,6 +62,18 @@ export class QuizService {
         });
     }
 
+    // ─── 删除试卷及其题目 ──────────────────────────────────────────
+    async deletePaper(paperId: string) {
+        const paper = await this.prisma.quizPaper.findUnique({ where: { id: paperId } });
+        if (!paper) throw new NotFoundException('试卷不存在');
+        return this.prisma.$transaction(async (prisma) => {
+            await prisma.quizQuestion.deleteMany({ where: { paper_id: paperId } });
+            await prisma.quizSubmission.deleteMany({ where: { paper_id: paperId } });
+            await prisma.quizPaper.delete({ where: { id: paperId } });
+            return { success: true };
+        });
+    }
+
     // ─── 获取试卷（学员答题用，不返回答案） ──────────────────────────
     async getPaper(paperId: string) {
         const paper = await this.prisma.quizPaper.findUnique({

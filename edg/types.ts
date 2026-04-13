@@ -43,8 +43,9 @@ export interface Course {
   instructor_id?: string;
   campus_id?: string;
   description?: string;
-  is_standard?: boolean;
   standard_id?: string;
+  standard_code?: string;
+  standard_name?: string;
 }
 
 export interface Teacher {

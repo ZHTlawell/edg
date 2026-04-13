@@ -54,31 +54,27 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
     price: '',
     totalLessons: 0,
     description: '',
-    is_standard: false,
     standard_id: ''
   });
 
-  const [standards, setStandards] = useState<Course[]>([]);
+  const [standards, setStandards] = useState<any[]>([]);
+  const selectedStandard = standards.find(s => s.id === formData.standard_id);
+  const minLessons = selectedStandard ? Math.floor(selectedStandard.total_lessons * 0.8) : 0;
+  const maxLessons = selectedStandard ? Math.ceil(selectedStandard.total_lessons * 1.2) : 0;
 
   useEffect(() => {
     fetchCampuses();
   }, [fetchCampuses]);
 
   useEffect(() => {
-    if (isOpen) {
-      if (isCampusAdmin) {
-        const fetchStandards = async () => {
-          try {
-            const res = await api.get('/api/academic/courses?isStandard=true'); // Adjust as needed
-            setStandards(res.data.filter((s: any) => s.is_standard));
-          } catch (e) {
-            console.error('Failed to fetch course standards', e);
-          }
-        };
-        fetchStandards();
-      }
-    }
-  }, [isOpen, isCampusAdmin, currentUser]);
+    if (!isOpen) return;
+    api.get('/api/course-standard/standards')
+      .then(res => {
+        const list = (res.data || []).filter((s: any) => s.status === 'ENABLED' || s.status === 'PUBLISHED');
+        setStandards(list);
+      })
+      .catch(() => setStandards([]));
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialData) {
@@ -90,9 +86,20 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!initialData && !formData.standard_id) {
+      addToast('必须选择课程标准（总部教研定义）', 'warning');
+      return;
+    }
     if (!formData.name) {
       addToast('请填写课程标题', 'warning');
       return;
+    }
+    if (selectedStandard) {
+      const lessons = formData.totalLessons || 0;
+      if (lessons < minLessons || lessons > maxLessons) {
+        addToast(`课时数 ${lessons} 超出标准建议范围 [${minLessons}, ${maxLessons}]`, 'warning');
+        return;
+      }
     }
     onSave(formData as Course);
   };
@@ -119,11 +126,15 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
         <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
           <form id="course-form" onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-              {isCampusAdmin && !initialData && (
+              {!initialData && (
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">基于总部标准创建 (可选)</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                    基于课程标准 <span className="text-red-500">*</span>
+                    <span className="ml-2 text-slate-400 font-normal normal-case tracking-normal">（由总部教研定义；课程必须基于已发布的标准实例化）</span>
+                  </label>
                   <select
-                    className="w-full bg-blue-50 border border-blue-100 rounded-xl py-3.5 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-blue-700 appearance-none cursor-pointer"
+                    required
+                    className="w-full bg-blue-50 border border-blue-200 rounded-xl py-3.5 px-4 outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all text-sm font-bold text-blue-700 appearance-none cursor-pointer"
                     value={formData.standard_id || ''}
                     onChange={e => {
                       const selected: any = standards.find(s => s.id === e.target.value);
@@ -132,8 +143,8 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
                           ...formData,
                           standard_id: selected.id,
                           name: selected.name,
-                          category: selected.category || '阶段课程',
-                          totalLessons: selected.totalLessons,
+                          category: selected.category?.name || selected.category_id || '',
+                          totalLessons: selected.total_lessons,
                           description: selected.description || '',
                         });
                       } else {
@@ -141,11 +152,20 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
                       }
                     }}
                   >
-                    <option value="">-- 自定义创建 (不基于标准) --</option>
-                    {standards.map((s: any) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                    <option value="">-- 请选择课程标准 --</option>
+                    {standards.length === 0 ? (
+                      <option disabled>暂无可用标准，请联系总部发布</option>
+                    ) : standards.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.code} · {s.name} · {s.total_lessons}课时
+                      </option>
                     ))}
                   </select>
+                  {selectedStandard && (
+                    <div className="text-[11px] text-blue-600 font-bold flex items-center gap-2 mt-1">
+                      <CheckCircle2 size={12} /> 已选标准「{selectedStandard.name}」 · 建议 {selectedStandard.total_lessons} 课时（允许范围 {minLessons}~{maxLessons}）
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -208,9 +228,13 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">总课时数</label>
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                  总课时数 {selectedStandard && <span className="text-blue-600 normal-case tracking-normal">（允许 {minLessons}~{maxLessons}）</span>}
+                </label>
                 <input
                   type="number"
+                  min={selectedStandard ? minLessons : undefined}
+                  max={selectedStandard ? maxLessons : undefined}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
                   value={formData.totalLessons || 0}
                   onChange={e => setFormData({ ...formData, totalLessons: parseInt(e.target.value) || 0 })}
@@ -247,21 +271,6 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
                 />
               </div>
 
-              {currentUser?.role === 'admin' && (
-                <div className="md:col-span-2 flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                  <input
-                    type="checkbox"
-                    id="is_standard"
-                    className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    checked={formData.is_standard}
-                    onChange={e => setFormData({ ...formData, is_standard: e.target.checked })}
-                  />
-                  <label htmlFor="is_standard" className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
-                    <ElmIcon name="circle-check" size={16} />
-                    设为总部课程标准 (启用后各校区可直接引用)
-                  </label>
-                </div>
-              )}
             </div>
 
             <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-2xl text-amber-700 text-xs font-bold border border-amber-100/50">

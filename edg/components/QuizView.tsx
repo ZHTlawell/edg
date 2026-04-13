@@ -12,9 +12,10 @@ import {
   Send,
   HelpCircle
 } from 'lucide-react';
+import api from '../utils/api';
 
 interface Question {
-  id: number;
+  id: number | string;
   type: 'single' | 'multiple';
   text: string;
   options: { id: string; label: string; text: string }[];
@@ -50,19 +51,59 @@ const FALLBACK_QUESTIONS: Question[] = [
 
 interface QuizViewProps {
   chapterTitle: string;
+  /** 优先：从 API 拉真题 */
+  paperId?: string;
+  courseId?: string;
+  /** 兼容：直接传题 */
   questions?: Question[];
   onBack: () => void;
   onSubmit: () => void;
 }
 
-export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, questions, onBack, onSubmit }) => {
-  const QUESTIONS = (questions && questions.length > 0) ? questions : FALLBACK_QUESTIONS;
+export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, courseId, questions, onBack, onSubmit }) => {
+  const [apiQuestions, setApiQuestions] = useState<Question[] | null>(null);
+  const [paperMeta, setPaperMeta] = useState<{ time_limit: number; pass_score: number } | null>(null);
+  const [loading, setLoading] = useState<boolean>(!!paperId);
+  const [serverResult, setServerResult] = useState<{ score: number; totalScore: number; passed: boolean } | null>(null);
+  const startedAtRef = React.useRef(Date.now());
+
+  // 拉取真题
+  useEffect(() => {
+    if (!paperId) return;
+    setLoading(true);
+    api.get(`/api/quiz/papers/${paperId}`)
+      .then(res => {
+        const p = res.data;
+        const qs: Question[] = (p.questions || []).map((q: any) => ({
+          id: q.id,
+          type: q.type,
+          text: q.text,
+          options: q.options,
+          score: q.score,
+        }));
+        setApiQuestions(qs);
+        setPaperMeta({ time_limit: p.time_limit, pass_score: p.pass_score });
+      })
+      .catch(() => setApiQuestions([]))
+      .finally(() => setLoading(false));
+  }, [paperId]);
+
+  const QUESTIONS: Question[] = apiQuestions !== null ? apiQuestions : (questions && questions.length > 0 ? questions : FALLBACK_QUESTIONS);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string[]>>({});
-  const [isFlagged, setIsFlagged] = useState<Record<number, boolean>>({});
-  const [timeLeft, setTimeLeft] = useState(QUESTIONS.length * 240); // 4 min per question
+  const [answers, setAnswers] = useState<Record<string | number, string[]>>({});
+  const [isFlagged, setIsFlagged] = useState<Record<string | number, boolean>>({});
+  const [timeLeft, setTimeLeft] = useState(QUESTIONS.length * 240);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResult, setShowResult] = useState(false);
+
+  // 题目加载完成后重置计时
+  useEffect(() => {
+    if (paperMeta?.time_limit) {
+      setTimeLeft(paperMeta.time_limit);
+    } else {
+      setTimeLeft(QUESTIONS.length * 240);
+    }
+  }, [paperMeta, QUESTIONS.length]);
 
   const currentQuestion = QUESTIONS[currentIdx];
 
@@ -70,6 +111,27 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, questions, onB
     const timer = setInterval(() => setTimeLeft(t => t > 0 ? t - 1 : 0), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // 真题模式：提交到 API
+  const submitToApi = async () => {
+    if (!paperId || !courseId) return;
+    try {
+      const timeSpent = Math.round((Date.now() - startedAtRef.current) / 1000);
+      const res = await api.post('/api/quiz/submit', {
+        paperId,
+        courseId,
+        answers,
+        timeSpent,
+      });
+      setServerResult({
+        score: res.data.score,
+        totalScore: res.data.totalScore,
+        passed: res.data.passed,
+      });
+    } catch (e: any) {
+      console.error('submit failed', e);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -100,6 +162,26 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, questions, onB
   const isLastQuestion = currentIdx === QUESTIONS.length - 1;
   const answeredCount = Object.keys(answers).length;
   const allAnswered = answeredCount === QUESTIONS.length;
+
+  // 加载中
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-slate-500 font-bold">加载试卷中...</p>
+      </div>
+    );
+  }
+
+  // 真题模式但题目为空
+  if (paperId && apiQuestions !== null && apiQuestions.length === 0) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col items-center justify-center gap-4">
+        <p className="text-sm text-slate-500">该试卷暂无题目</p>
+        <button onClick={onBack} className="px-5 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200">返回</button>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col animate-in fade-in duration-500">
@@ -263,7 +345,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, questions, onB
             </div>
             <div className="p-6 bg-slate-50 flex gap-4">
               <button onClick={() => setShowConfirm(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-all">取消</button>
-              <button onClick={() => { setShowConfirm(false); setShowResult(true); }} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">确定提交</button>
+              <button onClick={async () => { setShowConfirm(false); if (paperId && courseId) await submitToApi(); setShowResult(true); }} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">确定提交</button>
             </div>
           </div>
         </div>
@@ -271,15 +353,24 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, questions, onB
 
       {/* ── Score Result Screen ── */}
       {showResult && (() => {
-        const totalQ = QUESTIONS.length;
-        let correct = 0;
-        for (const q of QUESTIONS) {
-          const userAns = (answers[q.id] || []).sort().join(',');
-          const correctAns = (q.answer || []).sort().join(',');
-          if (userAns === correctAns && userAns !== '') correct++;
+        let score: number;
+        let passed: boolean;
+        if (serverResult) {
+          // 真题模式：使用后端权威评分
+          score = serverResult.totalScore > 0 ? Math.round(serverResult.score / serverResult.totalScore * 100) : 0;
+          passed = serverResult.passed;
+        } else {
+          // 假题/兜底模式：本地评分
+          const totalQ = QUESTIONS.length;
+          let correct = 0;
+          for (const q of QUESTIONS) {
+            const userAns = (answers[q.id] || []).sort().join(',');
+            const correctAns = (q.answer || []).sort().join(',');
+            if (userAns === correctAns && userAns !== '') correct++;
+          }
+          score = Math.round((correct / totalQ) * 100);
+          passed = score >= 60;
         }
-        const score = Math.round((correct / totalQ) * 100);
-        const passed = score >= 60;
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
             <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" />

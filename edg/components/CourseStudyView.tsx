@@ -8,7 +8,6 @@ import {
 import api from '../utils/api';
 import { useStore } from '../store';
 import { QuizView } from './QuizView';
-import { QUESTION_BANK, LESSON_QUESTION_BANK } from './quizQuestionBank';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LessonResource {
@@ -172,8 +171,8 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
    const [activeResource, setActiveResource] = useState<LessonResource | null>(null);
    const [completing, setCompleting] = useState(false);
    const [lessonHomeworks, setLessonHomeworks] = useState<any[]>([]);
-   const [activeQuiz, setActiveQuiz] = useState<{ chapterId: string; chapterTitle: string } | null>(null);
-   const [activeLessonQuiz, setActiveLessonQuiz] = useState<{ lessonId: string; lessonTitle: string } | null>(null);
+   const [activeQuiz, setActiveQuiz] = useState<{ chapterId: string; chapterTitle: string; paperId: string } | null>(null);
+   const [chapterPapers, setChapterPapers] = useState<Record<string, { id: string; title: string; questionCount: number }[]>>({});
    const { addToast } = useStore();
 
    const load = useCallback(async () => {
@@ -194,6 +193,28 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
    }, [courseId]);
 
    useEffect(() => { load(); }, [load]);
+
+   // 拉取每个章节的真实试卷
+   useEffect(() => {
+      if (!catalog) return;
+      const fetchPapers = async () => {
+         const map: Record<string, { id: string; title: string; questionCount: number }[]> = {};
+         await Promise.all(
+            catalog.chapters.map(async ch => {
+               try {
+                  const r = await api.get(`/api/quiz/papers/by-chapter/${ch.id}`);
+                  map[ch.id] = (r.data || []).map((p: any) => ({
+                     id: p.id,
+                     title: p.title,
+                     questionCount: p._count?.questions || 0,
+                  }));
+               } catch { map[ch.id] = []; }
+            })
+         );
+         setChapterPapers(map);
+      };
+      fetchPapers();
+   }, [catalog]);
 
    // activeLesson must be declared before the useEffect that references it
    const activeLesson = catalog?.chapters.flatMap(c => c.lessons).find(l => l.id === activeLessonId) || null;
@@ -257,33 +278,20 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
    const allLessons = chapters.flatMap(c => c.lessons);
    // Find the chapter that contains the active lesson
    const activeChapter = activeLessonId ? chapters.find(ch => ch.lessons.some(l => l.id === activeLessonId)) : null;
-   const activeChapterQuiz = activeChapter ? QUESTION_BANK[activeChapter.title] : null;
    const progressPct = progress.total > 0 ? Math.round(progress.completed / progress.total * 100) : 0;
    const allCompleted = progress.completed === progress.total && progress.total > 0;
 
-   // Render Quiz overlay if active (chapter quiz or lesson quiz)
+   // Render Quiz overlay
    if (activeQuiz) {
       return (
          <QuizView
             chapterTitle={activeQuiz.chapterTitle}
-            questions={QUESTION_BANK[activeQuiz.chapterTitle]}
+            paperId={activeQuiz.paperId}
+            courseId={courseId}
             onBack={() => setActiveQuiz(null)}
             onSubmit={() => {
                addToast('章节测验已提交！', 'success');
                setActiveQuiz(null);
-            }}
-         />
-      );
-   }
-   if (activeLessonQuiz) {
-      return (
-         <QuizView
-            chapterTitle={`${activeLessonQuiz.lessonTitle} · 小节练习`}
-            questions={LESSON_QUESTION_BANK[activeLessonQuiz.lessonTitle]}
-            onBack={() => setActiveLessonQuiz(null)}
-            onSubmit={() => {
-               addToast('小节练习已完成！', 'success');
-               setActiveLessonQuiz(null);
             }}
          />
       );
@@ -360,45 +368,18 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
                         </button>
                         {expanded && (
                            <div className="pl-2 pr-1 space-y-1.5 mb-1">
-                              {ch.lessons.map((ls, i) => {
-                                 const lessonQuiz = LESSON_QUESTION_BANK[ls.title];
-                                 const quizAvailable = lessonQuiz && lessonQuiz.length > 0;
-                                 const lessonCompleted = ls.progress === 'COMPLETED';
-                                 return (
-                                    <React.Fragment key={ls.id}>
-                                       <LessonRow lesson={ls} globalIndex={globalStart + i}
-                                          isActive={activeLessonId === ls.id}
-                                          onClick={() => startLesson(ls.id)} />
-                                       {/* Lesson-level practice quiz */}
-                                       {quizAvailable && (
-                                          <div
-                                             onClick={() => lessonCompleted && setActiveLessonQuiz({ lessonId: ls.id, lessonTitle: ls.title })}
-                                             className={`flex items-center gap-2.5 px-4 py-2 ml-5 rounded-xl transition-all select-none border text-xs ${
-                                                !lessonCompleted
-                                                   ? 'opacity-40 cursor-not-allowed bg-slate-50/50 border-transparent'
-                                                   : 'bg-indigo-50/60 border-indigo-100 hover:bg-indigo-100 hover:border-indigo-200 cursor-pointer'
-                                             }`}
-                                          >
-                                             <div className={`w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 ${lessonCompleted ? 'bg-indigo-100 text-indigo-500' : 'bg-slate-100 text-slate-300'}`}>
-                                                <ClipboardCheck size={11} />
-                                             </div>
-                                             <span className={`font-bold truncate ${lessonCompleted ? 'text-indigo-600' : 'text-slate-400'}`}>
-                                                小节练习
-                                             </span>
-                                             <span className="text-slate-400 flex-shrink-0">{lessonQuiz.length}题</span>
-                                             {!lessonCompleted && <Lock size={11} className="text-slate-300 flex-shrink-0 ml-auto" />}
-                                          </div>
-                                       )}
-                                    </React.Fragment>
-                                 );
-                              })}
-                              {/* Chapter Quiz Entry — unlocked after all lessons completed */}
-                              {QUESTION_BANK[ch.title] && (() => {
+                              {ch.lessons.map((ls, i) => (
+                                 <LessonRow key={ls.id} lesson={ls} globalIndex={globalStart + i}
+                                    isActive={activeLessonId === ls.id}
+                                    onClick={() => startLesson(ls.id)} />
+                              ))}
+                              {/* Chapter Quiz Entries — 真实试卷，章节完成后解锁 */}
+                              {(chapterPapers[ch.id] || []).map(paper => {
                                  const quizUnlocked = chCompleted;
-                                 const isQuizActive = activeQuiz?.chapterId === ch.id;
+                                 const isQuizActive = activeQuiz?.paperId === paper.id;
                                  return (
-                                    <div
-                                       onClick={() => quizUnlocked && setActiveQuiz({ chapterId: ch.id, chapterTitle: ch.title })}
+                                    <div key={paper.id}
+                                       onClick={() => quizUnlocked && setActiveQuiz({ chapterId: ch.id, chapterTitle: ch.title, paperId: paper.id })}
                                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all select-none border mt-2 ${
                                           !quizUnlocked
                                              ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-50'
@@ -412,16 +393,16 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
                                        </div>
                                        <div className="flex-1 min-w-0">
                                           <p className={`text-sm font-bold truncate ${isQuizActive ? 'text-amber-700' : !quizUnlocked ? 'text-slate-400' : 'text-amber-700'}`}>
-                                             {ch.sort_order}章节测验
+                                             {paper.title}
                                           </p>
                                           <p className="text-xs text-slate-400 mt-0.5">
-                                             {QUESTION_BANK[ch.title].length}题{!quizUnlocked ? ' · 完成本章解锁' : ''}
+                                             {paper.questionCount} 题{!quizUnlocked ? ' · 完成本章解锁' : ''}
                                           </p>
                                        </div>
                                        {!quizUnlocked ? <Lock size={15} className="text-slate-300 flex-shrink-0" /> : <ChevronRight size={14} className="text-amber-400 flex-shrink-0" />}
                                     </div>
                                  );
-                              })()}
+                              })}
                            </div>
                         )}
                      </div>

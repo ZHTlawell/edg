@@ -138,12 +138,12 @@ async function main() {
     // ══════════════════════════════════════════
     console.log('📚 创建课程...');
     const courses = await Promise.all([
-        prisma.edCourse.create({ data: { name: '高级UI/UX设计实战',   category: '设计',   price: 4800, total_lessons: 32, status: 'ENABLED', is_standard: true, campus_id: CAMPUS_PD, instructor_id: t_zhang.id } }),
-        prisma.edCourse.create({ data: { name: '全栈开发：React+Node', category: '编程',   price: 6400, total_lessons: 48, status: 'ENABLED', is_standard: true, campus_id: CAMPUS_PD, instructor_id: t_li.id   } }),
-        prisma.edCourse.create({ data: { name: '零基础Python自动化',   category: '编程',   price: 2800, total_lessons: 24, status: 'ENABLED', is_standard: true, campus_id: CAMPUS_PD, instructor_id: t_zhang.id } }),
-        prisma.edCourse.create({ data: { name: '数据分析与可视化',     category: '数据',   price: 3600, total_lessons: 30, status: 'ENABLED', is_standard: true, campus_id: CAMPUS_XH, instructor_id: t_wang.id  } }),
-        prisma.edCourse.create({ data: { name: '人工智能基础与应用',   category: 'AI',     price: 5200, total_lessons: 36, status: 'ENABLED', is_standard: true, campus_id: CAMPUS_XH, instructor_id: t_chen.id  } }),
-        prisma.edCourse.create({ data: { name: '产品经理实战训练营',   category: '产品',   price: 3200, total_lessons: 20, status: 'ENABLED', is_standard: false, campus_id: CAMPUS_XH, instructor_id: t_wang.id } }),
+        prisma.edCourse.create({ data: ({ name: '高级UI/UX设计实战',   category: '设计',   price: 4800, total_lessons: 32, status: 'ENABLED', campus_id: CAMPUS_PD, instructor_id: t_zhang.id } as any) }),
+        prisma.edCourse.create({ data: ({ name: '全栈开发：React+Node', category: '编程',   price: 6400, total_lessons: 48, status: 'ENABLED', campus_id: CAMPUS_PD, instructor_id: t_li.id   } as any) }),
+        prisma.edCourse.create({ data: ({ name: '零基础Python自动化',   category: '编程',   price: 2800, total_lessons: 24, status: 'ENABLED', campus_id: CAMPUS_PD, instructor_id: t_zhang.id } as any) }),
+        prisma.edCourse.create({ data: ({ name: '数据分析与可视化',     category: '数据',   price: 3600, total_lessons: 30, status: 'ENABLED', campus_id: CAMPUS_XH, instructor_id: t_wang.id  } as any) }),
+        prisma.edCourse.create({ data: ({ name: '人工智能基础与应用',   category: 'AI',     price: 5200, total_lessons: 36, status: 'ENABLED', campus_id: CAMPUS_XH, instructor_id: t_chen.id  } as any) }),
+        prisma.edCourse.create({ data: ({ name: '产品经理实战训练营',   category: '产品',   price: 3200, total_lessons: 20, status: 'ENABLED', campus_id: CAMPUS_XH, instructor_id: t_wang.id } as any) }),
     ]);
     const [cUI, cReact, cPython, cData, cAI, cPM] = courses;
 

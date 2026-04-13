@@ -1,5 +1,6 @@
 import { ElmIcon } from './ElmIcon';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import api from '../utils/api';
 import {
   ArrowLeft,
   Edit,
@@ -34,7 +35,7 @@ interface StudentDetailViewProps {
   onBack: () => void;
 }
 
-type TabType = 'basic' | 'enrollment' | 'payment' | 'progress' | 'grades' | 'attendance' | 'homework';
+type TabType = 'basic' | 'enrollment' | 'payment' | 'grades' | 'attendance' | 'homework';
 
 // Reusable Empty State Component
 const EmptyState: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (
@@ -64,6 +65,35 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
   const studentAssets = useMemo(() => (assetAccounts || []).filter(acc => acc.student_id === student.id), [assetAccounts, student.id]);
 
   const { applyRefund, transferClass, addToast } = useStore();
+
+  // 作业 + 测验：按学员 ID 局部 fetch（仅 admin/campus_admin/teacher 视角使用）
+  const [studentHomeworks, setStudentHomeworks] = useState<any[]>([]);
+  const [studentQuizzes, setStudentQuizzes] = useState<any[]>([]);
+  const [hwLoading, setHwLoading] = useState(false);
+  const [quizLoading, setQuizLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'homework' && student.id) {
+      setHwLoading(true);
+      api.get(`/api/teaching/homeworks/by-student/${student.id}`)
+        .then(res => setStudentHomeworks(res.data || []))
+        .catch(() => setStudentHomeworks([]))
+        .finally(() => setHwLoading(false));
+    }
+  }, [activeTab, student.id]);
+
+  useEffect(() => {
+    if (activeTab === 'grades' && student.id) {
+      setQuizLoading(true);
+      Promise.all([
+        api.get(`/api/teaching/homeworks/by-student/${student.id}`).then(r => r.data || []).catch(() => []),
+        api.get(`/api/quiz/submissions`, { params: { studentId: student.id } }).then(r => r.data || []).catch(() => []),
+      ]).then(([hw, qz]) => {
+        setStudentHomeworks(hw);
+        setStudentQuizzes(qz);
+      }).finally(() => setQuizLoading(false));
+    }
+  }, [activeTab, student.id]);
 
   const [refundConfirm, setRefundConfirm] = useState<{ isOpen: boolean; order: Order | null }>({ isOpen: false, order: null });
   const [transferPrompt, setTransferPrompt] = useState<{ isOpen: boolean; course_id: string | null }>({ isOpen: false, course_id: null });
@@ -138,7 +168,6 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
     { id: 'basic', label: '基本信息' },
     { id: 'enrollment', label: '报名记录' },
     { id: 'payment', label: '资产账务' },
-    { id: 'progress', label: '学习进度' },
     { id: 'grades', label: '成绩统计' },
     { id: 'attendance', label: '考勤日志' },
     { id: 'homework', label: '作业批改' },
@@ -191,7 +220,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                 <div className="flex flex-wrap items-center gap-y-2 gap-x-8 text-sm text-slate-500 font-medium">
                   <span className="flex items-center gap-2"><Phone size={15} className="text-slate-300" /> {maskPhone(student.phone)}</span>
                   <span className="flex items-center gap-2"><ElmIcon name="location" size={16} /> {(classes || []).find(c => c.id === student.class_id)?.campus_id || '未知校区'}</span>
-                  <span className="flex items-center gap-2"><ElmIcon name="reading" size={16} /> 剩余课时: <b className="text-slate-900">{studentAssets.reduce((sum, acc) => sum + acc.remainingQty, 0)}</b></span>
+                  <span className="flex items-center gap-2"><ElmIcon name="reading" size={16} /> 剩余课时: <b className="text-slate-900">{studentAssets.reduce((sum, acc) => sum + (acc.remaining_qty ?? acc.remainingQty ?? 0), 0)}</b></span>
                   <span className="px-2 py-0.5 bg-slate-50 text-[10px] font-mono text-slate-400 rounded">UID: {student.id}</span>
                 </div>
               </div>
@@ -516,13 +545,145 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
           </div>
         )}
 
-        {/* Other tabs remain empty for now */}
-        {(activeTab === 'progress' || activeTab === 'grades' || activeTab === 'homework') && (
-          <EmptyState
-            icon={<Inbox size={64} />}
-            title="暂无详细数据分析"
-            description="该模块的数据同步正在建设中，目前主要通过基本信息、报名记录和资产账务进行教务管理。"
-          />
+        {/* 作业批改 */}
+        {activeTab === 'homework' && (
+          <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <h4 className="font-bold text-slate-800">作业提交与批改</h4>
+              <span className="text-xs text-slate-400 font-bold">共 {studentHomeworks.length} 项</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {hwLoading ? (
+                <div className="py-20 text-center text-slate-400 text-sm">加载中...</div>
+              ) : studentHomeworks.length === 0 ? (
+                <div className="py-20 text-center text-slate-400 font-medium italic">该学员暂无作业记录</div>
+              ) : studentHomeworks.map((hw: any) => {
+                const sub = hw.submissions?.[0];
+                const status = sub?.status || 'NOT_SUBMITTED';
+                const statusMap: Record<string, { label: string; cls: string }> = {
+                  GRADED: { label: '已批改', cls: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+                  SUBMITTED: { label: '待批改', cls: 'text-blue-600 bg-blue-50 border-blue-100' },
+                  RETURNED: { label: '已退回', cls: 'text-amber-600 bg-amber-50 border-amber-100' },
+                  LATE: { label: '逾期提交', cls: 'text-orange-600 bg-orange-50 border-orange-100' },
+                  NOT_SUBMITTED: { label: '未提交', cls: 'text-slate-500 bg-slate-100 border-slate-200' },
+                };
+                const st = statusMap[status] || statusMap.NOT_SUBMITTED;
+                return (
+                  <div key={hw.id} className="px-8 py-6 hover:bg-blue-50/10 transition-all">
+                    <div className="flex items-start justify-between gap-6">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <p className="text-base font-bold text-slate-900 truncate">{hw.title}</p>
+                          <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${st.cls}`}>{st.label}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium mt-2 flex items-center gap-3 flex-wrap">
+                          <span>课程：{hw.assignment?.course?.name || '—'}</span>
+                          <span className="text-slate-200">|</span>
+                          <span>布置教师：{hw.teacher?.name || '—'}</span>
+                          <span className="text-slate-200">|</span>
+                          <span>截止：{hw.deadline ? new Date(hw.deadline).toLocaleDateString() : '—'}</span>
+                          {sub?.submittedAt && <><span className="text-slate-200">|</span><span>提交于：{new Date(sub.submittedAt).toLocaleString()}</span></>}
+                        </p>
+                        {sub?.feedback && (
+                          <div className="mt-3 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-100">
+                            <span className="font-bold text-slate-500">教师评语：</span>{sub.feedback}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        {sub?.score !== null && sub?.score !== undefined ? (
+                          <>
+                            <p className="text-3xl font-bold text-slate-900 font-mono leading-none">{sub.score}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">得分</p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-slate-300 font-medium">—</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 成绩统计 */}
+        {activeTab === 'grades' && (
+          <div className="space-y-6">
+            {quizLoading ? (
+              <div className="bg-white rounded-3xl border border-slate-200 py-20 text-center text-slate-400 text-sm">加载中...</div>
+            ) : (
+              <>
+                {/* 汇总卡片 */}
+                {(() => {
+                  const gradedHw = studentHomeworks.filter((h: any) => h.submissions?.[0]?.score != null);
+                  const hwAvg = gradedHw.length > 0 ? gradedHw.reduce((s: number, h: any) => s + (h.submissions[0].score || 0), 0) / gradedHw.length : 0;
+                  const quizAvg = studentQuizzes.length > 0 ? studentQuizzes.reduce((s: number, q: any) => s + (q.score || 0), 0) / studentQuizzes.length : 0;
+                  const passed = studentQuizzes.filter((q: any) => q.passed).length;
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">作业平均分</p>
+                        <h3 className="text-2xl font-bold text-blue-600 font-mono">{hwAvg.toFixed(1)}</h3>
+                        <p className="text-[10px] text-slate-400 mt-1">{gradedHw.length} 次已批改</p>
+                      </div>
+                      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">测验平均分</p>
+                        <h3 className="text-2xl font-bold text-purple-600 font-mono">{quizAvg.toFixed(1)}</h3>
+                        <p className="text-[10px] text-slate-400 mt-1">{studentQuizzes.length} 次提交</p>
+                      </div>
+                      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">测验通过</p>
+                        <h3 className="text-2xl font-bold text-emerald-600 font-mono">{passed}/{studentQuizzes.length}</h3>
+                        <p className="text-[10px] text-slate-400 mt-1">通过率 {studentQuizzes.length ? Math.round(passed / studentQuizzes.length * 100) : 0}%</p>
+                      </div>
+                      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">作业完成率</p>
+                        <h3 className="text-2xl font-bold text-amber-600 font-mono">{studentHomeworks.length ? Math.round(studentHomeworks.filter((h: any) => h.submissions?.length).length / studentHomeworks.length * 100) : 0}%</h3>
+                        <p className="text-[10px] text-slate-400 mt-1">{studentHomeworks.filter((h: any) => h.submissions?.length).length}/{studentHomeworks.length} 已提交</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 测验列表 */}
+                <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="p-6 bg-slate-50 border-b border-slate-100">
+                    <h4 className="font-bold text-slate-800">测验成绩明细</h4>
+                  </div>
+                  {studentQuizzes.length === 0 ? (
+                    <div className="py-16 text-center text-slate-400 italic">暂无测验记录</div>
+                  ) : (
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50/40 border-b border-slate-100">
+                        <tr>
+                          <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">试卷</th>
+                          <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">提交时间</th>
+                          <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">得分</th>
+                          <th className="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">结果</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {studentQuizzes.map((q: any) => (
+                          <tr key={q.id} className="hover:bg-slate-50/50">
+                            <td className="px-8 py-4 text-sm font-bold text-slate-800">{q.paper?.title || q.paper_id || '—'}</td>
+                            <td className="px-8 py-4 text-xs text-slate-500">{q.submittedAt ? new Date(q.submittedAt).toLocaleString() : '—'}</td>
+                            <td className="px-8 py-4 text-right font-mono font-bold text-slate-900">{q.score ?? '—'} <span className="text-xs text-slate-400">/ {q.total_score ?? '—'}</span></td>
+                            <td className="px-8 py-4 text-right">
+                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${q.passed ? 'text-emerald-600 bg-emerald-50' : 'text-red-500 bg-red-50'}`}>
+                                {q.passed ? '通过' : '未通过'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 

@@ -9,6 +9,7 @@ import {
 import api from '../utils/api';
 import { useStore } from '../store';
 import { CourseChapterTree } from './CourseResourcePanel';
+import { QuizPaperManager } from './QuizPaperManager';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Category { id: string; name: string; description?: string; sort_order: number; status: string; _count?: { standards: number }; }
@@ -402,7 +403,7 @@ const StandardDetail: React.FC<{
     standard: Standard; categories: Category[];
     onBack: () => void; onEdit: () => void; onRefresh: () => void;
 }> = ({ standard, categories, onBack, onEdit, onRefresh }) => {
-    const [tab, setTab] = useState<'info' | 'resources' | 'campus' | 'versions'>('info');
+    const [tab, setTab] = useState<'info' | 'resources' | 'quizzes' | 'campus' | 'versions'>('info');
     const [versions, setVersions] = useState<Version[]>([]);
     const { addToast } = useStore();
 
@@ -425,6 +426,7 @@ const StandardDetail: React.FC<{
     const TABS = [
         { id: 'info', label: '基本信息', icon: Tag },
         { id: 'resources', label: '课程资源', icon: Layers },
+        { id: 'quizzes', label: '测验题库', icon: BookMarked },
         { id: 'campus', label: '适用校区', icon: Building2 },
         { id: 'versions', label: '版本历史', icon: History },
     ];
@@ -519,6 +521,7 @@ const StandardDetail: React.FC<{
                 )}
 
                 {tab === 'resources' && <CourseChapterTree standardId={standard.id} />}
+                {tab === 'quizzes' && <QuizPaperManager standardId={standard.id} />}
 
                 {tab === 'campus' && (
                     <div className="space-y-3">

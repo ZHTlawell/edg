@@ -821,15 +821,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                 <ElmIcon name="arrow-right" size={16} />
               </button>
 
-              {/* Internal Notes */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <ElmIcon name="document" size={16} /> 内部授课备注
-                </div>
-                <div className="p-5 bg-white border border-slate-100 rounded-3xl min-h-[100px] text-sm text-slate-500 font-medium italic leading-relaxed">
-                  "该班级学风较为活跃，本节课重点讲解 Figma 高级原型交互，需提醒学员带好个人笔记本电脑。"
-                </div>
-              </div>
             </div>
           </div>
         </div>

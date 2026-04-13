@@ -36,11 +36,11 @@ export class AcademicController {
     @Post('courses')
     async createCourse(@Request() req: any, @Body() body: any) {
         const userRole = req.user.role.toUpperCase();
-        if (userRole !== 'ADMIN' && userRole !== 'CAMPUS_ADMIN') {
-            throw new Error('仅管理员或校区主管可开设新课程');
+        // 总部 Admin 不再直接建课程，仅校区管理员可基于标准实例化
+        if (userRole !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅校区管理员可基于标准创建课程；总部请通过「课程体系管理」维护标准');
         }
-        const campus_id = userRole === 'CAMPUS_ADMIN' ? req.user.campusId : body.campus_id;
-        console.log(`[Academic] Creating course: ${body.name}, userRole: ${userRole}, assignCampusId: ${campus_id}`);
+        const campus_id = req.user.campusId;
         return this.academicService.createCourse({
             ...body,
             campus_id
@@ -51,8 +51,8 @@ export class AcademicController {
     @UseGuards(AuthGuard('jwt'))
     async updateCourse(@Request() req: any, @Param('id') id: string, @Body() body: any) {
         const userRole = req.user.role.toUpperCase();
-        if (userRole !== 'ADMIN' && userRole !== 'CAMPUS_ADMIN') {
-            throw new UnauthorizedException('仅管理员可修改课程信息');
+        if (userRole !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅校区管理员可修改课程信息');
         }
         return this.academicService.updateCourse(id, body);
     }

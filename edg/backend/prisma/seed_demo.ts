@@ -87,41 +87,35 @@ async function main() {
     });
 
     // 4. 标准课程 (总部创建)
-    const c1 = await prisma.edCourse.create({
-        data: {
+    const c1 = await prisma.edCourse.create({ data: ({
             name: '高级UI/UX设计实战',
             category: '设计',
             price: 4800,
             total_lessons: 32,
-            is_standard: true,
+
             status: 'ENABLED',
             instructor_id: t1.id
-        }
-    });
+        } as any) });
 
-    const c2 = await prisma.edCourse.create({
-        data: {
+    const c2 = await prisma.edCourse.create({ data: ({
             name: '全栈开发：React与NestJS',
             category: '编程',
             price: 6400,
             total_lessons: 48,
-            is_standard: true,
+
             status: 'ENABLED',
             instructor_id: t2.id
-        }
-    });
+        } as any) });
 
-    const c3 = await prisma.edCourse.create({
-        data: {
+    const c3 = await prisma.edCourse.create({ data: ({
             name: '零基础Python自动化',
             category: '编程',
             price: 2400,
             total_lessons: 24,
-            is_standard: true,
+
             status: 'ENABLED',
             instructor_id: t1.id
-        }
-    });
+        } as any) });
 
     // 5. 班级 (校区端创建)
     const class1 = await prisma.edClass.create({

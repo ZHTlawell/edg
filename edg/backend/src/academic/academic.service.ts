@@ -56,23 +56,39 @@ export class AcademicService {
     // 课程管理 (Courses)
     // =====================================
     async createCourse(data: any) {
-        // Map frontend fields (if present) to backend schema
+        // standard_id 必填
+        const standardId = data.standard_id;
+        if (!standardId) {
+            throw new BadRequestException('必须基于课程标准创建课程，请先选择标准');
+        }
+
+        const standard = await (this.prisma as any).stdCourseStandard.findUnique({ where: { id: standardId } });
+        if (!standard) throw new BadRequestException('无效的课程标准');
+        if (standard.status !== 'ENABLED' && standard.status !== 'PUBLISHED') {
+            throw new BadRequestException(`该课程标准状态为「${standard.status}」，无法开设新课程`);
+        }
+
+        const requestedLessons = data.total_lessons || data.totalLessons || standard.total_lessons;
+
+        // ±20% 课时数校验
+        const baseLessons = standard.total_lessons;
+        const lowerBound = Math.floor(baseLessons * 0.8);
+        const upperBound = Math.ceil(baseLessons * 1.2);
+        if (requestedLessons < lowerBound || requestedLessons > upperBound) {
+            throw new BadRequestException(
+                `课时数 ${requestedLessons} 超出标准建议范围 [${lowerBound}, ${upperBound}]（基准 ${baseLessons}）`
+            );
+        }
+
         const mappedData = {
             name: data.name,
-            category: data.category,
+            category: data.category || (standard as any).category_id || '',
             price: typeof data.price === 'string' ? parseFloat(data.price) : data.price,
-            total_lessons: data.total_lessons || data.totalLessons || 10,
-            is_standard: !!data.is_standard,
-            standard_id: data.standard_id || null,
+            total_lessons: requestedLessons,
+            standard_id: standardId,
             campus_id: data.campus_id || null,
             instructor_id: data.instructor_id || null,
         };
-
-        if (mappedData.standard_id) {
-            const standard = await (this.prisma as any).stdCourseStandard.findUnique({ where: { id: mappedData.standard_id } });
-            if (!standard) throw new BadRequestException('无效的课程标准');
-            if (standard.status === 'DISABLED') throw new BadRequestException('该课程标准已停用，无法开设新课程');
-        }
 
         return this.prisma.edCourse.create({
             data: {
@@ -91,8 +107,7 @@ export class AcademicService {
             ...(campusId ? {
                 OR: [
                     { campus_id: campusId },
-                    { campus_id: null },
-                    { is_standard: true }
+                    { campus_id: null }
                 ]
             } : {})
         };

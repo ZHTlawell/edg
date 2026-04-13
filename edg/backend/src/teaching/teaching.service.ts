@@ -227,11 +227,25 @@ export class TeachingService {
     // =====================================
     // 考勤数据查询
     // =====================================
-    async getAttendanceRecords(campusId?: string) {
+    async getAttendanceRecords(scope: { campusId?: string; classId?: string; studentId?: string; teacherId?: string; from?: string; to?: string } = {}) {
         const where: any = {};
-        if (campusId) {
-            where.lesson = { assignment: { class: { campus_id: campusId } } };
+        // 学员维度过滤
+        if (scope.studentId) where.student_id = scope.studentId;
+        // lesson 链路条件
+        const lessonWhere: any = {};
+        const assignmentWhere: any = {};
+        if (scope.campusId) assignmentWhere.class = { campus_id: scope.campusId };
+        if (scope.classId) assignmentWhere.class_id = scope.classId;
+        if (scope.teacherId) assignmentWhere.teacher_id = scope.teacherId;
+        if (Object.keys(assignmentWhere).length) lessonWhere.assignment = assignmentWhere;
+        // 时间区间（按课次开始时间）
+        if (scope.from || scope.to) {
+            lessonWhere.start_time = {};
+            if (scope.from) lessonWhere.start_time.gte = new Date(scope.from);
+            if (scope.to) lessonWhere.start_time.lte = new Date(scope.to);
         }
+        if (Object.keys(lessonWhere).length) where.lesson = lessonWhere;
+
         const records = await this.prisma.teachAttendance.findMany({
             where,
             include: {
@@ -261,13 +275,24 @@ export class TeachingService {
     // =====================================
     // 考勤登记与核减资产 (Attendance & Deductions)
     // =====================================
-    async submitAttendance(data: { lessonId: string; operatorId?: string; attendances: { studentId: string; status: string; deductAmount?: number }[] }) {
+    async submitAttendance(data: { lessonId: string; operatorId?: string; operatorRole?: string; operatorTeacherId?: string; operatorCampusId?: string; attendances: { studentId: string; status: string; deductAmount?: number }[] }) {
         const lesson = await this.prisma.edLessonSchedule.findUnique({
             where: { id: data.lessonId },
-            include: { assignment: true }
+            include: { assignment: { include: { class: true } } }
         });
         if (!lesson) throw new NotFoundException('找不到该课次记录');
         if (lesson.is_consumed) throw new BadRequestException('该课次已完成课消，不可重复登记');
+
+        // 归属校验：教师只能登记自己授课的课次；校区管理员只能登记本校区课次
+        if (data.operatorRole === 'TEACHER') {
+            if (!data.operatorTeacherId || lesson.assignment.teacher_id !== data.operatorTeacherId) {
+                throw new ForbiddenException('只能登记自己授课的课次考勤');
+            }
+        } else if (data.operatorRole === 'CAMPUS_ADMIN') {
+            if (!data.operatorCampusId || lesson.assignment.class?.campus_id !== data.operatorCampusId) {
+                throw new ForbiddenException('只能登记本校区的课次考勤');
+            }
+        }
 
         const courseId = lesson.course_id || lesson.assignment.course_id;
 
@@ -355,17 +380,24 @@ export class TeachingService {
     /**
      * 课消撤销（T+3 天内允许 CAMPUS_ADMIN/ADMIN 撤销）
      */
-    async revokeConsumption(lessonId: string, operatorId: string, operatorRole: string) {
+    async revokeConsumption(lessonId: string, operatorId: string, operatorRole: string, operatorCampusId?: string) {
         if (operatorRole !== 'ADMIN' && operatorRole !== 'CAMPUS_ADMIN') {
             throw new ForbiddenException('仅 ADMIN/CAMPUS_ADMIN 可撤销课消');
         }
 
         const lesson = await this.prisma.edLessonSchedule.findUnique({
             where: { id: lessonId },
-            include: { attendances: true }
+            include: { attendances: true, assignment: { include: { class: true } } }
         });
         if (!lesson) throw new NotFoundException('课次不存在');
         if (!lesson.is_consumed) throw new BadRequestException('该课次尚未完成课消，无需撤销');
+
+        // 校区管理员只能撤销本校区课次
+        if (operatorRole === 'CAMPUS_ADMIN') {
+            if (!operatorCampusId || lesson.assignment.class?.campus_id !== operatorCampusId) {
+                throw new ForbiddenException('只能撤销本校区课次的课消');
+            }
+        }
 
         const now = Date.now();
         if (now - lesson.end_time.getTime() > 3 * 24 * 60 * 60 * 1000) {

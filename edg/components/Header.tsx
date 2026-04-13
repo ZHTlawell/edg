@@ -34,19 +34,17 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, onNavigate, onToggleSi
 
         <button
           onClick={() => onNavigate?.('help-center')}
-          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-full transition-colors"
-          title="帮助中心"
+          className="px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-50 rounded-lg transition-colors"
         >
-          <ElmIcon name="help-filled" size={20} />
+          帮助中心
         </button>
 
         {onLogout && (
           <button
             onClick={onLogout}
-            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-2"
-            title="退出登录"
+            className="px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-2"
           >
-            <ElmIcon name="switch-button" size={20} />
+            退出登录
           </button>
         )}
       </div>

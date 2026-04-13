@@ -31,11 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
   // Explicitly typed as MenuItem[] to resolve property 'children' access issues
   const adminMenu: MenuItem[] = [
     { id: 'dashboard', label: '工作台概览', icon: <ElmIcon name="odometer" size={20} /> },
-    {
-      id: 'campus-group', label: '校区组织', icon: <ElmIcon name="school" size={20} />, children: [
-        { id: 'campus-list', label: '校区管理' }
-      ]
-    },
+    { id: 'campus-list', label: '校区管理', icon: <ElmIcon name="school" size={20} /> },
     {
       id: 'student-group', label: '学员管理', icon: <ElmIcon name="user" size={20} />, children: [
         { id: 'students', label: '学员档案' },
@@ -43,9 +39,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
       ]
     },
     {
-      id: 'course-group', label: '教研产品', icon: <ElmIcon name="reading" size={20} />, children: [
-        { id: 'courses', label: '课程库' },
-        { id: 'classes', label: '班级管理' }
+      id: 'teaching-group', label: '教学管理', icon: <ElmIcon name="reading-lamp" size={20} />, children: [
+        { id: 'teaching', label: '课表管理' },
+        { id: 'classes', label: '班级管理' },
+        { id: 'course-standard', label: '课程体系管理' }
       ]
     },
     {
@@ -54,7 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
         { id: 'refund-management', label: '退费管理' }
       ]
     },
-    { id: 'teaching', label: '教学调度', icon: <ElmIcon name="reading-lamp" size={20} /> },
     {
       id: 'stats-group', label: '统计报表', icon: <ElmIcon name="histogram" size={20} />, children: [
         { id: 'stats', label: '统计看板' },
@@ -68,7 +64,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
         { id: 'announcemnt-mgmt', label: '公告管理' }
       ]
     },
-    { id: 'course-standard', label: '课程体系管理', icon: <ElmIcon name="collection" size={20} /> },
   ];
 
   const campusMenu: MenuItem[] = [
@@ -208,8 +203,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
               <p className="text-xs font-bold text-slate-800 truncate">
                 {userRole === 'admin' ? '王主管' : userRole === 'campus_admin' ? '赵校长' : userRole === 'teacher' ? '李建国老师' : '张美玲 (学员)'}
               </p>
-              <p className="text-[9px] text-slate-400 font-bold uppercase truncate tracking-wider">
-                {userRole === 'admin' ? 'Head of Operations' : userRole === 'campus_admin' ? 'Campus Principal' : userRole === 'teacher' ? 'Lead Instructor' : 'Premium Student'}
+              <p className="text-[10px] text-slate-400 font-medium truncate">
+                {userRole === 'admin' ? '总部运营' : userRole === 'campus_admin' ? '校区负责人' : userRole === 'teacher' ? '授课教师' : '在读学员'}
               </p>
             </div>
           )}

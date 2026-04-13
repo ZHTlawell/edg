@@ -168,19 +168,29 @@ export const CourseManagement: React.FC = () => {
 
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">课程管理</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">课程管理</h1>
+          {!isCampusAdmin && (
+            <p className="text-xs text-slate-400 font-bold mt-1 flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100 text-[10px] tracking-widest">监控视图</span>
+              总部仅查看；课程由各校区管理员基于「课程体系管理」中的标准实例化
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <button onClick={handleExportCourses} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
             <ElmIcon name="download" size={16} />
             导出数据
           </button>
-          <button
-            onClick={() => { setEditingCourse(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
-          >
-            <ElmIcon name="plus" size={16} />
-            新增课程
-          </button>
+          {isCampusAdmin && (
+            <button
+              onClick={() => { setEditingCourse(null); setIsModalOpen(true); }}
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
+            >
+              <ElmIcon name="plus" size={16} />
+              基于标准开课
+            </button>
+          )}
         </div>
       </div>
 
@@ -387,27 +397,31 @@ export const CourseManagement: React.FC = () => {
                         <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all" title="查看详情">
                           <Eye size={18} />
                         </button>
-                        <button
-                          onClick={() => { setEditingCourse(course); setIsModalOpen(true); }}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
-                          title="编辑"
-                        >
-                          <Edit3 size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(course.id)}
-                          className={`p-2 transition-all rounded-lg ${course.status === 'enabled' ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
-                          title={course.status === 'enabled' ? '停用' : '启用'}
-                        >
-                          <ElmIcon name="refresh" size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCourse(course.id, course.name)}
-                          className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          title="删除课程"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        {isCampusAdmin && (
+                          <>
+                            <button
+                              onClick={() => { setEditingCourse(course); setIsModalOpen(true); }}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
+                              title="编辑"
+                            >
+                              <Edit3 size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleToggleStatus(course.id)}
+                              className={`p-2 transition-all rounded-lg ${course.status === 'enabled' ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                              title={course.status === 'enabled' ? '停用' : '启用'}
+                            >
+                              <ElmIcon name="refresh" size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCourse(course.id, course.name)}
+                              className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="删除课程"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </>
+                        )}
                         <button className="p-2 text-slate-300 hover:text-slate-900 transition-all">
                           <ElmIcon name="more-filled" size={16} />
                         </button>

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -14,6 +14,15 @@ export class QuizController {
             throw new UnauthorizedException('仅教师或管理员可创建试卷');
         }
         return this.quizService.createPaper({ ...body, creatorId: req.user.userId });
+    }
+
+    // 删除试卷（管理员/出题人）
+    @Delete('papers/:paperId')
+    async deletePaper(@Request() req: any, @Param('paperId') paperId: string) {
+        if (!['ADMIN', 'CAMPUS_ADMIN', 'TEACHER'].includes(req.user.role)) {
+            throw new UnauthorizedException('无权删除试卷');
+        }
+        return this.quizService.deletePaper(paperId);
     }
 
     // 获取章节的试卷列表
@@ -38,11 +47,21 @@ export class QuizController {
         return this.quizService.submitQuiz({ ...body, studentId });
     }
 
-    // 查看学员测验记录
+    // 查看学员测验记录（学员看自己；admin/campus_admin/teacher 可传 studentId 查任意学员）
     @Get('submissions')
-    async getMySubmissions(@Request() req: any, @Query('courseId') courseId: string) {
-        const studentId = req.user.studentId || req.user.userId;
-        return this.quizService.getStudentSubmissions(studentId, courseId);
+    async getMySubmissions(
+        @Request() req: any,
+        @Query('courseId') courseId: string,
+        @Query('studentId') queryStudentId?: string,
+    ) {
+        const role = req.user.role;
+        let targetStudentId: string;
+        if (['ADMIN', 'CAMPUS_ADMIN', 'TEACHER'].includes(role) && queryStudentId) {
+            targetStudentId = queryStudentId;
+        } else {
+            targetStudentId = req.user.studentId || req.user.userId;
+        }
+        return this.quizService.getStudentSubmissions(targetStudentId, courseId);
     }
 
     // 查看单次答题详情

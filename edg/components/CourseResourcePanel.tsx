@@ -26,12 +26,21 @@ interface LessonResource { id: string; sort_order: number; resource: Resource; }
 interface Lesson { id: string; title: string; sort_order: number; duration?: number; resources: LessonResource[]; }
 interface Chapter { id: string; title: string; sort_order: number; lessons: Lesson[]; }
 
+// 仅保留两大类：文档资源（PDF/PPT）与 视频资源（VIDEO/AUDIO/其他）
 export const TYPE_CONFIG = {
-    VIDEO: { label: '视频', icon: Video, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-    PPT: { label: 'PPT', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
-    PDF: { label: 'PDF', icon: FileText, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100' },
-    AUDIO: { label: '音频', icon: Music, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
-    OTHER: { label: '其他', icon: File, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-100' },
+    DOCUMENT: { label: '文档资源', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+    VIDEO: { label: '视频资源', icon: Video, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+    // 兼容旧 type 值
+    PPT: { label: '文档资源', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+    PDF: { label: '文档资源', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+    AUDIO: { label: '视频资源', icon: Video, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+    OTHER: { label: '视频资源', icon: Video, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+};
+
+// 将后端 type 映射到两大宏分类
+export const macroType = (t: string): 'DOCUMENT' | 'VIDEO' => {
+    if (t === 'PDF' || t === 'PPT' || t === 'DOC' || t === 'DOCX' || t === 'DOCUMENT') return 'DOCUMENT';
+    return 'VIDEO';
 };
 
 export const formatSize = (bytes?: number) => {
@@ -198,6 +207,12 @@ export const CourseChapterTree: React.FC<{ standardId: string }> = ({ standardId
     const [editLsn, setEditLsn] = useState<{ id: string; title: string } | null>(null);
     const [picking, setPicking] = useState<string | null>(null); // lessonId
     const [preview, setPreview] = useState<Resource | null>(null);
+    const [openTypeGroups, setOpenTypeGroups] = useState<Set<string>>(new Set());
+    const toggleTypeGroup = (t: string) => setOpenTypeGroups(prev => {
+        const n = new Set(prev);
+        n.has(t) ? n.delete(t) : n.add(t);
+        return n;
+    });
     const [showUpload, setShowUpload] = useState(false);
     const { addToast } = useStore();
 
@@ -251,28 +266,59 @@ export const CourseChapterTree: React.FC<{ standardId: string }> = ({ standardId
                 </button>
             </div>
             {resources.length > 0 && (
-                <div className="grid grid-cols-1 gap-2">
-                    {resources.map(r => {
-                        const tc = TYPE_CONFIG[r.type]; const Icon = tc.icon;
+                <div className="space-y-2">
+                    {(() => {
+                        // 仅展示两类宏分组：文档资源 / 视频资源
+                        const order: ('DOCUMENT' | 'VIDEO')[] = ['DOCUMENT', 'VIDEO'];
+                        const grouped = resources.reduce((acc: Record<string, Resource[]>, r) => {
+                            const key = macroType(r.type);
+                            (acc[key] = acc[key] || []).push(r);
+                            return acc;
+                        }, {});
                         const statusCls: Record<string, string> = { DRAFT: 'bg-slate-100 text-slate-500', PUBLISHED: 'bg-emerald-50 text-emerald-600', WITHDRAWN: 'bg-red-50 text-red-400' };
                         const statusLabel: Record<string, string> = { DRAFT: '草稿', PUBLISHED: '已发布', WITHDRAWN: '已下架' };
-                        return (
-                            <div key={r.id} className={`flex items-center gap-3 p-3 rounded-xl border ${tc.bg} ${tc.border} group`}>
-                                <div className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center flex-shrink-0"><Icon size={16} className={tc.color} /></div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-slate-700 truncate">{r.title}</p>
-                                    <p className="text-xs text-slate-400">{tc.label} · {formatSize(r.file_size)}</p>
-                                </div>
-                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${statusCls[r.status] || statusCls.DRAFT}`}>{statusLabel[r.status] || '草稿'}</span>
-                                <button onClick={() => setPreview(r)} className="p-1.5 hover:bg-white rounded-lg opacity-0 group-hover:opacity-100 transition-all"><Eye size={14} className="text-slate-400" /></button>
-                                {r.status === 'DRAFT' && (
-                                    <button onClick={() => api.post(`/api/course-resource/resources/${r.id}/publish`).then(load)} className="p-1.5 hover:bg-white rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                                        <Send size={14} className="text-emerald-500" />
+                        return order.filter(t => grouped[t]?.length).map(type => {
+                            const tc = (TYPE_CONFIG as any)[type];
+                            const Icon = tc.icon;
+                            const list = grouped[type];
+                            const isOpen = openTypeGroups.has(type);
+                            return (
+                                <div key={type} className={`rounded-xl border ${tc.border} overflow-hidden`}>
+                                    <button
+                                        onClick={() => toggleTypeGroup(type)}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 ${tc.bg} hover:brightness-95 transition-all`}
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center flex-shrink-0"><Icon size={16} className={tc.color} /></div>
+                                        <div className="flex-1 text-left">
+                                            <p className={`text-sm font-bold ${tc.color}`}>{tc.label}</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">{list.length} 个资源</p>
+                                        </div>
+                                        <ElmIcon name={isOpen ? 'arrow-down' : 'arrow-right'} size={16} className="text-slate-400" />
                                     </button>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    {isOpen && (
+                                        <div className="divide-y divide-slate-50 bg-white">
+                                            {list.map(r => (
+                                                <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 group">
+                                                    <div className="w-7 h-7 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0"><Icon size={14} className={tc.color} /></div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-bold text-slate-700 truncate">{r.title}</p>
+                                                        <p className="text-[10px] text-slate-400">{formatSize(r.file_size)}</p>
+                                                    </div>
+                                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${statusCls[r.status] || statusCls.DRAFT}`}>{statusLabel[r.status] || '草稿'}</span>
+                                                    <button onClick={() => setPreview(r)} className="p-1.5 hover:bg-slate-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all"><Eye size={14} className="text-slate-400" /></button>
+                                                    {r.status === 'DRAFT' && (
+                                                        <button onClick={() => api.post(`/api/course-resource/resources/${r.id}/publish`).then(load)} className="p-1.5 hover:bg-emerald-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                                                            <Send size={14} className="text-emerald-500" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        });
+                    })()}
                 </div>
             )}
             {resources.length === 0 && (
@@ -330,7 +376,8 @@ export const CourseChapterTree: React.FC<{ standardId: string }> = ({ standardId
                                             {ls.resources.length > 0 && (
                                                 <div className="ml-7 mt-1.5 space-y-1">
                                                     {ls.resources.map(lr => {
-                                                        const tc = TYPE_CONFIG[lr.resource.type]; const Icon = tc.icon;
+                                                        const tc = (TYPE_CONFIG as any)[lr.resource.type] || TYPE_CONFIG.OTHER;
+                                                        const Icon = tc.icon;
                                                         return (
                                                             <div key={lr.id} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border ${tc.bg} ${tc.border} group/res`}>
                                                                 <Icon size={11} className={tc.color} />
@@ -382,7 +429,8 @@ export const CourseChapterTree: React.FC<{ standardId: string }> = ({ standardId
                         </div>
                         <div className="flex-1 overflow-y-auto divide-y divide-slate-50 p-2">
                             {resources.map(r => {
-                                const tc = TYPE_CONFIG[r.type]; const Icon = tc.icon;
+                                const tc = (TYPE_CONFIG as any)[r.type] || TYPE_CONFIG.OTHER;
+                                const Icon = tc.icon;
                                 return (
                                     <button key={r.id} onClick={() => linkRes(picking, r.id)}
                                         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors rounded-xl text-left">

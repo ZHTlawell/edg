@@ -51,6 +51,15 @@ export class TeachingController {
         return this.teachingService.getStudentHomeworks(req.user.studentId);
     }
 
+    /** 管理员/校区主管/教师按学员 ID 查询作业 */
+    @Get('homeworks/by-student/:studentId')
+    async getHomeworksByStudent(@Request() req: any, @Param('studentId') studentId: string) {
+        if (!['ADMIN', 'CAMPUS_ADMIN', 'TEACHER'].includes(req.user.role)) {
+            throw new UnauthorizedException('无权限查看其他学员作业');
+        }
+        return this.teachingService.getStudentHomeworks(studentId);
+    }
+
     @Post('homeworks/seed')
     async seedHomeworks(@Request() req: any) {
         if (req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
@@ -65,9 +74,33 @@ export class TeachingController {
     }
 
     @Get('attendance')
-    async getAttendanceRecords(@Request() req: any, @Query('campusId') campusId?: string) {
-        const effectiveCampusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
-        return this.teachingService.getAttendanceRecords(effectiveCampusId);
+    async getAttendanceRecords(
+        @Request() req: any,
+        @Query('campusId') campusId?: string,
+        @Query('classId') classId?: string,
+        @Query('studentId') studentId?: string,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+    ) {
+        // 角色硬过滤：服务端覆盖客户端传参，防止越权
+        const role = req.user.role;
+        const scope: { campusId?: string; classId?: string; studentId?: string; teacherId?: string; from?: string; to?: string } = {
+            classId, from, to,
+        };
+        if (role === 'ADMIN') {
+            scope.campusId = campusId;
+            scope.studentId = studentId;
+        } else if (role === 'CAMPUS_ADMIN') {
+            scope.campusId = req.user.campusId; // 强制锁定到本校区
+            scope.studentId = studentId;
+        } else if (role === 'TEACHER') {
+            scope.teacherId = req.user.teacherId; // 仅自己授课的课次
+        } else if (role === 'STUDENT') {
+            scope.studentId = req.user.studentId; // 仅自己的考勤
+        } else {
+            throw new UnauthorizedException('无权限查看考勤');
+        }
+        return this.teachingService.getAttendanceRecords(scope);
     }
 
     @Post('attendance')
@@ -79,12 +112,15 @@ export class TeachingController {
             lessonId: body.lessonId,
             attendances: body.attendances,
             operatorId: req.user.userId,
+            operatorRole: req.user.role,
+            operatorTeacherId: req.user.teacherId,
+            operatorCampusId: req.user.campusId,
         });
     }
 
     @Post('attendance/:lessonId/revoke')
     async revokeConsumption(@Request() req: any, @Param('lessonId') lessonId: string) {
-        return this.teachingService.revokeConsumption(lessonId, req.user.userId, req.user.role);
+        return this.teachingService.revokeConsumption(lessonId, req.user.userId, req.user.role, req.user.campusId);
     }
 
     @Post('confirm-consumption')

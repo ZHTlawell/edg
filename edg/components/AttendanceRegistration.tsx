@@ -42,7 +42,7 @@ interface StudentAttendance {
 }
 
 export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ lessonId, onBack }) => {
-  const { classes, students, courses, submitAttendance, addToast } = useStore();
+  const { classes, students, courses, submitAttendance, addToast, attendanceRecords } = useStore();
 
   // Find context: lesson -> class -> course
   // Classes from API have assignments[].schedules[] nested structure
@@ -82,19 +82,45 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
 
   const [attendanceList, setAttendanceList] = useState<StudentAttendance[]>([]);
 
-  // Initialize attendance list from students
+  // 该课次已有的考勤记录（按 student_id 索引）
+  const existingAttendance = useMemo(() => {
+    const map: Record<string, any> = {};
+    (attendanceRecords || []).forEach((r: any) => {
+      if (r.lesson_id === lessonId) map[r.student_id] = r;
+    });
+    return map;
+  }, [attendanceRecords, lessonId]);
+
+  const isReadOnly = Object.keys(existingAttendance).length > 0; // 已登记 → 查看模式
+
+  // Initialize attendance list
+  // - 查看模式（有已登记记录）：以真实记录为准，仅展示已登记的学员
+  // - 登记模式（首次）：以班级花名册为准，全部默认"出席"
   React.useEffect(() => {
-    if (classStudents.length > 0) {
+    if (isReadOnly) {
+      const recordedStudents = Object.values(existingAttendance).map((rec: any) => {
+        const s = classStudents.find((x: any) => x.id === rec.student_id) || {};
+        return {
+          id: rec.student_id,
+          name: (s as any).name || `学员 ${String(rec.student_id).slice(-4)}`,
+          phone: (s as any).phone || '',
+          status: (rec.status as AttendanceStatus) || 'present',
+          deduction: rec.deductHours ?? (rec.status === 'leave' ? 0 : 1),
+          remarks: rec.remarks || ''
+        };
+      });
+      setAttendanceList(recordedStudents);
+    } else if (classStudents.length > 0) {
       setAttendanceList(classStudents.map(s => ({
         id: s.id,
         name: s.name,
         phone: s.phone,
-        status: 'present',
+        status: 'present' as AttendanceStatus,
         deduction: 1,
         remarks: ''
       })));
     }
-  }, [classStudents]);
+  }, [classStudents, existingAttendance, isReadOnly]);
   const [searchTerm, setSearchTerm] = useState('');
   const [onlyShowAbnormal, setOnlyShowAbnormal] = useState(false);
 
@@ -118,6 +144,10 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
   }, [attendanceList, searchTerm, onlyShowAbnormal]);
 
   const updateStatus = (id: string, status: AttendanceStatus) => {
+    if (isReadOnly) {
+      addToast('该课次已完成考勤登记，如需修改请使用「撤销课消」', 'info');
+      return;
+    }
     setAttendanceList(prev => prev.map(s => {
       if (s.id === id) {
         // Default deduction logic: absent/leave might be 0 depending on policy, present/late is usually 1
@@ -420,33 +450,39 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
       {/* Footer Fixed Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-md border-t border-slate-100 px-8 flex items-center justify-between z-30 lg:left-64">
         <button onClick={onBack} className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
-          取消并返回课表
+          {isReadOnly ? '返回考勤看板' : '取消并返回课表'}
         </button>
-        <div className="flex items-center gap-4">
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
-            <Save size={18} /> 保存草稿
-          </button>
-          <button
-            className="flex items-center gap-2 px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-100 active:scale-95 group"
-            onClick={async () => {
-              if (!classContext) return;
-              await submitAttendance(
-                lessonId,
-                classContext.course_id || classContext.class.course_id,
-                classContext.class.id,
-                classContext.class.campus_id,
-                attendanceList.map(a => ({
-                  student_id: a.id,
-                  status: a.status as any,
-                  deductHours: a.deduction
-                }))
-              );
-              onBack();
-            }}
-          >
-            <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /> 提交考勤录入
-          </button>
-        </div>
+        {isReadOnly ? (
+          <div className="flex items-center gap-3 px-5 py-2.5 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-sm font-bold">
+            <CheckCircle2 size={16} /> 该课次已完成考勤登记（仅查看模式）
+          </div>
+        ) : (
+          <div className="flex items-center gap-4">
+            <button className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+              <Save size={18} /> 保存草稿
+            </button>
+            <button
+              className="flex items-center gap-2 px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-100 active:scale-95 group"
+              onClick={async () => {
+                if (!classContext) return;
+                await submitAttendance(
+                  lessonId,
+                  classContext.course_id || classContext.class.course_id,
+                  classContext.class.id,
+                  classContext.class.campus_id,
+                  attendanceList.map(a => ({
+                    student_id: a.id,
+                    status: a.status as any,
+                    deductHours: a.deduction
+                  }))
+                );
+                onBack();
+              }}
+            >
+              <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /> 提交考勤录入
+            </button>
+          </div>
+        )}
       </div>
 
       <style dangerouslySetInnerHTML={{

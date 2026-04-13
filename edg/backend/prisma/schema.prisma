@@ -62,14 +62,13 @@ model EdCourse {
   price           Float
   total_lessons   Int
   status          String                  @default("ENABLED")
-  is_standard     Boolean                 @default(false)
-  standard_id     String?
+  standard_id     String
   duration        Int                     @default(45)
   campus_id       String?
   instructor_id   String?
   assignments     EdClassAssignment[]
   instructor      EduTeacher?             @relation(fields: [instructor_id], references: [id])
-  standard        StdCourseStandard?      @relation(fields: [standard_id], references: [id])
+  standard        StdCourseStandard       @relation(fields: [standard_id], references: [id])
   accounts        FinAssetAccount[]
   orders          FinOrder[]
   lessonProgress  StudentLessonProgress[]

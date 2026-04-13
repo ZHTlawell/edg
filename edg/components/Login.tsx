@@ -122,58 +122,46 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   };
 
-  // UI Theme Configuration based on role
+  // 统一简洁风：所有角色共用 slate 主题，仅区分文案/图标
   const getRoleConfig = (role: UserRole) => {
+    const base = {
+      accent: 'bg-slate-900',
+      hover: 'hover:bg-slate-800',
+      shadow: 'shadow-slate-200',
+      ring: 'focus:ring-slate-200',
+      border: 'focus:border-slate-900',
+      color: 'slate',
+    };
     switch (role) {
       case 'admin':
         return {
+          ...base,
           title: '总部管理端',
           desc: '跨校区全局教务经营监控门户',
-          color: 'blue',
-          accent: 'bg-blue-600',
-          hover: 'hover:bg-blue-700',
-          shadow: 'shadow-blue-100',
-          ring: 'focus:ring-blue-100',
-          border: 'focus:border-blue-600',
           label: '总部管理员账号 / 工号',
           icon: <ElmIcon name="odometer" size={16} />
         };
       case 'campus_admin':
         return {
+          ...base,
           title: '分校管理端',
           desc: '本校区教务编排与运营执行门户',
-          color: 'cyan',
-          accent: 'bg-cyan-600',
-          hover: 'hover:bg-cyan-700',
-          shadow: 'shadow-cyan-100',
-          ring: 'focus:ring-cyan-100',
-          border: 'focus:border-cyan-600',
           label: '校区管理员账号 / 手机号',
           icon: <School size={20} />
         };
       case 'teacher':
         return {
+          ...base,
           title: '教师端登录',
           desc: '授课讲师与教研人员办公系统',
-          color: 'indigo',
-          accent: 'bg-indigo-600',
-          hover: 'hover:bg-indigo-700',
-          shadow: 'shadow-indigo-100',
-          ring: 'focus:ring-indigo-100',
-          border: 'focus:border-indigo-600',
           label: '教师编号 / 手机号',
           icon: <ElmIcon name="user" size={16} />
         };
       case 'student':
         return {
+          ...base,
           title: '学员/家长端',
           desc: '在线学习进度与课表查询中心',
-          color: 'emerald',
-          accent: 'bg-emerald-600',
-          hover: 'hover:bg-emerald-700',
-          shadow: 'shadow-emerald-100',
-          ring: 'focus:ring-emerald-100',
-          border: 'focus:border-emerald-600',
           label: '手机号 / 学号',
           icon: <GraduationCap size={20} />
         };
@@ -411,7 +399,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <Loader2 size={20} className="animate-spin" />
                   ) : (
                     <>
-                      <span className="tracking-tight">安全登录系统</span>
+                      <span className="tracking-tight">登录</span>
                       <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
@@ -422,10 +410,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <button
                       type="button"
                       onClick={() => setIsRegistering('campus_admin')}
-                      className="w-full bg-cyan-50 text-cyan-600 font-bold py-4 rounded-2xl transition-all hover:bg-cyan-100 flex items-center justify-center gap-2 border border-cyan-100 group"
+                      className="w-full bg-slate-50 text-slate-700 font-bold py-4 rounded-2xl transition-all hover:bg-slate-100 flex items-center justify-center gap-2 border border-slate-200 group"
                     >
                       <School size={18} className="group-hover:scale-110 transition-transform" />
-                      <span>还没有账号? 申请注册校区</span>
+                      <span>注册校区</span>
                     </button>
                   </div>
                 )}
@@ -435,10 +423,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <button
                       type="button"
                       onClick={() => setIsRegistering('teacher')}
-                      className="w-full bg-indigo-50 text-indigo-600 font-bold py-4 rounded-2xl transition-all hover:bg-indigo-100 flex items-center justify-center gap-2 border border-indigo-100 group"
+                      className="w-full bg-slate-50 text-slate-700 font-bold py-4 rounded-2xl transition-all hover:bg-slate-100 flex items-center justify-center gap-2 border border-slate-200 group"
                     >
                       <UserPlus size={18} className="group-hover:scale-110 transition-transform" />
-                      <span>还没有账号? 教师自主注册</span>
+                      <span>注册教师</span>
                     </button>
                   </div>
                 )}
@@ -448,10 +436,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <button
                       type="button"
                       onClick={() => setIsRegistering('student')}
-                      className="w-full bg-emerald-50 text-emerald-600 font-bold py-4 rounded-2xl transition-all hover:bg-emerald-100 flex items-center justify-center gap-2 border border-emerald-100 group"
+                      className="w-full bg-slate-50 text-slate-700 font-bold py-4 rounded-2xl transition-all hover:bg-slate-100 flex items-center justify-center gap-2 border border-slate-200 group"
                     >
                       <UserPlus size={18} className="group-hover:scale-110 transition-transform" />
-                      <span>还没有账号? 立即自主注册</span>
+                      <span>注册学员</span>
                     </button>
                   </div>
                 )}
@@ -459,13 +447,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
           )}
 
-          <div className="mt-12 pt-8 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2024 EDUADMIN SYSTEMS</p>
-            <div className="flex items-center gap-6">
-              <button type="button" onClick={(e) => { e.preventDefault(); addToast('使用协议功能开发中，敬请期待。', 'info'); }} className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest bg-transparent border-0 p-0 cursor-pointer">使用协议</button>
-              <button type="button" onClick={(e) => { e.preventDefault(); addToast('隐私声明功能开发中，敬请期待。', 'info'); }} className="text-[10px] text-slate-400 font-bold hover:text-slate-900 transition-colors uppercase tracking-widest bg-transparent border-0 p-0 cursor-pointer">隐私声明</button>
-            </div>
-          </div>
         </div>
       </div>
 

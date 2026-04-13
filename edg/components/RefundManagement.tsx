@@ -229,7 +229,10 @@ export const RefundManagement: React.FC = () => {
                                             <p className="text-xs text-slate-600 max-w-xs truncate" title={refund.reason}>{refund.reason}</p>
                                         </td>
                                         <td className="px-10 py-6 text-right font-mono font-bold text-rose-600">
-                                            ¥ {refund.amount.toFixed(2)}
+                                            ¥ {(refund.amount > 0 ? refund.amount : (refund.estimated_amount || 0)).toFixed(2)}
+                                            {refund.status === 'PENDING' && (
+                                                <span className="ml-1 text-[9px] text-slate-400 font-bold">预估</span>
+                                            )}
                                         </td>
                                         <td className="px-10 py-6 text-right">
                                             <div className="flex items-center justify-end gap-2">

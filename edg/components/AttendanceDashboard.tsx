@@ -1,6 +1,7 @@
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
+import api from '../utils/api';
 import {
   Users,
   UserCheck,
@@ -28,7 +29,18 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
   const { attendanceRecords, classes, courses, students, addToast, fetchAttendanceRecords, currentUser } = useStore();
   const [filterCampus, setFilterCampus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const pageSize = 8;
+
+  // 点击外部关闭操作菜单
+  useEffect(() => {
+    if (!openActionMenu) return;
+    const handler = () => setOpenActionMenu(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openActionMenu]);
 
   useEffect(() => {
     const campusId = currentUser?.role === 'campus_admin' ? currentUser.campus_id : undefined;
@@ -56,12 +68,16 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
       if (!groups[r.lesson_id]) {
         const cls = (classes || []).find(c => c.id === r.class_id);
         const course = (courses || []).find(c => c.id === r.course_id);
+        const dt = new Date(r.createdAt);
+        const hh = String(dt.getHours()).padStart(2, '0');
+        const mm = String(dt.getMinutes()).padStart(2, '0');
         groups[r.lesson_id] = {
           id: r.lesson_id,
           className: cls?.name || '未知班级',
           teacher: course?.instructor || '教师',
           date: r.createdAt.split('T')[0],
-          time: '14:00 - 16:30', // Mock time for now or get from schedule
+          time: `${hh}:${mm}`,
+          ts: dt.getTime(),
           expected: 1,
           present: 0,
           leave: 0,
@@ -75,14 +91,29 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
       else if (r.status === 'absent') groups[r.lesson_id].absent++;
     });
 
-    return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
+    return Object.values(groups).sort((a: any, b: any) => b.ts - a.ts); // 最新课次最先
   }, [attendanceRecords, classes, courses]);
 
-  const totalPages = Math.max(1, Math.ceil(displayRecords.length / pageSize));
+  // 按班级名 / 教师名过滤（不区分大小写、去除前后空格）
+  const filteredRecords = useMemo(() => {
+    const kw = searchTerm.trim().toLowerCase();
+    if (!kw) return displayRecords;
+    return displayRecords.filter((r: any) =>
+      (r.className || '').toLowerCase().includes(kw) ||
+      (r.teacher || '').toLowerCase().includes(kw)
+    );
+  }, [displayRecords, searchTerm]);
+
+  // 搜索词变化时回到首页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
   const paginatedRecords = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return displayRecords.slice(start, start + pageSize);
-  }, [displayRecords, currentPage, pageSize]);
+    return filteredRecords.slice(start, start + pageSize);
+  }, [filteredRecords, currentPage, pageSize]);
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
@@ -127,8 +158,35 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
         alerts.push({ name, className, status: statusLabel, studentId: sid });
       }
     });
-    return alerts.slice(0, 8); // 最多显示8条
-  }, [attendanceRecords, students, classes]);
+    // 过滤已处理（标记为已知晓）的预警
+    return alerts.filter(a => !dismissedAlerts.has(a.studentId)).slice(0, 8);
+  }, [attendanceRecords, students, classes, dismissedAlerts]);
+
+  // 本周到课趋势：按周一到周日聚合真实考勤数据
+  const weeklyTrend = useMemo(() => {
+    const labels = ['一', '二', '三', '四', '五', '六', '日'];
+    const buckets: { present: number; total: number }[] = Array.from({ length: 7 }, () => ({ present: 0, total: 0 }));
+    const now = new Date();
+    const day = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(now.getDate() - day);
+    const sundayEnd = new Date(monday);
+    sundayEnd.setDate(monday.getDate() + 7);
+
+    attendanceRecords.forEach(r => {
+      const t = new Date(r.createdAt);
+      if (t < monday || t >= sundayEnd) return;
+      const idx = (t.getDay() + 6) % 7;
+      buckets[idx].total++;
+      if (r.status === 'present' || r.status === 'late') buckets[idx].present++;
+    });
+    return buckets.map((b, i) => ({
+      label: labels[i],
+      rate: b.total > 0 ? Math.round((b.present / b.total) * 100) : 0,
+      total: b.total,
+    }));
+  }, [attendanceRecords]);
 
   const handleExportAttendance = () => {
     if (attendanceRecords.length === 0) {
@@ -234,15 +292,17 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
             <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
               <div className="flex items-center gap-6">
                 <h4 className="font-bold text-slate-800">近期排课考勤流</h4>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <span className="text-xs text-slate-500 font-bold">今日</span>
-                </div>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative group">
                   <ElmIcon name="search" size={16} />
-                  <input type="text" placeholder="搜索班级或教师..." className="bg-white border border-slate-200 rounded-xl py-1.5 pl-9 pr-3 text-xs font-medium outline-none focus:border-blue-500 transition-all w-48 shadow-inner" />
+                  <input
+                    type="text"
+                    placeholder="搜索班级或教师..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-xl py-1.5 pl-9 pr-3 text-xs font-medium outline-none focus:border-blue-500 transition-all w-48 shadow-inner"
+                  />
                 </div>
                 <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><ElmIcon name="operation" size={16} /></button>
               </div>
@@ -268,7 +328,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                             <p className="text-lg font-bold text-slate-900 font-mono leading-none">{rec.date.split('-')[2]}</p>
                           </div>
                           <div className="w-px h-6 bg-slate-100"></div>
-                          <p className="text-xs font-bold text-slate-500">{rec.time.split(' - ')[0]}</p>
+                          <p className="text-xs font-bold text-slate-500">{rec.time}</p>
                         </div>
                       </td>
                       <td className="px-8 py-5">
@@ -299,9 +359,49 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                       </td>
                       <td className="px-8 py-5 text-right">
                         {rec.status === 'completed' ? (
-                          <div className="flex items-center justify-end gap-3">
+                          <div className="flex items-center justify-end gap-3 relative">
                             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">已完成登记</span>
-                            <button className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><ElmIcon name="more-filled" size={16} /></button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionMenu(openActionMenu === rec.id ? null : rec.id);
+                              }}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              <ElmIcon name="more-filled" size={16} />
+                            </button>
+                            {openActionMenu === rec.id && (
+                              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-100 rounded-2xl shadow-lg py-2 z-30 min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-150">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenActionMenu(null);
+                                    onRegister(rec.id);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2"
+                                >
+                                  <ElmIcon name="reading" size={14} /> 查看登记明细
+                                </button>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setOpenActionMenu(null);
+                                    if (!confirm(`确认撤销课次「${rec.className}」的课消吗？此操作仅在课次结束 3 天内有效。`)) return;
+                                    try {
+                                      await api.post(`/api/teaching/attendance/${rec.id}/revoke`);
+                                      addToast('课消已撤销，资产已恢复', 'success');
+                                      const campusId = currentUser?.role === 'campus_admin' ? currentUser.campus_id : undefined;
+                                      fetchAttendanceRecords(campusId);
+                                    } catch (err: any) {
+                                      addToast(err?.response?.data?.message || '撤销失败', 'error');
+                                    }
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors flex items-center gap-2"
+                                >
+                                  <ElmIcon name="refresh" size={14} /> 撤销课消
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <button
@@ -318,7 +418,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
               </table>
               <div className="p-6 bg-slate-50/20 border-t border-slate-50 flex items-center justify-between px-8">
                 <p className="text-xs text-slate-400 font-bold">
-                  显示 {Math.min((currentPage - 1) * pageSize + 1, displayRecords.length)} - {Math.min(currentPage * pageSize, displayRecords.length)}，共 <span className="text-slate-700">{displayRecords.length}</span> 条
+                  显示 {Math.min((currentPage - 1) * pageSize + 1, filteredRecords.length)} - {Math.min(currentPage * pageSize, filteredRecords.length)}，共 <span className="text-slate-700">{filteredRecords.length}</span> 条{searchTerm && <span className="text-slate-400 ml-1">（已筛选）</span>}
                 </p>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -375,37 +475,67 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => {
-                if (absenceAlerts.length === 0) {
-                  addToast('当前无待处理预警', 'info');
-                  return;
-                }
-                addToast(`已标记 ${absenceAlerts.length} 条预警为已知晓，请及时联系相关学员`, 'success');
-              }}
-              className="w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl text-[11px] font-bold transition-all border border-slate-100 active:scale-[0.98]"
-            >
-              处理全部预警通知 {absenceAlerts.length > 0 && <span className="ml-1 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">{absenceAlerts.length}</span>}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (absenceAlerts.length === 0) {
+                    addToast('当前无待处理预警', 'info');
+                    return;
+                  }
+                  // 真实标记：本地维护已处理集合，列表会立即移除这些条目
+                  setDismissedAlerts(prev => {
+                    const next = new Set(prev);
+                    absenceAlerts.forEach(a => next.add(a.studentId));
+                    return next;
+                  });
+                  addToast(`已标记 ${absenceAlerts.length} 条预警为已处理`, 'success');
+                }}
+                className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-[11px] font-bold transition-all active:scale-[0.98]"
+              >
+                标记全部为已处理 {absenceAlerts.length > 0 && <span className="ml-1 bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">{absenceAlerts.length}</span>}
+              </button>
+              {dismissedAlerts.size > 0 && (
+                <button
+                  onClick={() => {
+                    setDismissedAlerts(new Set());
+                    addToast('已恢复全部预警', 'info');
+                  }}
+                  className="px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl text-[11px] font-bold transition-all border border-slate-100"
+                  title="重新显示已处理的预警"
+                >
+                  撤回 ({dismissedAlerts.size})
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-6 shadow-xl shadow-blue-100 relative overflow-hidden">
+          <div className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-4 shadow-xl shadow-blue-100 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/10 to-transparent pointer-events-none"></div>
-            <div className="space-y-2">
+            <div className="space-y-3 relative z-10">
               <h4 className="text-sm font-bold opacity-80 uppercase tracking-widest">本周到课趋势</h4>
-              <div className="flex items-end gap-2 h-24 pt-4">
-                {[40, 65, 80, 50, 90, 85, 70].map((h, i) => (
-                  <div key={i} className="flex-1 bg-white/20 rounded-t-lg relative group transition-all hover:bg-white/40 cursor-help" style={{ height: `${h}%` }}>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white text-blue-600 px-1.5 py-0.5 rounded text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                      {h}%
-                    </div>
+              {weeklyTrend.every(d => d.total === 0) ? (
+                <p className="text-xs opacity-60 italic py-6 text-center">本周暂无考勤数据</p>
+              ) : (
+                <>
+                  <div className="flex items-end gap-2 h-24 pt-2">
+                    {weeklyTrend.map((d, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <div
+                          className={`w-full rounded-t-lg relative group transition-all cursor-help ${d.total === 0 ? 'bg-white/10' : 'bg-white/30 hover:bg-white/50'}`}
+                          style={{ height: `${Math.max(d.rate, d.total > 0 ? 8 : 4)}%` }}
+                        >
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white text-blue-600 px-2 py-1 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
+                            {d.rate}% · {d.total} 人次
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="flex justify-between text-[10px] font-bold opacity-40 uppercase pt-2">
-                <span>Mon</span>
-                <span>Sun</span>
-              </div>
+                  <div className="flex justify-between text-[10px] font-bold opacity-60 pt-1">
+                    {weeklyTrend.map((d, i) => <span key={i} className="flex-1 text-center">周{d.label}</span>)}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

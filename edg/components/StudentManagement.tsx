@@ -149,13 +149,26 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       if (endDate) matchesDate = matchesDate && student.createdAt <= endDate;
 
       return matchesSearch && matchesStatus && matchesCampus && matchesGender && matchesDate && matchesTab;
-    });
+    }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // 最新注册的排在前
   }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, students, activeTab]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, activeTab]);
+
+  // 顶部统计卡片 + Tab 计数：全部基于真实学员数据计算（在读/预警/欠费/本月新招）
+  const dashboardStats = useMemo(() => {
+    const list = students || [];
+    const now = new Date();
+    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const active = list.filter(s => s.status !== 'inactive').length;
+    const lowLessons = list.filter(s => (s.balanceLessons ?? 0) <= 5 && s.status !== 'inactive').length;
+    const overdue = list.filter(s => (s.balanceAmount ?? 0) <= 0 && s.status !== 'inactive').length;
+    const newThisMonth = list.filter(s => (s.createdAt || '').startsWith(currentYM)).length;
+    const suspended = list.filter(s => s.status === 'inactive').length;
+    return { active, lowLessons, overdue, newThisMonth, suspended, total: list.length };
+  }, [students]);
 
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
   const paginatedStudents = useMemo(() => {
@@ -521,7 +534,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             </div>
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">在读学员</p>
-              <h3 className="text-2xl font-black text-slate-900">1,284</h3>
+              <h3 className="text-2xl font-black text-slate-900">{dashboardStats.active.toLocaleString()}</h3>
             </div>
           </div>
         </div>
@@ -533,7 +546,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             </div>
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">课时预警</p>
-              <h3 className="text-2xl font-black text-slate-900">42</h3>
+              <h3 className="text-2xl font-black text-slate-900">{dashboardStats.lowLessons}</h3>
             </div>
           </div>
         </div>
@@ -544,8 +557,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               <History size={24} />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">本月欠费</p>
-              <h3 className="text-2xl font-black text-slate-900">15</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">当前欠费</p>
+              <h3 className="text-2xl font-black text-slate-900">{dashboardStats.overdue}</h3>
             </div>
           </div>
         </div>
@@ -557,7 +570,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             </div>
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">本月新招</p>
-              <h3 className="text-2xl font-black text-emerald-600">+86</h3>
+              <h3 className="text-2xl font-black text-emerald-600">+{dashboardStats.newThisMonth}</h3>
             </div>
           </div>
         </div>
@@ -567,7 +580,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="flex-1 relative group">
-            <ElmIcon name="search" size={16} />
+            <ElmIcon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="搜索学员姓名、手机号、班级..."
@@ -587,7 +600,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                 <option value="python">Python开发</option>
                 <option value="data">数据分析</option>
               </select>
-              <ElmIcon name="arrow-down" size={16} />
+              <ElmIcon name="arrow-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
 
             <div className="relative">
@@ -599,26 +612,19 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                 <option value="6-10">6 - 10 课时</option>
                 <option value="10+">10 课时以上</option>
               </select>
-              <ElmIcon name="arrow-down" size={16} />
+              <ElmIcon name="arrow-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
 
-            <button
-              onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-              className={`flex items-center justify-center gap-2 px-6 py-3.5 border rounded-2xl text-sm font-bold transition-all active:scale-95 ${isFilterPanelOpen ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'}`}
-            >
-              <ElmIcon name="operation" size={16} />
-              <span className="text-blue-600">高级筛选</span>
-            </button>
           </div>
         </div>
 
         {/* Tabs Section */}
         <div className="flex items-center gap-2 border-b border-slate-100 pb-1">
           {[
-            { id: 'all', label: '全部学员', count: 1284 },
-            { id: 'alert', label: '课时预警', count: 42 },
-            { id: 'unpaid', label: '本月待缴', count: 15 },
-            { id: 'suspended', label: '休学/停课', count: 8 },
+            { id: 'all', label: '全部学员', count: dashboardStats.total },
+            { id: 'alert', label: '课时预警', count: dashboardStats.lowLessons },
+            { id: 'unpaid', label: '当前欠费', count: dashboardStats.overdue },
+            { id: 'suspended', label: '休学/停课', count: dashboardStats.suspended },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -636,47 +642,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
           ))}
         </div>
 
-        {/* Advanced Filter Panel (Kept with updated styling) */}
-        {isFilterPanelOpen && (
-          <div className="pt-2 animate-in slide-in-from-top-4 duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
-              <div className="absolute -top-10 right-0">
-                <button onClick={resetFilters} className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1.5 group">
-                  <ElmIcon name="refresh" size={16} /> 重置条件
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">学员性别</label>
-                <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 h-14 shadow-sm">
-                  <button onClick={() => setFilterGender('all')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>不限</button>
-                  <button onClick={() => setFilterGender('male')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'male' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>男</button>
-                  <button onClick={() => setFilterGender('female')} className={`flex-1 rounded-xl text-sm font-bold transition-all ${filterGender === 'female' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>女</button>
-                </div>
-              </div>
-
-              <div className="space-y-2 group">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">开始日期</label>
-                <EduDatePicker
-                  value={startDate}
-                  onChange={setStartDate}
-                  className="!h-14 !rounded-2xl"
-                  placeholder="年 / 月 / 日"
-                />
-              </div>
-
-              <div className="space-y-2 group">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">截止日期</label>
-                <EduDatePicker
-                  value={endDate}
-                  onChange={setEndDate}
-                  className="!h-14 !rounded-2xl"
-                  placeholder="年 / 月 / 日"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Main Table */}

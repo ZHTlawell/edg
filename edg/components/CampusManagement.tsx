@@ -133,35 +133,27 @@ export const CampusManagement: React.FC = () => {
 
                 {/* Search & Filter */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* Search */}
-                        <div className="relative flex-1 min-w-[200px]">
-                            <ElmIcon name="search" size={16} />
+                    <div className="flex items-center gap-3">
+                        <div className="relative flex-1">
+                            <ElmIcon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                             <input
                                 type="text"
-                                placeholder="搜索校区名称、负责人、区域..."
+                                placeholder="搜索校区名称、负责人..."
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-9 pr-4 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-sm text-slate-700 placeholder:text-slate-400"
                                 value={searchTerm}
                                 onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                             />
                         </div>
-                        {/* Region Filter */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {regions.map(r => (
-                                <button
-                                    key={r}
-                                    onClick={() => { setRegionFilter(r); setCurrentPage(1); }}
-                                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${r === regionFilter ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                                >
-                                    {r}
-                                </button>
-                            ))}
+                        <div className="relative">
+                            <select
+                                value={regionFilter}
+                                onChange={e => { setRegionFilter(e.target.value); setCurrentPage(1); }}
+                                className="bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-4 pr-9 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-sm font-semibold text-slate-700 appearance-none cursor-pointer min-w-[140px]"
+                            >
+                                {regions.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                            <ElmIcon name="arrow-down" size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         </div>
-                        {/* More filters */}
-                        <button className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-600 transition-all ml-auto">
-                            <ElmIcon name="operation" size={16} />
-                            更多筛选
-                        </button>
                     </div>
                 </div>
 
