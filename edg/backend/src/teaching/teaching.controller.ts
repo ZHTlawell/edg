@@ -12,7 +12,8 @@ export class TeachingController {
         if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
             throw new UnauthorizedException('仅教师或教务人员可以发布作业');
         }
-        return this.teachingService.publishHomework(body.teacherId, body);
+        const teacherId = body.teacherId || req.user.teacherId;
+        return this.teachingService.publishHomework(teacherId, body);
     }
 
     @Post('homeworks/submit')
@@ -20,12 +21,26 @@ export class TeachingController {
         if (req.user.role !== 'STUDENT') {
             throw new UnauthorizedException('仅学生账户可提交解答');
         }
-        return this.teachingService.submitHomework(body.studentId, body);
+        const studentId = body.studentId || req.user.studentId;
+        return this.teachingService.submitHomework(studentId, body);
     }
 
     @Post('homeworks/grade')
     async gradeHomework(@Request() req: any, @Body() body: any) {
-        return this.teachingService.gradeHomework(body.teacherId, body);
+        const teacherId = body.teacherId || req.user.teacherId;
+        return this.teachingService.gradeHomework(teacherId, body);
+    }
+
+    /**
+     * 教师退回作业，要求学员重新提交
+     */
+    @Post('homeworks/submission/:id/return')
+    async returnSubmission(@Request() req: any, @Param('id') submissionId: string, @Body() body: { feedback: string }) {
+        if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅教师可退回作业');
+        }
+        const teacherId = req.user.teacherId || req.user.userId;
+        return this.teachingService.returnSubmission(teacherId, { submissionId, feedback: body.feedback });
     }
 
     @Get('my-homeworks')
@@ -56,8 +71,20 @@ export class TeachingController {
     }
 
     @Post('attendance')
-    async submitAttendance(@Body() body: any) {
-        return this.teachingService.submitAttendance(body);
+    async submitAttendance(@Request() req: any, @Body() body: any) {
+        if (!['TEACHER', 'CAMPUS_ADMIN', 'ADMIN'].includes(req.user.role)) {
+            throw new UnauthorizedException('仅教师/管理员可登记考勤');
+        }
+        return this.teachingService.submitAttendance({
+            lessonId: body.lessonId,
+            attendances: body.attendances,
+            operatorId: req.user.userId,
+        });
+    }
+
+    @Post('attendance/:lessonId/revoke')
+    async revokeConsumption(@Request() req: any, @Param('lessonId') lessonId: string) {
+        return this.teachingService.revokeConsumption(lessonId, req.user.userId, req.user.role);
     }
 
     @Post('confirm-consumption')

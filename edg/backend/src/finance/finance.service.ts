@@ -9,11 +9,12 @@ export class FinanceService {
     // 报名下单流程 (Enrollment & Payment)
     // ==========================================
 
-    async createOrder(data: { studentId: string; courseId: string; amount: number; totalQty?: number; orderSource: string; operatorId?: string }) {
+    async createOrder(data: { studentId: string; courseId: string; orderSource: string; operatorId?: string }) {
         const course = await this.prisma.edCourse.findUnique({ where: { id: data.courseId } });
         if (!course) throw new NotFoundException('找不到该课程');
+        if (course.status !== 'ENABLED') throw new BadRequestException('课程已下架，无法下单');
 
-        // Prevent duplicate orders for same student + course
+        // 防重复下单：PENDING_PAYMENT 或 PAID 的订单存在时拒绝
         const existingOrder = await this.prisma.finOrder.findFirst({
             where: {
                 student_id: data.studentId,
@@ -25,12 +26,25 @@ export class FinanceService {
             throw new BadRequestException('该课程已有有效订单，无需重复下单');
         }
 
+        // 防重复购买：活跃资产账户仍有课时
+        const activeAccount = await this.prisma.finAssetAccount.findFirst({
+            where: {
+                student_id: data.studentId,
+                course_id: data.courseId,
+                status: 'ACTIVE',
+                remaining_qty: { gt: 0 }
+            }
+        });
+        if (activeAccount) {
+            throw new BadRequestException('该学员已购买此课程且仍有剩余课时，如需续费请走续费入口');
+        }
+
         const order = await this.prisma.finOrder.create({
             data: {
                 student_id: data.studentId,
                 course_id: data.courseId,
-                amount: data.amount,
-                total_qty: data.totalQty || course.total_lessons,
+                amount: course.price,             // 后端权威
+                total_qty: course.total_lessons,  // 后端权威
                 order_source: data.orderSource,
                 operator_id: data.operatorId,
                 status: 'PENDING_PAYMENT',
@@ -39,16 +53,68 @@ export class FinanceService {
         return order;
     }
 
-    async processPayment(data: { orderId: string; amount: number; channel: string; campusId: string; operatorId?: string }) {
+    /**
+     * 续费下单：累加到原资产账户（不新建账户），支付完成后由 processPayment 累加
+     */
+    async createRenewalOrder(data: { studentId: string; courseId: string; operatorId?: string }) {
+        const course = await this.prisma.edCourse.findUnique({ where: { id: data.courseId } });
+        if (!course) throw new NotFoundException('找不到该课程');
+        if (course.status !== 'ENABLED') throw new BadRequestException('课程已下架，无法续费');
+
+        const existingAccount = await this.prisma.finAssetAccount.findFirst({
+            where: { student_id: data.studentId, course_id: data.courseId },
+            orderBy: { updatedAt: 'desc' }
+        });
+        if (!existingAccount) {
+            throw new BadRequestException('未找到原资产账户，续费失败（请先首次购课）');
+        }
+
+        const order = await this.prisma.finOrder.create({
+            data: {
+                student_id: data.studentId,
+                course_id: data.courseId,
+                amount: course.price,
+                total_qty: course.total_lessons,
+                order_source: 'renewal',
+                operator_id: data.operatorId,
+                status: 'PENDING_PAYMENT',
+            },
+        });
+        return order;
+    }
+
+    /**
+     * 支付状态查询（供前端模拟支付轮询使用）
+     */
+    async getPaymentStatus(orderId: string) {
+        const order = await this.prisma.finOrder.findUnique({
+            where: { id: orderId },
+            include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } }
+        });
+        if (!order) throw new NotFoundException('订单不存在');
+        return {
+            orderId: order.id,
+            status: order.status,
+            amount: order.amount,
+            latestPayment: order.payments[0] || null,
+        };
+    }
+
+    async processPayment(data: { orderId: string; amount: number; channel: string; campusId: string; operatorId?: string; classId?: string }) {
         return this.prisma.$transaction(async (prisma) => {
             const order = await prisma.finOrder.findUnique({ where: { id: data.orderId } });
             if (!order) throw new NotFoundException('找不到该订单');
             if (order.status !== 'PENDING_PAYMENT') throw new BadRequestException(`该订单状态为 ${order.status}，无法重复支付`);
 
+            // 后端金额校验：防篡改
+            if (Math.abs(data.amount - order.amount) > 0.01) {
+                throw new BadRequestException('支付金额与订单金额不一致');
+            }
+
             const payment = await prisma.finPaymentRecord.create({
                 data: {
                     order_id: data.orderId,
-                    amount: data.amount,
+                    amount: order.amount,   // 以订单金额为准
                     channel: data.channel,
                     status: 'SUCCESS',
                     operator_id: data.operatorId
@@ -60,33 +126,61 @@ export class FinanceService {
                 data: { status: 'PAID' }
             });
 
-            const existingAccount = await prisma.finAssetAccount.findFirst({
-                where: { student_id: order.student_id, course_id: order.course_id, status: 'ACTIVE' }
-            });
-            if (existingAccount) {
-                throw new BadRequestException('您已购买此课程，无需重复购买');
+            // 续费：累加到原账户；首购：新建
+            let account: any;
+            if (order.order_source === 'renewal') {
+                const existing = await prisma.finAssetAccount.findFirst({
+                    where: { student_id: order.student_id, course_id: order.course_id },
+                    orderBy: { updatedAt: 'desc' }
+                });
+                if (!existing) throw new BadRequestException('续费失败：未找到原资产账户');
+                account = await prisma.finAssetAccount.update({
+                    where: { id: existing.id },
+                    data: {
+                        total_qty: { increment: order.total_qty },
+                        remaining_qty: { increment: order.total_qty },
+                        status: 'ACTIVE'
+                    }
+                });
+            } else {
+                const existingAccount = await prisma.finAssetAccount.findFirst({
+                    where: { student_id: order.student_id, course_id: order.course_id, status: 'ACTIVE', remaining_qty: { gt: 0 } }
+                });
+                if (existingAccount) {
+                    throw new BadRequestException('您已购买此课程且仍有剩余课时，无法重复购买');
+                }
+                account = await prisma.finAssetAccount.create({
+                    data: {
+                        student_id: order.student_id,
+                        course_id: order.course_id,
+                        campus_id: data.campusId,
+                        total_qty: order.total_qty,
+                        remaining_qty: order.total_qty,
+                        status: 'ACTIVE',
+                    },
+                });
             }
-
-            const account = await prisma.finAssetAccount.create({
-                data: {
-                    student_id: order.student_id,
-                    course_id: order.course_id,
-                    campus_id: data.campusId,
-                    total_qty: order.total_qty,
-                    remaining_qty: order.total_qty,
-                    status: 'ACTIVE',
-                },
-            });
 
             await prisma.finAssetLedger.create({
                 data: {
                     account_id: account.id,
-                    type: 'BUY',
+                    type: order.order_source === 'renewal' ? 'RENEWAL' : 'BUY',
                     change_qty: order.total_qty,
-                    balance_snapshot: order.total_qty,
+                    balance_snapshot: account.remaining_qty,
                     ref_id: payment.id,
                 },
             });
+
+            // 续费订单不重复自动分班
+            if (order.order_source === 'renewal') {
+                return {
+                    message: `续费成功，课时已追加至原账户`,
+                    paymentId: payment.id,
+                    accountId: account.id,
+                    lessons: order.total_qty,
+                    className: null,
+                };
+            }
 
             // ── 自动分班：购课成功后将学员加入班级 ──
             const course = await prisma.edCourse.findUnique({
@@ -114,9 +208,11 @@ export class FinanceService {
                         await prisma.eduStudentInClass.create({
                             data: { student_id: order.student_id, class_id: existingClass.id }
                         });
+                        // 通过 count 同步 enrolled，避免手动 increment 误差
+                        const count = await prisma.eduStudentInClass.count({ where: { class_id: existingClass.id } });
                         await prisma.edClass.update({
                             where: { id: existingClass.id },
-                            data: { enrolled: { increment: 1 } }
+                            data: { enrolled: count }
                         });
                     }
                     assignedClassName = existingClass.name;
@@ -160,6 +256,7 @@ export class FinanceService {
                             lessonEnd.setMinutes(lessonEnd.getMinutes() + lessonDuration);
                             scheduleData.push({
                                 assignment_id: assignment.id,
+                                course_id: order.course_id,   // 冗余字段，简化后续课消查询
                                 lesson_no: i + 1,
                                 start_time: lessonStart,
                                 end_time: lessonEnd,
@@ -200,11 +297,11 @@ export class FinanceService {
     /**
      * 学员申请退费：锁定课时，等待校区审批
      */
-    async applyRefund(data: { orderId: string; reason: string; applicantId: string }) {
+    async applyRefund(data: { orderId: string; refundQty?: number; reason: string; applicantId: string }) {
         return this.prisma.$transaction(async (prisma) => {
             const order = await prisma.finOrder.findUnique({
                 where: { id: data.orderId },
-                include: { course: true }
+                include: { course: true, payments: { orderBy: { createdAt: 'desc' }, take: 1 } }
             });
             if (!order) throw new NotFoundException('订单不存在');
             if (order.status !== 'PAID' && order.status !== 'PARTIAL_REFUNDED') {
@@ -232,14 +329,20 @@ export class FinanceService {
                 throw new BadRequestException('当前无可退课时');
             }
 
-            // Refund all available lessons (student can only request full remaining refund)
-            const requestedQty = availableQty;
+            // 支持部分退费：前端可指定 refundQty，默认退全部可退课时
+            const requestedQty = (data.refundQty && data.refundQty > 0) ? data.refundQty : availableQty;
+            if (requestedQty > availableQty) {
+                throw new BadRequestException(`退费课时数超出可退课时，可退 ${availableQty}`);
+            }
             const unitPrice = order.total_qty > 0 ? order.amount / order.total_qty : 0;
             const estimatedAmount = Math.max(0, Number((unitPrice * requestedQty).toFixed(2)));
 
             if (estimatedAmount <= 0) {
                 throw new BadRequestException('可退金额为0，无法发起退费');
             }
+
+            // 记录原支付渠道
+            const refundChannel = order.payments[0]?.channel || '未知';
 
             // Lock the requested qty
             await prisma.finAssetAccount.update({
@@ -255,6 +358,7 @@ export class FinanceService {
                     requested_qty: requestedQty,
                     estimated_amount: estimatedAmount,
                     amount: 0, // Final amount set on approval
+                    refund_channel: refundChannel,
                     reason: data.reason,
                     status: 'PENDING',
                     applicant_id: data.applicantId
@@ -266,9 +370,17 @@ export class FinanceService {
     }
 
     /**
+     * 获取校区退费审批阈值（可配置）
+     */
+    private async getRefundThreshold(campusId: string): Promise<number> {
+        const config = await this.prisma.campusConfig.findUnique({ where: { campus_id: campusId } });
+        return config?.refund_approval_threshold ?? 1000;
+    }
+
+    /**
      * 校区管理员审批退费（无需总部审批）
      */
-    async approveRefund(data: { refundId: string; approverId: string; isApproved: boolean; reviewNote?: string }) {
+    async approveRefund(data: { refundId: string; approverId: string; approverRole?: string; campusId?: string; isApproved: boolean; reviewNote?: string }) {
         return this.prisma.$transaction(async (prisma) => {
             const refund = await prisma.finRefundRecord.findUnique({
                 where: { id: data.refundId },
@@ -277,6 +389,14 @@ export class FinanceService {
             if (!refund) throw new NotFoundException('退费申请不存在');
             if (refund.status !== 'PENDING') {
                 throw new BadRequestException('该申请已处理');
+            }
+
+            // 校区阈值校验：超过阈值需总部审批
+            if (data.campusId && refund.estimated_amount) {
+                const threshold = await this.getRefundThreshold(data.campusId);
+                if (refund.estimated_amount > threshold && data.approverRole !== 'ADMIN') {
+                    throw new BadRequestException(`退费金额 ${refund.estimated_amount} 超过校区阈值 ${threshold}，需总部审批`);
+                }
             }
 
             const account = refund.account_id
@@ -360,25 +480,76 @@ export class FinanceService {
                 }
             });
 
-            // Update order status
+            // 订单状态智能判定：按已退累计金额判断 REFUNDED vs PARTIAL_REFUNDED
+            const allApprovedRefunds = await prisma.finRefundRecord.findMany({
+                where: { order_id: order.id, status: { in: ['APPROVED', 'PROCESSED'] } }
+            });
+            const cumulativeRefunded = allApprovedRefunds.reduce((sum, r) => sum + r.amount, 0) + finalAmount;
+            const newOrderStatus = cumulativeRefunded >= order.amount - 0.01 ? 'REFUNDED' : 'PARTIAL_REFUNDED';
             await prisma.finOrder.update({
                 where: { id: order.id },
-                data: { status: isFullRefund ? 'REFUNDED' : 'PARTIAL_REFUNDED' }
+                data: { status: newOrderStatus }
             });
 
-            // Refund to student wallet
-            await prisma.eduStudent.update({
-                where: { id: refund.student_id },
-                data: { balance: { increment: finalAmount } }
+            // 模拟退回原支付渠道：记录负额支付流水（替代原先充入钱包 balance）
+            await prisma.finPaymentRecord.create({
+                data: {
+                    order_id: order.id,
+                    amount: -finalAmount,
+                    channel: refund.refund_channel || '未知',
+                    status: 'SUCCESS',
+                    operator_id: data.approverId,
+                }
+            });
+
+            // 退费记录最终状态 → PROCESSED（已退回原渠道）
+            await prisma.finRefundRecord.update({
+                where: { id: refund.id },
+                data: { status: 'PROCESSED' }
             });
 
             return {
                 success: true,
-                message: '退费已通过',
+                message: `退费已通过并按原支付方式（${refund.refund_channel}）退回 ¥${finalAmount.toFixed(2)}`,
                 approvedQty,
                 amount: finalAmount,
                 accountStatus: isFullRefund ? 'REFUNDED' : 'ACTIVE'
             };
+        });
+    }
+
+    /**
+     * 欠费与低余额预警
+     */
+    async getLowBalanceAlert(studentId: string) {
+        const accounts = await this.prisma.finAssetAccount.findMany({
+            where: { student_id: studentId, status: 'ACTIVE' },
+            include: { course: true }
+        });
+        const alerts = accounts
+            .filter(a => a.remaining_qty <= 5)
+            .map(a => ({
+                accountId: a.id,
+                courseId: a.course_id,
+                courseName: a.course.name,
+                remainingQty: a.remaining_qty,
+                level: a.remaining_qty <= 0 ? 'CRITICAL' : 'WARNING',
+            }));
+        return { alerts, hasWarning: alerts.length > 0 };
+    }
+
+    /**
+     * 管理员查询校区内欠费学员
+     */
+    async getLowBalanceStudentsByCampus(campusId: string) {
+        return this.prisma.finAssetAccount.findMany({
+            where: {
+                campus_id: campusId,
+                status: 'ACTIVE',
+                remaining_qty: { lte: 5 }
+            },
+            include: { student: true, course: true },
+            orderBy: { remaining_qty: 'asc' }
         });
     }
 
@@ -514,6 +685,18 @@ export class FinanceService {
             orderBy: { createdAt: 'desc' },
             include: { course: true }
         });
+    }
+
+    /**
+     * 通过学员+课程查找已支付订单（用于管理员手动发起退费）
+     */
+    async findPaidOrder(studentId: string, courseId: string) {
+        const order = await this.prisma.finOrder.findFirst({
+            where: { student_id: studentId, course_id: courseId, status: { in: ['PAID', 'PARTIAL_REFUNDED'] } },
+            orderBy: { createdAt: 'desc' },
+        });
+        if (!order) throw new NotFoundException('未找到该学员的已支付订单');
+        return order;
     }
 
     async getMyRefunds(studentId: string) {

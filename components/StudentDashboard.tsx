@@ -69,8 +69,50 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
    console.log('StudentDashboard rendering, currentStudent:', currentStudent, 'totalBalance:', totalBalance);
 
+   // 欠费预警：列出 remaining_qty <= 5 的资产账户
+   const lowBalanceAccounts = React.useMemo(() => {
+      return (Array.isArray(assetAccounts) ? assetAccounts : [])
+         .filter(acc => acc && (acc.student_id === currentUser?.bindStudentId || (acc as any).user_id === currentUser?.id))
+         .filter(acc => (acc.remaining_qty ?? 0) <= 5 && acc.status !== 'CLOSED')
+         .map(acc => ({
+            accountId: acc.id,
+            courseName: (courses || []).find(c => c.id === acc.course_id)?.name || '未知课程',
+            remaining: acc.remaining_qty ?? 0,
+            critical: (acc.remaining_qty ?? 0) <= 0,
+         }));
+   }, [assetAccounts, currentUser, courses]);
+
    return (
       <div className="max-w-[1000px] mx-auto space-y-8 pb-20">
+         {/* 欠费预警横幅 */}
+         {lowBalanceAccounts.length > 0 && (
+            <div className={`rounded-2xl border p-5 flex items-start gap-4 ${lowBalanceAccounts.some(a => a.critical) ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+               <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${lowBalanceAccounts.some(a => a.critical) ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                  <Zap size={20} />
+               </div>
+               <div className="flex-1">
+                  <h4 className={`font-bold mb-1 ${lowBalanceAccounts.some(a => a.critical) ? 'text-red-700' : 'text-amber-700'}`}>
+                     {lowBalanceAccounts.some(a => a.critical) ? '课时余额已耗尽，部分功能受限' : '课时余额不足，建议续费'}
+                  </h4>
+                  <div className="flex flex-wrap gap-3 text-xs">
+                     {lowBalanceAccounts.map(a => (
+                        <span key={a.accountId} className={`px-2.5 py-1 rounded-full font-semibold ${a.critical ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                           {a.courseName}: 剩余 {a.remaining} 课时
+                        </span>
+                     ))}
+                  </div>
+                  {lowBalanceAccounts.some(a => a.critical) && (
+                     <p className="text-xs text-red-600 mt-2">• 无法查看新章节学习资料 • 无法提交作业 • 无法参加测验</p>
+                  )}
+               </div>
+               {onRenew && (
+                  <button onClick={onRenew} className={`px-4 py-2 rounded-xl font-semibold text-sm shrink-0 ${lowBalanceAccounts.some(a => a.critical) ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}>
+                     立即续费
+                  </button>
+               )}
+            </div>
+         )}
+
          {/* Welcome & Account Summary */}
          <div className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="flex items-center gap-8">

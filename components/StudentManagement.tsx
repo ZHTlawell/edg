@@ -19,8 +19,6 @@ import {
   RotateCcw,
   Users as UsersIcon,
   LineChart,
-  PieChart,
-  BarChart3,
   History,
   UserPlus,
   FileSpreadsheet,
@@ -118,6 +116,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   useEffect(() => {
     if (isCampusAdmin) {
       setSelectedCampus(myCampus);
@@ -143,6 +145,33 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       return matchesSearch && matchesStatus && matchesCampus && matchesGender && matchesDate && matchesTab;
     });
   }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, students, activeTab]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, activeTab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -426,10 +455,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
             <ElmIcon name="plus" size={16} />
             <span>录入新学员</span>
           </button>
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-6 py-3.5 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-            <FileSpreadsheet size={18} className="text-slate-400" />
-            <span>批量导入</span>
-          </button>
         </div>
       </div>
 
@@ -616,9 +641,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredStudents.length > 0 ? filteredStudents.map((student, idx) => (
+              {paginatedStudents.length > 0 ? paginatedStudents.map((student, idx) => (
                 <tr key={student.id} className="hover:bg-blue-50/10 transition-colors group">
-                  <td className="px-8 py-5 text-center text-xs text-slate-300 font-bold">{idx + 1}</td>
+                  <td className="px-8 py-5 text-center text-xs text-slate-300 font-bold">{(currentPage - 1) * pageSize + idx + 1}</td>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-4">
                       <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shadow-sm ${student.gender === 'female' ? 'bg-pink-50 text-pink-600' : 'bg-blue-50 text-blue-600'}`}>
@@ -694,100 +719,36 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
       {/* Pagination & Summary */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-2">
         <p className="text-sm text-slate-400 font-bold tracking-tight">
-          显示 1 到 10，共 <span className="text-slate-900 font-black">{filteredStudents.length.toLocaleString()}</span> 条数据
+          显示 {Math.min((currentPage - 1) * pageSize + 1, filteredStudents.length)} 到 {Math.min(currentPage * pageSize, filteredStudents.length)}，共 <span className="text-slate-900 font-black">{filteredStudents.length.toLocaleString()}</span> 条数据
         </p>
         <div className="flex items-center gap-2">
-          <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
-            <ElmIcon name="arrow-right" size={16} />
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className={`p-2 transition-colors rounded-xl ${currentPage === 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+          >
+            <ElmIcon name="arrow-left" size={16} />
           </button>
-          {[1, 2, 3, '...', 128].map((p, i) => (
+          {getPageNumbers().map((p, i) => (
             <button
               key={i}
-              className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${p === 1 ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-400 hover:bg-white hover:text-slate-900'}`}
+              onClick={() => typeof p === 'number' && setCurrentPage(p)}
+              disabled={typeof p !== 'number'}
+              className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${p === currentPage ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : typeof p === 'number' ? 'text-slate-400 hover:bg-white hover:text-slate-900' : 'text-slate-300 cursor-default'}`}
             >
               {p}
             </button>
           ))}
-          <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className={`p-2 transition-colors rounded-xl ${currentPage === totalPages ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+          >
             <ElmIcon name="arrow-right" size={16} />
           </button>
         </div>
       </div>
 
-      {/* Statistics Section (Bottom Charts) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
-        <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-8">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <PieChart size={20} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 tracking-tight">学员科目分布统计</h3>
-          </div>
-
-          <div className="flex flex-col md:flex-row items-center justify-around gap-8 py-4">
-            {/* Donut Chart Simulation with CSS */}
-            <div className="relative w-48 h-48 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#E2E8F0" strokeWidth="16" />
-                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#2563EB" strokeWidth="16" strokeDasharray="502" strokeDashoffset="211" />
-                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#60A5FA" strokeWidth="16" strokeDasharray="502" strokeDashoffset="351" />
-                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#22D3EE" strokeWidth="16" strokeDasharray="502" strokeDashoffset="426" />
-                <circle cx="96" cy="96" r="80" fill="transparent" stroke="#CBD5E1" strokeWidth="16" strokeDasharray="502" strokeDashoffset="476" />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">总计</p>
-                <h4 className="text-2xl font-black text-slate-900">1,284</h4>
-              </div>
-            </div>
-
-            <div className="space-y-4 min-w-[160px]">
-              {[
-                { label: '英语培训', color: 'bg-blue-600', percent: '42%' },
-                { label: '数学思维', color: 'bg-blue-400', percent: '28%' },
-                { label: '艺术特长', color: 'bg-cyan-400', percent: '15%' },
-                { label: '其他类别', color: 'bg-slate-300', percent: '15%' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between gap-4 group cursor-default">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                    <span className="text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">{item.label}</span>
-                  </div>
-                  <span className="text-sm font-black text-slate-900">{item.percent}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-8">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-              <BarChart3 size={20} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 tracking-tight">学员年龄分布统计</h3>
-          </div>
-
-          <div className="h-48 flex items-end justify-between px-4 pb-2 border-b border-slate-100 relative">
-            {[45, 75, 95, 60, 30].map((h, i) => (
-              <div key={i} className="flex flex-col items-center gap-4 group flex-1">
-                <div
-                  className="w-12 bg-blue-500 rounded-t-xl group-hover:bg-blue-600 transition-all duration-500 relative cursor-pointer"
-                  style={{ height: `${h}%` }}
-                >
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-bold">
-                    {Math.round(h * 12.8)} 人
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between px-4">
-            {['4-6岁', '7-9岁', '10-12岁', '13-15岁', '16岁+'].map((label, i) => (
-              <span key={i} className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex-1 text-center">{label}</span>
-            ))}
-          </div>
-        </div>
-      </div>
 
       <style dangerouslySetInnerHTML={{
         __html: `

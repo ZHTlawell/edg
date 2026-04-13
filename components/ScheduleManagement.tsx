@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ElmIcon } from './ElmIcon';
+import { exportCSV } from '../utils/exportCSV';
 // import { ... } from 'lucide-react'; // Removing many imports to use ElmIcon
 import { AttendanceModal } from './AttendanceModal';
 import { ScheduleGenerationModal } from './ScheduleGenerationModal';
@@ -234,7 +235,16 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
         </div>
         {!isStudent && (
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+            <button
+              onClick={() => {
+                const headers = ['日期', '时间', '班级', '课程', '教师', '教室', '预期人数', '实到人数', '状态'];
+                const rows = displayLessons.map(l => [l.date, l.time, l.className, l.courseName, l.teacherName, l.classroom, String(l.expected), String(l.attended), l.status]);
+                if (!exportCSV(`课表_${new Date().toISOString().split('T')[0]}.csv`, headers, rows)) {
+                  addToast('没有可导出的课表数据', 'warning');
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            >
               <ElmIcon name="download" size={18} /> 导出
             </button>
             <button

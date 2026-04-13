@@ -81,7 +81,7 @@ export const ClassFormModal: React.FC<ClassFormModalProps> = ({ isOpen, onClose,
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-slate-900 tracking-tight">开设新班级</h2>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Campus Academic Center</p>
+                            <p className="text-[10px] font-bold text-slate-400 tracking-widest">校区教务中心</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><ElmIcon name="close" size={16} /></button>

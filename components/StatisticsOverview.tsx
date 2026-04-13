@@ -1,6 +1,7 @@
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
+import { exportCSV } from '../utils/exportCSV';
 import {
   BarChart3,
   TrendingUp,
@@ -75,7 +76,14 @@ export const StatisticsOverview: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-95">
+          <button
+            onClick={() => {
+              const headers = ['指标', '数值', '趋势'];
+              const rows = stats.map(s => [s.label, String(s.value), s.trend]);
+              exportCSV(`统计报表_${isCampusAdmin ? myCampus : '全校'}_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+            }}
+            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-95"
+          >
             <ElmIcon name="download" size={16} /> 导出全量报表
           </button>
         </div>

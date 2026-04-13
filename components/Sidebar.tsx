@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
       ]
     },
     {
-      id: 'finance-group', label: '财务中心', icon: <ElmIcon name="credit-card" size={20} />, children: [
+      id: 'finance-group', label: '学员报名/退费管理', icon: <ElmIcon name="credit-card" size={20} />, children: [
         { id: 'payments', label: '报名缴费' },
         { id: 'refund-management', label: '退费管理' }
       ]
@@ -68,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
         { id: 'announcemnt-mgmt', label: '公告管理' }
       ]
     },
-    { id: 'course-standard', label: '课程中心', icon: <ElmIcon name="collection" size={20} /> },
+    { id: 'course-standard', label: '课程体系管理', icon: <ElmIcon name="collection" size={20} /> },
   ];
 
   const campusMenu: MenuItem[] = [
@@ -80,7 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     },
     {
       id: 'student-group', label: '学员管理', icon: <ElmIcon name="user" size={20} />, children: [
-        { id: 'students', label: '学员档案' }
+        { id: 'students', label: '学员档案' },
+        { id: 'student-approval', label: '学员注册审核' }
       ]
     },
     {

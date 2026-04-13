@@ -93,6 +93,7 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
 
     const [isPayModalOpen, setPayModalOpen] = useState(false);
     const [isRefundModalOpen, setRefundModalOpen] = useState(false);
+    const [refundQty, setRefundQty] = useState<string>('');  // 学员可选：指定退费课时数（空=全退）
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [refundReason, setRefundReason] = useState('');
     const [customReason, setCustomReason] = useState('');
@@ -182,11 +183,18 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
         if (!finalReason.trim()) return;
         setSubmitting(true);
         try {
-            await applyRefund({ orderId: selectedOrder.id, reason: finalReason });
+            const qty = refundQty ? parseFloat(refundQty) : undefined;
+            if (qty !== undefined && (isNaN(qty) || qty <= 0)) {
+                addToast('请输入有效的退费课时数', 'error');
+                setSubmitting(false);
+                return;
+            }
+            await applyRefund({ orderId: selectedOrder.id, reason: finalReason, refundQty: qty });
             await loadRefunds();
             setRefundModalOpen(false);
             setRefundReason('');
             setCustomReason('');
+            setRefundQty('');
         } catch (e: any) {
             addToast(e?.response?.data?.message || '提交失败', 'error');
         } finally {
@@ -564,6 +572,20 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
                                             autoFocus
                                         />
                                     )}
+                                </div>
+
+                                {/* 部分退费：可指定课时数，留空默认退全部剩余 */}
+                                <div className="space-y-2.5">
+                                    <label className="text-sm font-bold text-slate-700 block">退费课时数 <span className="text-slate-400 font-normal">(留空则退全部剩余课时)</span></label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={refundQty}
+                                        onChange={e => setRefundQty(e.target.value)}
+                                        placeholder="例如：5（部分退费）"
+                                        className="w-full rounded-2xl border border-slate-200 p-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                                    />
                                 </div>
 
                                 {/* Policy note */}

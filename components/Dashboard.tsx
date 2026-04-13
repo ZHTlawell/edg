@@ -1,38 +1,52 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { ChevronRight, ArrowRight } from 'lucide-react';
 import { ElmIcon } from './ElmIcon';
 import { useStore } from '../store';
 
-// ─── Smooth SVG Line Chart ───────────────────────────────────────────────────
+// ─── Smooth SVG Line Chart (固定12个月 + Y轴刻度) ─────────────────────────
 interface LineChartProps {
   data: { month: string; amount: number }[];
 }
 
 const LineChart: React.FC<LineChartProps> = ({ data }) => {
-  const MONTHS = data.map(d => d.month.split('-')[1] + '月');
+  const MONTHS = data.map(d => {
+    const parts = d.month.split('-');
+    return parts.length >= 2 ? parseInt(parts[1]) + '月' : d.month;
+  });
   const values = data.map(d => d.amount);
-  
-  const W = 580, H = 200, PAD = 20;
-  const minV = Math.min(...values, 0);
-  const maxV = Math.max(...values, 10);
-  
-  const toX = (i: number) => PAD + (i / (data.length - 1)) * (W - PAD * 2);
-  const toY = (v: number) => H - PAD - ((v - minV) / (maxV - minV)) * (H - PAD * 2);
+
+  const W = 620, H = 200, PAD_L = 50, PAD_R = 20, PAD_T = 20, PAD_B = 20;
+  const maxV = Math.max(...values, 1);
+  // Y轴刻度：自动计算合理的刻度间隔
+  const niceStep = (() => {
+    const rough = maxV / 4;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    const normalized = rough / mag;
+    if (normalized <= 1) return mag;
+    if (normalized <= 2) return 2 * mag;
+    if (normalized <= 5) return 5 * mag;
+    return 10 * mag;
+  })();
+  const yMax = Math.ceil(maxV / niceStep) * niceStep;
+  const yTicks = Array.from({ length: 5 }, (_, i) => Math.round((yMax / 4) * i));
+
+  const toX = (i: number) => PAD_L + (i / (data.length - 1)) * (W - PAD_L - PAD_R);
+  const toY = (v: number) => H - PAD_B - ((v) / (yMax || 1)) * (H - PAD_T - PAD_B);
 
   const pts = values.map((v, i): [number, number] => [toX(i), toY(v)]);
-  
+
   const linePath = pts.reduce((acc, [x, y], i) => {
     if (i === 0) return `M ${x},${y}`;
     const [px, py] = pts[i - 1];
     const cx = (px + x) / 2;
     return `${acc} C ${cx},${py} ${cx},${y} ${x},${y}`;
   }, '');
-  
-  const areaPath = `${linePath} L ${toX(data.length - 1)},${H - PAD} L ${toX(0)},${H - PAD} Z`;
+
+  const areaPath = `${linePath} L ${toX(data.length - 1)},${H - PAD_B} L ${toX(0)},${H - PAD_B} Z`;
 
   return (
-    <div className="relative w-full" style={{ paddingBottom: '40%' }}>
+    <div className="relative w-full" style={{ paddingBottom: '42%' }}>
       <svg viewBox={`0 0 ${W} ${H + 30}`} className="absolute inset-0 w-full h-full overflow-visible">
         <defs>
           <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
@@ -40,10 +54,15 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
             <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {/* Grid lines */}
-        {[0, 1, 2, 3].map(i => {
-          const y = PAD + (i / 3) * (H - PAD * 2);
-          return <line key={i} x1={PAD} y1={y} x2={W - PAD} y2={y} stroke="#f1f5f9" strokeWidth="1" />;
+        {/* Y轴刻度线 + 刻度标签 */}
+        {yTicks.map((tick, i) => {
+          const y = toY(tick);
+          return (
+            <g key={`y-${i}`}>
+              <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="#f1f5f9" strokeWidth="1" />
+              <text x={PAD_L - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{tick}</text>
+            </g>
+          );
         })}
         {/* Area fill */}
         <path d={areaPath} fill="url(#chartGrad)" />
@@ -53,9 +72,9 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
         {pts.map(([x, y], i) => (
           <circle key={i} cx={x} cy={y} r="3" fill="white" stroke="#3b82f6" strokeWidth="2" opacity={i === data.length - 1 ? 1 : 0} />
         ))}
-        {/* Month labels */}
+        {/* 12个月份标签全部显示 */}
         {MONTHS.map((m, i) => (
-          (i % 2 === 0 || i === data.length - 1) && <text key={i} x={toX(i)} y={H + 18} textAnchor="middle" fontSize="11" fill="#94a3b8">{m}</text>
+          <text key={i} x={toX(i)} y={H + 18} textAnchor="middle" fontSize="10" fill="#94a3b8">{m}</text>
         ))}
       </svg>
     </div>
@@ -82,10 +101,9 @@ const KpiCard: React.FC<KpiProps> = ({ label, value, suffix, change, up, icon, i
 );
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
-export const Dashboard: React.FC = () => {
+export const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNavigate }) => {
   const { students, classes, currentUser, workbenchOverview, fetchWorkbenchOverview } = useStore();
   const isHQAdmin = currentUser?.role === 'admin';
-  const [chartMode, setChartMode] = useState<'月' | '季'>('月');
 
   useEffect(() => {
     if (isHQAdmin) {
@@ -133,9 +151,9 @@ export const Dashboard: React.FC = () => {
               <h2 className="font-bold text-slate-800 text-sm">过去12个月招生营收增长趋势</h2>
               <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-[10px] cursor-help font-bold">i</div>
             </div>
-            <button className="flex items-center gap-1 text-xs font-semibold text-slate-500 border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-all" onClick={() => setChartMode(chartMode === '月' ? '季' : '月')}>
-              按{chartMode}统计 <ElmIcon name="arrow-right" size={16} />
-            </button>
+            <span className="flex items-center gap-1 text-xs font-semibold text-slate-500 border border-slate-200 bg-slate-50 px-3 py-1.5 rounded-lg">
+              按月统计
+            </span>
           </div>
           <p className="text-xs text-slate-400 mb-4">单位：万元</p>
           <LineChart data={data.revenueTrend} />
@@ -172,7 +190,7 @@ export const Dashboard: React.FC = () => {
               <h2 className="font-bold text-slate-800 text-sm">最新报名订单动态</h2>
               <span className="bg-emerald-100 text-emerald-600 text-[10px] font-bold px-2 py-0.5 rounded-full">实时</span>
             </div>
-            <button className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
+            <button className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1" onClick={() => onNavigate?.('payments')}>
               查看全部 <ArrowRight size={12} />
             </button>
           </div>
@@ -206,7 +224,7 @@ export const Dashboard: React.FC = () => {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <h2 className="font-bold text-slate-800 text-sm">待审批教务事项</h2>
-            <button className="text-xs text-blue-600 font-semibold hover:underline">批量审批</button>
+            <span className="text-xs text-slate-400 font-medium">{(data.kpis.pendingRefunds || 0) + (data.kpis.pendingCampusAdmins || 0)} 项待处理</span>
           </div>
           <div className="divide-y divide-slate-50">
             {data.kpis.pendingRefunds > 0 && (
@@ -219,7 +237,7 @@ export const Dashboard: React.FC = () => {
                   <p className="text-xs text-slate-400 mt-0.5">当前共有 {data.kpis.pendingRefunds} 笔待审批退费</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all">去审核</button>
+                  <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all" onClick={() => onNavigate?.('refund-management')}>去审核</button>
                 </div>
               </div>
             )}
@@ -233,7 +251,7 @@ export const Dashboard: React.FC = () => {
                   <p className="text-xs text-slate-400 mt-0.5">{data.kpis.pendingCampusAdmins} 个校区管理员账号待审核</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all">去处理</button>
+                  <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all" onClick={() => onNavigate?.('campus-list')}>去处理</button>
                 </div>
               </div>
             )}

@@ -176,7 +176,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
         <div className="space-y-1">
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">EduAdmin Pro</h1>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em]">Premium Education Management System</p>
+          <p className="text-slate-400 font-bold text-xs tracking-[0.2em]">智慧教育管理系统</p>
         </div>
       </div>
 

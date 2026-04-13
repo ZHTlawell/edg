@@ -1,6 +1,7 @@
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
+import { exportCSV } from '../utils/exportCSV';
 import {
   Users,
   UserCheck,
@@ -26,6 +27,8 @@ interface AttendanceDashboardProps {
 export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegister }) => {
   const { attendanceRecords, classes, courses, students } = useStore();
   const [filterCampus, setFilterCampus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   // Compute stats from real records
   const stats = useMemo(() => {
@@ -70,6 +73,28 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
     return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
   }, [attendanceRecords, classes, courses]);
 
+  const totalPages = Math.max(1, Math.ceil(displayRecords.length / pageSize));
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return displayRecords.slice(start, start + pageSize);
+  }, [displayRecords, currentPage, pageSize]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Top Breadcrumb & Actions */}
@@ -83,7 +108,24 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">考勤中心看板</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+          <button
+            onClick={() => {
+              const headers = ['日期', '学员', '班级', '课程', '校区', '状态'];
+              const rows = attendanceRecords.map(r => {
+                const sid = r.student_id || (r as any).studentId;
+                const cid = r.class_id || (r as any).classId;
+                const coid = r.course_id || (r as any).courseId;
+                const campId = r.campus_id || (r as any).campusId;
+                const stu = students.find(s => s.id === sid);
+                const cls = classes.find(c => c.id === cid);
+                const crs = courses.find(c => c.id === coid);
+                const statusText = r.status === 'present' ? '出勤' : r.status === 'absent' ? '缺勤' : r.status === 'late' ? '迟到' : '请假';
+                return [r.createdAt || '', stu?.name || sid || '', cls?.name || cid || '', crs?.name || coid || '', campId || '', statusText];
+              });
+              exportCSV(`考勤分析_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm"
+          >
             <ElmIcon name="download" size={16} /> 导出分析
           </button>
           <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95">
@@ -173,7 +215,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {displayRecords.map((rec) => (
+                  {paginatedRecords.map((rec) => (
                     <tr key={rec.id} className="hover:bg-blue-50/5 transition-all group">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
@@ -230,8 +272,36 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                   ))}
                 </tbody>
               </table>
-              <div className="p-6 bg-slate-50/20 border-t border-slate-50 flex items-center justify-center">
-                <button className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors">加载更多考勤档案...</button>
+              <div className="p-6 bg-slate-50/20 border-t border-slate-50 flex items-center justify-between px-8">
+                <p className="text-xs text-slate-400 font-bold">
+                  显示 {Math.min((currentPage - 1) * pageSize + 1, displayRecords.length)} - {Math.min(currentPage * pageSize, displayRecords.length)}，共 <span className="text-slate-700">{displayRecords.length}</span> 条
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className={`p-1.5 rounded-lg transition-colors ${currentPage === 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                  >
+                    <ElmIcon name="arrow-left" size={14} />
+                  </button>
+                  {getPageNumbers().map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => typeof p === 'number' && setCurrentPage(p)}
+                      disabled={typeof p !== 'number'}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === currentPage ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : typeof p === 'number' ? 'text-slate-400 hover:bg-white hover:text-slate-900' : 'text-slate-300 cursor-default'}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`p-1.5 rounded-lg transition-colors ${currentPage === totalPages ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                  >
+                    <ElmIcon name="arrow-right" size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

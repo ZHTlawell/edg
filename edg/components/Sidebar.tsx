@@ -2,7 +2,6 @@
 import React, { useState, useMemo } from 'react';
 import { ElmIcon } from './ElmIcon';
 import { School } from 'lucide-react';
-import { useStore } from '../store';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,7 +20,6 @@ interface MenuItem {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, userRole }) => {
-  const { currentUser } = useStore();
   const [openGroups, setOpenGroups] = useState<string[]>(['student-group', 'teaching-group']);
 
   const toggleGroup = (id: string) => {
@@ -51,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
       ]
     },
     {
-      id: 'finance-group', label: '财务中心', icon: <ElmIcon name="credit-card" size={20} />, children: [
+      id: 'finance-group', label: '学员报名/退费管理', icon: <ElmIcon name="credit-card" size={20} />, children: [
         { id: 'payments', label: '报名缴费' },
         { id: 'refund-management', label: '退费管理' }
       ]
@@ -70,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
         { id: 'announcemnt-mgmt', label: '公告管理' }
       ]
     },
-    { id: 'course-standard', label: '课程中心', icon: <ElmIcon name="collection" size={20} /> },
+    { id: 'course-standard', label: '课程体系管理', icon: <ElmIcon name="collection" size={20} /> },
   ];
 
   const campusMenu: MenuItem[] = [
@@ -82,14 +80,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     },
     {
       id: 'student-group', label: '学员管理', icon: <ElmIcon name="user" size={20} />, children: [
-        { id: 'students', label: '学员档案' }
+        { id: 'students', label: '学员档案' },
+        { id: 'student-approval', label: '学员注册审核' }
       ]
     },
     {
       id: 'course-group', label: '课程与班级管理', icon: <ElmIcon name="reading" size={20} />, children: [
         { id: 'courses', label: '课程库' },
-        { id: 'classes', label: '班级管理' },
-        { id: 'course-resource', label: '课程内容管理' }
+        { id: 'classes', label: '班级管理' }
       ]
     },
     { id: 'teaching', label: '教务排课', icon: <ElmIcon name="calendar" size={20} /> },
@@ -107,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
         { id: 'finance-report', label: '财务报表' }
       ]
     },
-    { id: 'announcemnt-mgmt', label: '公告管理', icon: <ElmIcon name="notification" size={20} /> }
+    { id: 'announcement-view', label: '系统公告', icon: <ElmIcon name="notification" size={20} /> }
   ];
 
   const teacherMenu: MenuItem[] = [
@@ -208,10 +206,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
           {isOpen && (
             <div className="flex-1 overflow-hidden">
               <p className="text-xs font-bold text-slate-800 truncate">
-                {currentUser?.name || currentUser?.username || (userRole === 'admin' ? '管理员' : userRole === 'campus_admin' ? '校区管理员' : userRole === 'teacher' ? '授课老师' : '学员')}
+                {userRole === 'admin' ? '王主管' : userRole === 'campus_admin' ? '赵校长' : userRole === 'teacher' ? '李建国老师' : '张美玲 (学员)'}
               </p>
               <p className="text-[9px] text-slate-400 font-bold uppercase truncate tracking-wider">
-                {userRole === 'admin' ? '总部管理' : userRole === 'campus_admin' ? '校区教务' : userRole === 'teacher' ? '授课教师' : '在读学员'}
+                {userRole === 'admin' ? 'Head of Operations' : userRole === 'campus_admin' ? 'Campus Principal' : userRole === 'teacher' ? 'Lead Instructor' : 'Premium Student'}
               </p>
             </div>
           )}

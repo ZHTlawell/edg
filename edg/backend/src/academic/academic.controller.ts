@@ -135,9 +135,24 @@ export class AcademicController {
     @Post('classes/schedule-draft')
     async generateDraft(
         @Request() req: any,
-        @Body() body: { assignmentId: string; startDate: string; lessonsCount: number; durationMinutes: number }
+        @Body() body: { assignmentId: string; startDate: string; lessonsCount: number; durationMinutes: number; weekdays?: number[]; timeOfDay?: string }
     ) {
-        return this.academicService.generateDraftSchedules(body.assignmentId, new Date(body.startDate), body.lessonsCount, body.durationMinutes || 45);
+        return this.academicService.generateDraftSchedules(
+            body.assignmentId,
+            new Date(body.startDate),
+            body.lessonsCount,
+            body.durationMinutes || 45,
+            { weekdays: body.weekdays, timeOfDay: body.timeOfDay }
+        );
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Post('classes/repair-enrolled')
+    async repairEnrolled(@Request() req: any) {
+        if (req.user.role.toUpperCase() !== 'ADMIN') {
+            throw new UnauthorizedException('仅总部管理员可执行');
+        }
+        return this.academicService.repairAllClassEnrolled();
     }
 
     @UseGuards(AuthGuard('jwt'))

@@ -1,6 +1,7 @@
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
+import { exportCSV } from '../utils/exportCSV';
 import {
     Calendar,
     Download,
@@ -41,7 +42,14 @@ export const FinanceReport: React.FC = () => {
                         <ElmIcon name="calendar" size={16} />
                         <span>2023-11-01 至 2023-11-30</span>
                     </div>
-                    <button className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
+                    <button
+                        onClick={() => {
+                            const headers = ['订单号', '学员', '课程内容', '金额', '支付渠道', '状态', '操作员'];
+                            const rows = mockOrders.map(o => [o.id, o.student, o.content, o.amount, o.channel, o.status === 'paid' ? '已支付' : o.status === 'pending' ? '待支付' : '作废', o.operator]);
+                            exportCSV(`财务账单_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+                        }}
+                        className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all"
+                    >
                         <ElmIcon name="download" size={16} /> 导出财务账单
                     </button>
                 </div>

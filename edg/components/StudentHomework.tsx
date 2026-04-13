@@ -165,22 +165,38 @@ export const StudentHomework: React.FC = () => {
             <div className="space-y-4">
                 {filteredHomeworks.map(hw => {
                     const mySubmission = getSubmission(hw.id);
-                    const isGraded = mySubmission?.status === 'graded';
-                    const isSubmitted = !!mySubmission;
-                    const isExpanded = expandedHw === hw.id;
+                    const rawStatus = (mySubmission?.status || '').toUpperCase();
+                    const isGraded = rawStatus === 'GRADED';
+                    const isReturned = rawStatus === 'RETURNED';
+                    const isLate = rawStatus === 'LATE';
+                    const isSubmitted = !!mySubmission && !isReturned;
+                    // 退回状态允许重新编辑提交
+                    const canResubmit = isReturned;
+                    const isExpanded = expandedHw === hw.id || (canResubmit && expandedHw === hw.id);
 
                     const statusBadge = isGraded
                         ? { label: '已批改', cls: 'bg-indigo-50 text-indigo-600 border border-indigo-100' }
+                        : isReturned
+                        ? { label: '已退回 · 待重交', cls: 'bg-rose-50 text-rose-600 border border-rose-100' }
+                        : isLate
+                        ? { label: '逾期提交 · 待批改', cls: 'bg-amber-50 text-amber-700 border border-amber-100' }
                         : isSubmitted
                         ? { label: '待批改', cls: 'bg-emerald-50 text-emerald-600 border border-emerald-100' }
                         : { label: '待提交', cls: 'bg-orange-50 text-orange-600 border border-orange-100' };
 
                     return (
                         <div key={hw.id} className={`bg-white rounded-[1.75rem] border shadow-sm transition-all overflow-hidden ${isExpanded ? 'border-orange-200 shadow-orange-100' : 'border-slate-200 hover:border-slate-300 hover:shadow-md'}`}>
+                            {isReturned && mySubmission?.feedback && (
+                                <div className="px-6 pt-4 pb-0">
+                                    <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700">
+                                        <span className="font-bold">教师反馈：</span>{mySubmission.feedback}
+                                    </div>
+                                </div>
+                            )}
                             {/* Card Header */}
                             <div
                                 className="p-6 cursor-pointer"
-                                onClick={() => !isSubmitted && handleToggleExpand(hw.id)}
+                                onClick={() => (!isSubmitted || canResubmit) && handleToggleExpand(hw.id)}
                             >
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex-1 min-w-0 space-y-2">
@@ -388,7 +404,7 @@ export const StudentHomework: React.FC = () => {
                                  activeFilter === 'submitted' ? '暂无待批改作业' :
                                  activeFilter === 'graded' ? '暂无已批改作业' : '太棒了，暂无作业！'}
                             </p>
-                            <p className="text-xs uppercase tracking-widest opacity-60 font-bold">You are all caught up</p>
+                            <p className="text-xs tracking-widest opacity-60 font-bold">全部完成</p>
                         </div>
                     </div>
                 )}

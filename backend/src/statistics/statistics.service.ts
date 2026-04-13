@@ -124,4 +124,101 @@ export class StatisticsService {
             latestOrders
         };
     }
+
+    // ─── 到课率统计 ──────────────────────────────────────────────
+    async getAttendanceStats(filters?: { campusId?: string; startDate?: string; endDate?: string }) {
+        const where: any = {};
+        if (filters?.startDate || filters?.endDate) {
+            where.lesson = {
+                start_time: {
+                    ...(filters.startDate ? { gte: new Date(filters.startDate) } : {}),
+                    ...(filters.endDate ? { lte: new Date(filters.endDate) } : {}),
+                },
+            };
+        }
+
+        const allRecords = await this.prisma.teachAttendance.findMany({
+            where,
+            select: { status: true },
+        });
+
+        const total = allRecords.length;
+        const present = allRecords.filter(r => r.status === 'present' || r.status === 'PRESENT').length;
+        const leave = allRecords.filter(r => r.status === 'leave' || r.status === 'LEAVE').length;
+        const absent = allRecords.filter(r => r.status === 'absent' || r.status === 'ABSENT').length;
+        const attendanceRate = total > 0 ? parseFloat(((present / total) * 100).toFixed(1)) : 0;
+
+        return {
+            total,
+            present,
+            leave,
+            absent,
+            attendanceRate,
+        };
+    }
+
+    // ─── 课消率统计 ──────────────────────────────────────────────
+    async getConsumptionStats(filters?: { startDate?: string; endDate?: string }) {
+        const where: any = {};
+        if (filters?.startDate || filters?.endDate) {
+            where.start_time = {
+                ...(filters.startDate ? { gte: new Date(filters.startDate) } : {}),
+                ...(filters.endDate ? { lte: new Date(filters.endDate) } : {}),
+            };
+        }
+
+        const allLessons = await this.prisma.edLessonSchedule.findMany({
+            where: { ...where, status: { in: ['PUBLISHED', 'COMPLETED'] } },
+            select: { is_consumed: true, status: true },
+        });
+
+        const total = allLessons.length;
+        const completed = allLessons.filter(l => l.status === 'COMPLETED').length;
+        const consumed = allLessons.filter(l => l.is_consumed).length;
+        const completionRate = total > 0 ? parseFloat(((completed / total) * 100).toFixed(1)) : 0;
+        const consumptionRate = completed > 0 ? parseFloat(((consumed / completed) * 100).toFixed(1)) : 0;
+
+        return {
+            totalLessons: total,
+            completedLessons: completed,
+            consumedLessons: consumed,
+            completionRate,
+            consumptionRate,
+        };
+    }
+
+    // ─── 退费统计 ──────────────────────────────────────────────
+    async getRefundStats() {
+        const refunds = await this.prisma.finRefundRecord.findMany({
+            select: { amount: true, status: true, createdAt: true },
+        });
+
+        const approved = refunds.filter(r => r.status === 'APPROVED');
+        const pending = refunds.filter(r => r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_HQ_APPROVAL');
+
+        return {
+            totalRefundAmount: approved.reduce((sum, r) => sum + r.amount, 0),
+            pendingCount: pending.length,
+            approvedCount: approved.length,
+            totalCount: refunds.length,
+        };
+    }
+
+    // ─── 导出统计数据为 CSV ──────────────────────────────────────
+    async exportOrdersCsv() {
+        const orders = await this.prisma.finOrder.findMany({
+            include: {
+                student: true,
+                course: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const header = '订单ID,学员姓名,课程名称,金额,状态,创建时间\n';
+        const rows = orders.map(o =>
+            `${o.id},${o.student?.name || ''},${o.course?.name || ''},${o.amount},${o.status},${o.createdAt.toISOString()}`
+        ).join('\n');
+
+        return header + rows;
+    }
 }

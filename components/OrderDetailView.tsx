@@ -32,7 +32,7 @@ interface OrderDetailViewProps {
   onBack: () => void;
 }
 
-type OrderStatus = 'pending' | 'partial' | 'completed' | 'refunded' | 'canceled';
+type OrderStatus = 'pending' | 'partial' | 'completed' | 'refunded' | 'partial_refunded' | 'canceled';
 type TabType = 'items' | 'payments' | 'lessons' | 'history';
 
 export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBack }) => {
@@ -45,6 +45,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
       case 'partial': return { label: '部分支付', style: 'bg-blue-50 text-blue-600 border-blue-100' };
       case 'completed': return { label: '已完成', style: 'bg-emerald-50 text-emerald-600 border-emerald-100' };
       case 'refunded': return { label: '已退款', style: 'bg-slate-50 text-slate-400 border-slate-200' };
+      case 'partial_refunded': return { label: '部分退款', style: 'bg-orange-50 text-orange-600 border-orange-100' };
       case 'canceled': return { label: '已取消', style: 'bg-red-50 text-red-600 border-red-100' };
     }
   };
@@ -80,7 +81,11 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
             <Undo2 size={16} /> 退款
           </button>
           <div className="w-px h-6 bg-slate-200 mx-1"></div>
-          <button className="p-2 text-slate-400 hover:text-slate-900 rounded-lg" title="打印/导出">
+          <button
+            onClick={() => window.print()}
+            className="p-2 text-slate-400 hover:text-slate-900 rounded-lg"
+            title="打印/导出"
+          >
             <Printer size={20} />
           </button>
         </div>
@@ -476,17 +481,6 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
             </div>
           ) : null}
 
-          {/* Quick Help card */}
-          <div className="bg-slate-900 rounded-[2rem] p-6 text-white overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-            <div className="flex items-center gap-2 mb-3">
-              <Info size={14} className="opacity-60" />
-              <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">业务小贴士</span>
-            </div>
-            <p className="text-xs leading-relaxed opacity-80">
-              结课订单如果需要退款，需先进行 [学籍变更] 操作释放名额后，方可申请退费。
-            </p>
-          </div>
         </div>
       </div>
 

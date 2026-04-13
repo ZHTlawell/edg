@@ -41,7 +41,6 @@ export class CourseStandardService {
                 category: true,
                 campuses: true,
                 templates: true,
-                _count: { select: { versions: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -54,7 +53,6 @@ export class CourseStandardService {
                 category: true,
                 campuses: true,
                 templates: true,
-                versions: { orderBy: { version: 'desc' } },
             },
         });
         if (!std) throw new NotFoundException('课程标准不存在');
@@ -95,17 +93,17 @@ export class CourseStandardService {
                     cover_url: data.cover_url,
                     creator_id: data.creator_id,
                     status: 'DRAFT',
-                    version: 1,
                 },
             });
 
-            await tx.stdCourseVersion.create({
+            // 记录到统一的审计日志（替代原版本表）
+            await tx.sysAuditLog.create({
                 data: {
-                    standard_id: standard.id,
-                    version: 1,
-                    snapshot: JSON.stringify({ ...standard }),
-                    change_note: '初始版本',
+                    action: 'STANDARD_CREATE',
+                    entity_type: 'COURSE_STANDARD',
+                    entity_id: standard.id,
                     operator_id: data.creator_id,
+                    details: JSON.stringify({ code: standard.code, name: standard.name, total_lessons: standard.total_lessons }),
                 },
             });
 
@@ -124,35 +122,25 @@ export class CourseStandardService {
         if (!existing) throw new NotFoundException('课程标准不存在');
         if (existing.status === 'DISABLED') throw new ForbiddenException('已停用的课程标准不可编辑');
 
-        // Increment version if key rules change
-        const rulesChanged =
-            data.total_lessons !== undefined ||
-            data.lesson_duration !== undefined ||
-            data.suggested_capacity !== undefined;
-
-        const newVersion = rulesChanged ? existing.version + 1 : existing.version;
-
         return this.prisma.$transaction(async (tx) => {
             const updated = await tx.stdCourseStandard.update({
                 where: { id },
                 data: {
                     ...data,
                     campus_ids: undefined,
-                    version: newVersion,
                 },
             });
 
-            if (rulesChanged) {
-                await tx.stdCourseVersion.create({
-                    data: {
-                        standard_id: id,
-                        version: newVersion,
-                        snapshot: JSON.stringify({ ...updated }),
-                        change_note: data.change_note || '规则字段变更',
-                        operator_id,
-                    },
-                });
-            }
+            // 记录到审计日志
+            await tx.sysAuditLog.create({
+                data: {
+                    action: 'STANDARD_UPDATE',
+                    entity_type: 'COURSE_STANDARD',
+                    entity_id: id,
+                    operator_id,
+                    details: JSON.stringify({ change_note: data.change_note || '字段变更', diff: data }),
+                },
+            });
 
             // Update campus authorization
             if (data.campus_ids !== undefined) {
@@ -204,12 +192,12 @@ export class CourseStandardService {
         return this.prisma.stdCourseTemplate.create({ data: { standard_id, ...data } });
     }
 
-    // ─── 版本历史 ─────────────────────────────────────────
+    // ─── 变更历史（来源：SysAuditLog） ─────────────────────
 
     async getVersionHistory(standard_id: string) {
-        return this.prisma.stdCourseVersion.findMany({
-            where: { standard_id },
-            orderBy: { version: 'desc' },
+        return this.prisma.sysAuditLog.findMany({
+            where: { entity_type: 'COURSE_STANDARD', entity_id: standard_id },
+            orderBy: { createdAt: 'desc' },
         });
     }
 

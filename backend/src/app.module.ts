@@ -12,9 +12,10 @@ import { CourseStandardModule } from './course-standard/course-standard.module';
 import { CourseResourceModule } from './course-resource/course-resource.module';
 import { CourseCatalogModule } from './course-catalog/course-catalog.module';
 import { StatisticsModule } from './statistics/statistics.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UsersModule, FinanceModule, AcademicModule, TeachingModule, AnnouncementsModule, CourseStandardModule, CourseResourceModule, CourseCatalogModule, StatisticsModule],
+  imports: [PrismaModule, AuthModule, UsersModule, FinanceModule, AcademicModule, TeachingModule, AnnouncementsModule, CourseStandardModule, CourseResourceModule, CourseCatalogModule, StatisticsModule, QuizModule],
   controllers: [AppController],
   providers: [AppService],
 })

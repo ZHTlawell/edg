@@ -1,6 +1,6 @@
 
 import { ElmIcon } from './ElmIcon';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import {
   Search,
@@ -15,6 +15,7 @@ import {
   MapPin,
   CreditCard,
   ChevronDown,
+  Info,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -48,55 +49,70 @@ export const ReportDetails: React.FC = () => {
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
-  const [filterOrderStatus, setFilterOrderStatus] = useState('all');
   const [filterPayStatus, setFilterPayStatus] = useState('all');
+  const [filterCampus, setFilterCampus] = useState('all');
 
-  // Dynamic date range: current month
-  const now = new Date();
-  const defaultDateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  const defaultDateTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const [dateFrom, setDateFrom] = useState(defaultDateFrom);
-  const [dateTo, setDateTo] = useState(defaultDateTo);
+  // Date range (default: last 90 days to today)
+  const _today = new Date();
+  const _past = new Date();
+  _past.setDate(_today.getDate() - 90);
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const [dateFrom, setDateFrom] = useState(fmt(_past));
+  const [dateTo, setDateTo] = useState(fmt(_today));
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  // Helpers: resolve both snake_case and camelCase field variants
+  const getOrderStudentId = (o: any) => o.studentId || o.student_id;
+  const getOrderCourseId = (o: any) => o.courseId || o.course_id;
+  const getOrderCampusId = (o: any) => o.campusId || o.campus_id;
+  const resolveCampusName = (id: string | undefined) => {
+    if (!id) return '未分配校区';
+    const c = (campuses || []).find((x: any) => x.id === id || x.name === id);
+    return c?.name || id;
+  };
 
   const displayData = useMemo(() => {
     const data = orders.filter(o => {
-      if (isCampusAdmin && o.campusId !== currentUser?.campus_id) return false;
+      const oCampusId = getOrderCampusId(o);
+      if (isCampusAdmin && oCampusId !== currentUser?.campus && oCampusId !== (currentUser as any)?.campus_id) return false;
+      if (filterCampus !== 'all' && oCampusId !== filterCampus) return false;
       // Date filter
-      if (dateFrom && o.createdAt && o.createdAt.split('T')[0] < dateFrom) return false;
-      if (dateTo && o.createdAt && o.createdAt.split('T')[0] > dateTo) return false;
-      // Order status filter
-      if (filterOrderStatus !== 'all') {
-        if (filterOrderStatus === 'valid' && !['PAID', 'PARTIAL_REFUNDED'].includes(o.status)) return false;
-        if (filterOrderStatus === 'refunded' && o.status !== 'REFUNDED') return false;
-        if (filterOrderStatus === 'canceled' && !['CANCELLED', 'VOID'].includes(o.status)) return false;
-      }
-      // Payment status filter
+      const oDate = (o.createdAt || '').split('T')[0];
+      if (dateFrom && oDate && oDate < dateFrom) return false;
+      if (dateTo && oDate && oDate > dateTo) return false;
+      // Pay status
       if (filterPayStatus !== 'all') {
         if (filterPayStatus === 'paid' && o.status !== 'PAID') return false;
         if (filterPayStatus === 'unpaid' && o.status !== 'PENDING_PAYMENT') return false;
       }
-      // Keyword filter
       if (keyword) {
-        const student = (students || []).find(s => s.id === (o.studentId || o.student_id));
+        const student = (students || []).find(s => s.id === getOrderStudentId(o));
         return student?.name.includes(keyword) || student?.phone?.includes(keyword) || o.id.includes(keyword);
       }
       return true;
     });
 
-    return data.map(o => ({
-      orderId: o.id,
-      studentName: (students || []).find(s => s.id === o.studentId)?.name || '未知',
-      phone: (students || []).find(s => s.id === o.studentId)?.phone || '-',
-      campus: o.campusId,
-      courseClass: (courses || []).find(c => c.id === o.courseId)?.name || '未知课程',
-      totalAmount: o.amount,
-      receivedAmount: o.status === 'PAID' ? o.amount : 0,
-      paymentMethod: o.paymentMethod,
-      status: o.status === 'REFUNDED' ? 'refunded' : o.status === 'CANCELLED' ? 'canceled' : 'valid',
-      payStatus: o.status === 'PAID' ? 'paid' : 'unpaid',
-      createdAt: o.createdAt
-    }));
-  }, [orders, students, courses, isCampusAdmin, currentUser?.campus_id, keyword, filterOrderStatus, filterPayStatus, dateFrom, dateTo]);
+    return data.map(o => {
+      const student = (students || []).find(s => s.id === getOrderStudentId(o));
+      const course = (courses || []).find(c => c.id === getOrderCourseId(o));
+      return {
+        orderId: o.id,
+        studentName: student?.name || `学员 ${String(getOrderStudentId(o) || '').slice(-6) || '-'}`,
+        phone: student?.phone || '-',
+        campus: resolveCampusName(getOrderCampusId(o)),
+        courseClass: course?.name || `课程 ${String(getOrderCourseId(o) || '').slice(-6) || '-'}`,
+        totalAmount: o.amount,
+        receivedAmount: o.status === 'PAID' ? o.amount : 0,
+        paymentMethod: (o as any).paymentMethod || (o as any).payment_method || '-',
+        status: o.status === 'REFUNDED' ? 'refunded' : o.status === 'CANCELLED' ? 'canceled' : 'valid',
+        payStatus: o.status === 'PAID' ? 'paid' : 'unpaid',
+        createdAt: o.createdAt
+      };
+    });
+  }, [orders, students, courses, campuses, isCampusAdmin, currentUser, keyword, filterPayStatus, filterCampus, dateFrom, dateTo]);
 
   const stats = useMemo(() => {
     const total = displayData.reduce((acc, curr) => acc + curr.totalAmount, 0);
@@ -104,6 +120,33 @@ export const ReportDetails: React.FC = () => {
     const refundedCount = displayData.filter(d => d.status === 'refunded').length;
     return { total, received, count: displayData.length, refundedCount };
   }, [displayData]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [keyword, filterPayStatus, filterCampus, dateFrom, dateTo]);
+
+  const totalPages = Math.max(1, Math.ceil(displayData.length / pageSize));
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return displayData.slice(start, start + pageSize);
+  }, [displayData, currentPage, pageSize]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handleExport = () => {
     if (displayData.length === 0) {
@@ -166,7 +209,16 @@ export const ReportDetails: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">业务订单报表明细</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+          <button
+            onClick={() => {
+              setKeyword('');
+              setFilterPayStatus('all');
+              setFilterCampus('all');
+              setDateFrom(fmt(_past));
+              setDateTo(fmt(_today));
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm"
+          >
             <ElmIcon name="refresh" size={16} /> 重置
           </button>
           <button
@@ -180,12 +232,31 @@ export const ReportDetails: React.FC = () => {
 
       {/* Filter Matrix Card */}
       <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-6 gap-y-5 items-end">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">统计时间区间 <span className="text-red-500">*</span></label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">起始日期 <span className="text-red-500">*</span></label>
             <div className="relative group">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="calendar" size={16} /></span>
-              <input type="text" value={`${dateFrom} ~ ${dateTo}`} readOnly className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-3 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all cursor-pointer"
+                style={{ colorScheme: 'light' }}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">截止日期 <span className="text-red-500">*</span></label>
+            <div className="relative group">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="calendar" size={16} /></span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-3 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all cursor-pointer"
+                style={{ colorScheme: 'light' }}
+              />
             </div>
           </div>
 
@@ -194,10 +265,10 @@ export const ReportDetails: React.FC = () => {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">筛选校区 <span className="text-red-500">*</span></label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="location" size={16} /></span>
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
+                <select value={filterCampus} onChange={e => setFilterCampus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
                   <option value="all">全部校区</option>
                   {(campuses || []).map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="arrow-down" size={16} /></span>
@@ -206,22 +277,17 @@ export const ReportDetails: React.FC = () => {
           )}
 
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">订单状态</label>
-            <select value={filterOrderStatus} onChange={e => setFilterOrderStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
-              <option value="all">全部状态</option>
-              <option value="valid">有效订单</option>
-              <option value="refunded">已退款</option>
-              <option value="canceled">已取消</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">支付状态</label>
-            <select value={filterPayStatus} onChange={e => setFilterPayStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
-              <option value="all">全部状态</option>
-              <option value="paid">已收全款</option>
-              <option value="unpaid">未支付</option>
-            </select>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="money" size={16} /></span>
+              <select value={filterPayStatus} onChange={e => setFilterPayStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer">
+                <option value="all">全部状态</option>
+                <option value="paid">已收全款</option>
+                <option value="partial">部分支付</option>
+                <option value="unpaid">未支付</option>
+              </select>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><ElmIcon name="arrow-down" size={16} /></span>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -239,8 +305,8 @@ export const ReportDetails: React.FC = () => {
           </div>
         </div>
 
-        <div className="pt-2 flex justify-end">
-          <button onClick={() => addToast(`已筛选 ${displayData.length} 条记录`, 'info')} className="flex items-center gap-2 px-10 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
+        <div className="pt-4 flex justify-end">
+          <button className="flex items-center gap-2 px-10 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-md active:scale-95">
             <ElmIcon name="search" size={16} /> 执行筛选
           </button>
         </div>
@@ -308,7 +374,7 @@ export const ReportDetails: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {displayData.map((item, idx) => (
+              {paginatedData.map((item, idx) => (
                 <tr key={idx} className="hover:bg-blue-50/5 transition-all group">
                   <td className="px-8 py-6">
                     <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600" />
@@ -363,33 +429,41 @@ export const ReportDetails: React.FC = () => {
         {/* Pagination Controls */}
         <div className="px-8 py-6 border-t border-slate-100 flex items-center justify-between bg-slate-50/20">
           <div className="flex items-center gap-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-            <span>共 1,284 条记录</span>
+            <span>显示 {Math.min((currentPage - 1) * pageSize + 1, displayData.length)} - {Math.min(currentPage * pageSize, displayData.length)}，共 {displayData.length} 条记录</span>
             <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
-              <button className="px-3 py-1 bg-slate-100 rounded-md text-slate-800">10 条/页</button>
-              <ElmIcon name="arrow-down" size={16} />
+              <button className="px-3 py-1 bg-slate-100 rounded-md text-slate-800">{pageSize} 条/页</button>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button disabled className="p-2 text-slate-300 cursor-not-allowed transition-all"><ElmIcon name="arrow-left" size={16} /></button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`p-2 transition-all rounded-xl ${currentPage === 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+            >
+              <ElmIcon name="arrow-left" size={16} />
+            </button>
             <div className="flex gap-1">
-              {[1, 2, 3, '...', 12].map((p, i) => (
+              {getPageNumbers().map((p, i) => (
                 <button
                   key={i}
-                  className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${p === 1 ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-white hover:border-slate-200'}`}
+                  onClick={() => typeof p === 'number' && setCurrentPage(p)}
+                  disabled={typeof p !== 'number'}
+                  className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${p === currentPage ? 'bg-slate-900 text-white shadow-lg' : typeof p === 'number' ? 'text-slate-400 hover:bg-white hover:text-slate-900' : 'text-slate-300 cursor-default'}`}
                 >{p}</button>
               ))}
             </div>
-            <button className="p-2 text-slate-400 hover:bg-white hover:border-slate-200 rounded-xl transition-all"><ElmIcon name="arrow-right" size={16} /></button>
-            <div className="h-4 w-px bg-slate-200 mx-2"></div>
-            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-              跳至 <input type="text" className="w-10 bg-white border border-slate-200 rounded-lg text-center py-1.5 outline-none focus:border-blue-500" /> 页
-            </div>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`p-2 transition-all rounded-xl ${currentPage === totalPages ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+            >
+              <ElmIcon name="arrow-right" size={16} />
+            </button>
           </div>
         </div>
       </div>
 
-
-      <style dangerouslySetInnerHTML={{
+<style dangerouslySetInnerHTML={{
         __html: `
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }

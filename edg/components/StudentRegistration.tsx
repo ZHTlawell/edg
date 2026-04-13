@@ -47,6 +47,7 @@ export const StudentRegistration: React.FC<StudentRegistrationProps> = ({ onBack
                 gender: formData.gender,
                 campus: formData.campus
             });
+            addToast('注册成功，请等待校区管理员审核通过后再登录', 'success');
             onBack();
         } catch {
             // handled in store

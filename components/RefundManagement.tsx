@@ -20,13 +20,13 @@ import {
     CheckCircle
 } from 'lucide-react';
 import { useStore, RefundRecord } from '../store';
+import api from '../utils/api';
 
 export const RefundManagement: React.FC = () => {
     const {
         campuses,
         students,
         courses,
-        assetAccounts,
         applyRefund,
         approveRefund,
         getPendingRefunds,
@@ -43,10 +43,32 @@ export const RefundManagement: React.FC = () => {
     const [selectedAccountId, setSelectedAccountId] = useState('');
     const [refundQty, setRefundQty] = useState<number>(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // 管理员查询指定学员的资产（通过API而非store）
+    const [studentAssetAccounts, setStudentAssetAccounts] = useState<any[]>([]);
+    const [isLoadingAssets, setIsLoadingAssets] = useState(false);
 
     useEffect(() => {
         fetchPending();
     }, []);
+
+    // 选中学员时，从后端拉取该学员的课时资产
+    useEffect(() => {
+        if (selectedStudentId && activeTab === 'manual') {
+            setIsLoadingAssets(true);
+            setSelectedAccountId('');
+            setRefundQty(0);
+            api.get(`/api/finance/assets/${selectedStudentId}`)
+                .then(res => {
+                    setStudentAssetAccounts(res.data.accounts || []);
+                })
+                .catch(() => {
+                    setStudentAssetAccounts([]);
+                })
+                .finally(() => setIsLoadingAssets(false));
+        } else {
+            setStudentAssetAccounts([]);
+        }
+    }, [selectedStudentId, activeTab]);
 
     const fetchPending = async () => {
         setIsLoadingPending(true);
@@ -79,25 +101,27 @@ export const RefundManagement: React.FC = () => {
         return (students || []).find(s => s.id === selectedStudentId);
     }, [students, selectedStudentId]);
 
-    // Get asset accounts for the selected student
+    // 从API返回的数据中筛选有余额的资产
     const studentAssets = useMemo(() => {
-        if (!selectedStudentId) return [];
-        return (assetAccounts || []).filter(acc => acc.student_id === selectedStudentId && acc.remaining_qty > 0);
-    }, [assetAccounts, selectedStudentId]);
+        return (studentAssetAccounts || []).filter((acc: any) => acc.remaining_qty > 0);
+    }, [studentAssetAccounts]);
 
     const selectedAccount = useMemo(() => {
-        return (assetAccounts || []).find(acc => acc.id === selectedAccountId);
-    }, [assetAccounts, selectedAccountId]);
+        return (studentAssetAccounts || []).find((acc: any) => acc.id === selectedAccountId);
+    }, [studentAssetAccounts, selectedAccountId]);
 
+    // course 数据直接从 asset account 的 include 中获取
     const selectedCourse = useMemo(() => {
         if (!selectedAccount) return null;
-        return (courses || []).find(c => c.id === selectedAccount.course_id);
+        // API返回的 account 里 include 了 course
+        if (selectedAccount.course) return selectedAccount.course;
+        return (courses || []).find((c: any) => c.id === selectedAccount.course_id);
     }, [courses, selectedAccount]);
 
     // Calculate Refund Amount
     const calculation = useMemo(() => {
         if (!selectedAccount || !selectedCourse) return { unitPrice: 0, amount: 0 };
-        const price = parseFloat(selectedCourse.price.replace(/[^0-9.-]+/g, ""));
+        const price = typeof selectedCourse.price === 'number' ? selectedCourse.price : parseFloat(String(selectedCourse.price).replace(/[^0-9.-]+/g, ""));
         const unitPrice = price / selectedAccount.total_qty;
         const amount = unitPrice * refundQty;
         return { unitPrice, amount };
@@ -116,20 +140,29 @@ export const RefundManagement: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            // 1. Find the order for this account (mocking or lookup)
-            // In a real system we'd have a stronger link. 
-            // Here we'll just use a placeholder or assume we have the order_id in account.
-            // For now, let's assume we need an orderId to apply refund.
-            addToast('此功能已收敛至“审批模式”中，请从审批列表或直接申请', 'info');
+            // 1. 通过学员+课程查找对应的已支付订单
+            const orderRes = await api.get(`/api/finance/find-order/${selectedStudentId}/${selectedAccount.course_id}`);
+            const orderId = orderRes.data.id;
 
-            // Simplified for this demo: we just show how it would call applyRefund
-            /*
+            // 2. 发起退费申请（传入 refundQty 支持部分退费）
             await applyRefund({
-                orderId: 'SOME_ORDER_ID', 
-                reason: '管理员手动发起'
+                orderId,
+                refundQty,
+                reason: `管理员手动发起退费，退还 ${refundQty} 课时`
             });
-            */
-        } catch (error) {
+
+            addToast('退费申请已提交，请在待审批列表中完成审核', 'success');
+            setSelectedAccountId('');
+            setRefundQty(0);
+            // 刷新该学员资产
+            if (selectedStudentId) {
+                const assetsRes = await api.get(`/api/finance/assets/${selectedStudentId}`);
+                setStudentAssetAccounts(assetsRes.data.accounts || []);
+            }
+            // 刷新待审批列表
+            fetchPending();
+        } catch (error: any) {
+            addToast(error?.response?.data?.message || error?.message || '退费申请失败', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -141,7 +174,7 @@ export const RefundManagement: React.FC = () => {
                 <div className="space-y-1">
                     <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
                         财务退费管理
-                        <div className="bg-rose-50 text-rose-600 text-[10px] px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-widest font-bold">Finance Control</div>
+                        <div className="bg-rose-50 text-rose-600 text-[10px] px-2 py-0.5 rounded-full border border-rose-100 tracking-widest font-bold">财务管理</div>
                     </h1>
                     <p className="text-slate-400 text-sm font-medium italic">审批学员退款申请、处理课时结算及资金返还</p>
                 </div>
@@ -335,8 +368,10 @@ export const RefundManagement: React.FC = () => {
                                             <ElmIcon name="reading" size={16} /> 选择退费课程资产
                                         </h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {studentAssets.length > 0 ? studentAssets.map(acc => {
-                                                const course = (courses || []).find(c => c.id === acc.course_id);
+                                            {isLoadingAssets ? (
+                                                <div className="col-span-2 py-8 text-center text-slate-300 text-sm"><Loader2 className="animate-spin inline mr-2" size={16} />加载中...</div>
+                                            ) : studentAssets.length > 0 ? studentAssets.map((acc: any) => {
+                                                const course = acc.course || (courses || []).find((c: any) => c.id === acc.course_id);
                                                 return (
                                                     <button
                                                         key={acc.id}

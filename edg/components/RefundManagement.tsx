@@ -20,20 +20,17 @@ import {
     CheckCircle
 } from 'lucide-react';
 import { useStore, RefundRecord } from '../store';
+import api from '../utils/api';
 
 export const RefundManagement: React.FC = () => {
     const {
         campuses,
         students,
         courses,
-        assetAccounts,
         applyRefund,
-        manualRefund,
         approveRefund,
         getPendingRefunds,
-        currentUser,
-        addToast,
-        fetchAssetAccounts
+        addToast
     } = useStore();
 
     const [activeTab, setActiveTab] = useState<'pending' | 'manual'>('pending');
@@ -46,12 +43,32 @@ export const RefundManagement: React.FC = () => {
     const [selectedAccountId, setSelectedAccountId] = useState('');
     const [refundQty, setRefundQty] = useState<number>(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // 管理员查询指定学员的资产（通过API而非store）
+    const [studentAssetAccounts, setStudentAssetAccounts] = useState<any[]>([]);
+    const [isLoadingAssets, setIsLoadingAssets] = useState(false);
 
     useEffect(() => {
         fetchPending();
-        const campusId = currentUser?.role === 'campus_admin' ? currentUser.campus_id : undefined;
-        fetchAssetAccounts(campusId);
     }, []);
+
+    // 选中学员时，从后端拉取该学员的课时资产
+    useEffect(() => {
+        if (selectedStudentId && activeTab === 'manual') {
+            setIsLoadingAssets(true);
+            setSelectedAccountId('');
+            setRefundQty(0);
+            api.get(`/api/finance/assets/${selectedStudentId}`)
+                .then(res => {
+                    setStudentAssetAccounts(res.data.accounts || []);
+                })
+                .catch(() => {
+                    setStudentAssetAccounts([]);
+                })
+                .finally(() => setIsLoadingAssets(false));
+        } else {
+            setStudentAssetAccounts([]);
+        }
+    }, [selectedStudentId, activeTab]);
 
     const fetchPending = async () => {
         setIsLoadingPending(true);
@@ -84,31 +101,31 @@ export const RefundManagement: React.FC = () => {
         return (students || []).find(s => s.id === selectedStudentId);
     }, [students, selectedStudentId]);
 
-    // Get asset accounts for the selected student
+    // 从API返回的数据中筛选有余额的资产
     const studentAssets = useMemo(() => {
-        if (!selectedStudentId) return [];
-        return (assetAccounts || []).filter(acc => acc.student_id === selectedStudentId && acc.remaining_qty > 0);
-    }, [assetAccounts, selectedStudentId]);
+        return (studentAssetAccounts || []).filter((acc: any) => acc.remaining_qty > 0);
+    }, [studentAssetAccounts]);
 
     const selectedAccount = useMemo(() => {
-        return (assetAccounts || []).find(acc => acc.id === selectedAccountId);
-    }, [assetAccounts, selectedAccountId]);
+        return (studentAssetAccounts || []).find((acc: any) => acc.id === selectedAccountId);
+    }, [studentAssetAccounts, selectedAccountId]);
 
+    // course 数据直接从 asset account 的 include 中获取
     const selectedCourse = useMemo(() => {
         if (!selectedAccount) return null;
-        return (courses || []).find(c => c.id === selectedAccount.course_id);
+        // API返回的 account 里 include 了 course
+        if (selectedAccount.course) return selectedAccount.course;
+        return (courses || []).find((c: any) => c.id === selectedAccount.course_id);
     }, [courses, selectedAccount]);
 
     // Calculate Refund Amount
     const calculation = useMemo(() => {
         if (!selectedAccount || !selectedCourse) return { unitPrice: 0, amount: 0 };
-        const price = parseFloat(selectedCourse.price.replace(/[^0-9.-]+/g, ""));
+        const price = typeof selectedCourse.price === 'number' ? selectedCourse.price : parseFloat(String(selectedCourse.price).replace(/[^0-9.-]+/g, ""));
         const unitPrice = price / selectedAccount.total_qty;
         const amount = unitPrice * refundQty;
         return { unitPrice, amount };
     }, [selectedAccount, selectedCourse, refundQty]);
-
-    const [refundReason, setRefundReason] = useState('');
 
     const handleManualRefund = async () => {
         if (!selectedAccountId || refundQty <= 0) {
@@ -123,18 +140,29 @@ export const RefundManagement: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            await manualRefund({
-                accountId: selectedAccountId,
+            // 1. 通过学员+课程查找对应的已支付订单
+            const orderRes = await api.get(`/api/finance/find-order/${selectedStudentId}/${selectedAccount.course_id}`);
+            const orderId = orderRes.data.id;
+
+            // 2. 发起退费申请（传入 refundQty 支持部分退费）
+            await applyRefund({
+                orderId,
                 refundQty,
-                reason: refundReason || '管理员手动发起退费'
+                reason: `管理员手动发起退费，退还 ${refundQty} 课时`
             });
-            // 重置表单
+
+            addToast('退费申请已提交，请在待审批列表中完成审核', 'success');
             setSelectedAccountId('');
             setRefundQty(0);
-            setRefundReason('');
-            // 刷新审批列表
+            // 刷新该学员资产
+            if (selectedStudentId) {
+                const assetsRes = await api.get(`/api/finance/assets/${selectedStudentId}`);
+                setStudentAssetAccounts(assetsRes.data.accounts || []);
+            }
+            // 刷新待审批列表
             fetchPending();
-        } catch (error) {
+        } catch (error: any) {
+            addToast(error?.response?.data?.message || error?.message || '退费申请失败', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -146,7 +174,7 @@ export const RefundManagement: React.FC = () => {
                 <div className="space-y-1">
                     <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
                         财务退费管理
-                        <div className="bg-rose-50 text-rose-600 text-[10px] px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-widest font-bold">Finance Control</div>
+                        <div className="bg-rose-50 text-rose-600 text-[10px] px-2 py-0.5 rounded-full border border-rose-100 tracking-widest font-bold">财务管理</div>
                     </h1>
                     <p className="text-slate-400 text-sm font-medium italic">审批学员退款申请、处理课时结算及资金返还</p>
                 </div>
@@ -180,7 +208,6 @@ export const RefundManagement: React.FC = () => {
                                 <tr>
                                     <th className="px-10 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">学员/课程</th>
                                     <th className="px-10 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">申请原因</th>
-                                    <th className="px-10 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">审批层级</th>
                                     <th className="px-10 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">退款金额</th>
                                     <th className="px-10 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">操作</th>
                                 </tr>
@@ -188,7 +215,7 @@ export const RefundManagement: React.FC = () => {
                             <tbody className="divide-y divide-slate-50">
                                 {isLoadingPending ? (
                                     <tr>
-                                        <td colSpan={5} className="px-10 py-20 text-center text-slate-300"><Loader2 className="animate-spin mx-auto mb-2" /> 加载中...</td>
+                                        <td colSpan={4} className="px-10 py-20 text-center text-slate-300"><Loader2 className="animate-spin mx-auto mb-2" /> 加载中...</td>
                                     </tr>
                                 ) : pendingRefunds.length > 0 ? pendingRefunds.map(refund => (
                                     <tr key={refund.id} className="hover:bg-slate-50/50 transition-colors">
@@ -201,27 +228,20 @@ export const RefundManagement: React.FC = () => {
                                         <td className="px-10 py-6">
                                             <p className="text-xs text-slate-600 max-w-xs truncate" title={refund.reason}>{refund.reason}</p>
                                         </td>
-                                        <td className="px-10 py-6 text-center">
-                                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200">
-                                                <Clock size={12} /> 校区审批
-                                            </span>
-                                        </td>
                                         <td className="px-10 py-6 text-right font-mono font-bold text-rose-600">
-                                            ¥ {(refund.estimated_amount || refund.amount || 0).toFixed(2)}
+                                            ¥ {refund.amount.toFixed(2)}
                                         </td>
                                         <td className="px-10 py-6 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => handleApprove(refund.id, false)}
                                                     className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
-                                                    title="驳回"
                                                 >
                                                     <XCircle size={20} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleApprove(refund.id, true)}
                                                     className="p-2 text-emerald-500 hover:text-emerald-700 transition-colors"
-                                                    title="通过"
                                                 >
                                                     <ElmIcon name="circle-check" size={16} />
                                                 </button>
@@ -230,7 +250,7 @@ export const RefundManagement: React.FC = () => {
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={5} className="px-10 py-20 text-center text-slate-300 italic">暂无待处理申请</td>
+                                        <td colSpan={4} className="px-10 py-20 text-center text-slate-300 italic">暂无待处理申请</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -348,8 +368,10 @@ export const RefundManagement: React.FC = () => {
                                             <ElmIcon name="reading" size={16} /> 选择退费课程资产
                                         </h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {studentAssets.length > 0 ? studentAssets.map(acc => {
-                                                const course = (courses || []).find(c => c.id === acc.course_id);
+                                            {isLoadingAssets ? (
+                                                <div className="col-span-2 py-8 text-center text-slate-300 text-sm"><Loader2 className="animate-spin inline mr-2" size={16} />加载中...</div>
+                                            ) : studentAssets.length > 0 ? studentAssets.map((acc: any) => {
+                                                const course = acc.course || (courses || []).find((c: any) => c.id === acc.course_id);
                                                 return (
                                                     <button
                                                         key={acc.id}
@@ -413,26 +435,6 @@ export const RefundManagement: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            <div className="space-y-4">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                                    退费原因
-                                                </label>
-                                                <textarea
-                                                    className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-5 outline-none focus:ring-4 focus:ring-rose-50 focus:border-rose-500 transition-all text-sm font-medium text-slate-800 resize-none"
-                                                    rows={2}
-                                                    placeholder="请输入退费原因（可选）"
-                                                    value={refundReason}
-                                                    onChange={(e) => setRefundReason(e.target.value)}
-                                                />
-                                            </div>
-
-                                            {calculation.amount > 1000 && (
-                                                <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl">
-                                                    <AlertCircle size={14} className="text-amber-600 flex-shrink-0" />
-                                                    <p className="text-[11px] text-amber-700 font-bold">退费金额超过¥1,000，提交后需要总部管理员二级审批</p>
-                                                </div>
-                                            )}
 
                                             <button
                                                 onClick={handleManualRefund}

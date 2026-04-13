@@ -34,6 +34,7 @@ import { CoursePreviewPage } from './components/CoursePreviewPage';
 import { TeacherHomeworkMgmt } from './components/TeacherHomeworkMgmt';
 import { StudentHomework } from './components/StudentHomework';
 import { TeacherApproval } from './components/TeacherApproval';
+import { StudentApproval } from './components/StudentApproval';
 import { TeacherRegistration } from './components/TeacherRegistration';
 import { RefundManagement } from './components/RefundManagement';
 import { FinanceReport } from './components/FinanceReport';
@@ -252,8 +253,11 @@ const App: React.FC = () => {
               {activeView === 'teacher-registration' && userRole === 'campus_admin' && (
                 <TeacherRegistration onNavigate={(id) => setActiveView(id)} />
               )}
-              {activeView === 'teacher-approval' && userRole === 'campus_admin' && (
+              {activeView === 'teacher-approval' && (userRole === 'campus_admin' || userRole === 'admin') && (
                 <TeacherApproval onBack={() => setActiveView('teaching')} />
+              )}
+              {activeView === 'student-approval' && (userRole === 'campus_admin' || userRole === 'admin') && (
+                <StudentApproval onBack={() => setActiveView('students')} />
               )}
               {activeView === 'refund-management' && <RefundManagement />}
               {activeView === 'finance-report' && <FinanceReport onNavigate={setActiveView} onViewOrder={(id) => { setSelectedOrderId(id); setActiveView('order-detail'); }} />}

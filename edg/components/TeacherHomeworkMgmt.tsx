@@ -4,10 +4,48 @@ import { useStore } from '../store';
 import { PlusCircle, Search, Calendar, FileText, CheckCircle2, Clock, Users, UploadCloud, X } from 'lucide-react';
 
 export const TeacherHomeworkMgmt: React.FC = () => {
-    const { currentUser, homeworks, homeworkSubmissions, classes, publishHomework, students, addToast } = useStore();
+    const { currentUser, homeworks, homeworkSubmissions, classes, publishHomework, students, gradeHomework, returnSubmission, addToast } = useStore();
     const [showModal, setShowModal] = useState(false);
     const [newHomework, setNewHomework] = useState<{ title: string; content: string; classId: string; deadline: string; attachment: File | null }>({ title: '', content: '', classId: '', deadline: '', attachment: null });
     const fileRef = React.useRef<HTMLInputElement>(null);
+
+    // 批改抽屉状态
+    const [gradingHomeworkId, setGradingHomeworkId] = useState<string | null>(null);
+    const [gradingScores, setGradingScores] = useState<Record<string, { score: string; feedback: string }>>({});
+
+    const gradingHomework = useMemo(
+        () => (homeworks || []).find(h => h.id === gradingHomeworkId),
+        [homeworks, gradingHomeworkId]
+    );
+    const gradingSubmissions = useMemo(
+        () => (homeworkSubmissions || []).filter(s => s.homework_id === gradingHomeworkId),
+        [homeworkSubmissions, gradingHomeworkId]
+    );
+
+    const setSubValue = (subId: string, key: 'score' | 'feedback', val: string) => {
+        setGradingScores(prev => ({ ...prev, [subId]: { ...(prev[subId] || { score: '', feedback: '' }), [key]: val } }));
+    };
+
+    const handleGrade = async (subId: string) => {
+        const state = gradingScores[subId];
+        const score = parseFloat(state?.score || '0');
+        if (isNaN(score) || score < 0 || score > 100) {
+            addToast?.('请输入 0-100 的分数', 'warning');
+            return;
+        }
+        await gradeHomework(subId, score, state?.feedback || '', currentUser?.id || '');
+    };
+
+    const handleReturn = async (subId: string) => {
+        const state = gradingScores[subId];
+        if (!state?.feedback) {
+            addToast?.('退回需要填写反馈意见', 'warning');
+            return;
+        }
+        try {
+            await returnSubmission(subId, state.feedback);
+        } catch { /* handled */ }
+    };
 
     const myClasses = useMemo(() => {
         // In a real app, match by teacher ID. For demo, match by instructor name or just show all for simplicity,
@@ -76,7 +114,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                             <tr className="bg-slate-50 border-b border-slate-100 text-xs text-slate-400">
                                 <th className="p-4 font-bold">作业标题 / 内容</th>
                                 <th className="p-4 font-bold">关联班级</th>
-                                <th className="p-4 font-bold">截止时间</th>
+                                <th className="p-4 font-bold">截止时间</th>·
                                 <th className="p-4 font-bold">提交状态</th>
                                 <th className="p-4 font-bold text-right">操作</th>
                             </tr>
@@ -127,7 +165,10 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="p-4 text-right">
-                                            <button className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
+                                            <button
+                                                onClick={() => setGradingHomeworkId(hw.id)}
+                                                className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                                            >
                                                 去批改
                                             </button>
                                         </td>
@@ -260,6 +301,104 @@ export const TeacherHomeworkMgmt: React.FC = () => {
                     </div>
                 )
             }
+
+            {/* 批改抽屉 */}
+            {gradingHomework && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <h3 className="font-bold text-slate-800">批改作业：{gradingHomework.title}</h3>
+                                <p className="text-xs text-slate-400 mt-1">共 {gradingSubmissions.length} 份提交</p>
+                            </div>
+                            <button
+                                onClick={() => { setGradingHomeworkId(null); setGradingScores({}); }}
+                                className="text-slate-400 hover:text-slate-600"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+                            {gradingSubmissions.length === 0 ? (
+                                <div className="p-10 text-center text-slate-400 text-sm">暂无学员提交</div>
+                            ) : gradingSubmissions.map(sub => {
+                                const student = (students || []).find(s => s.id === sub.student_id);
+                                const state = gradingScores[sub.id] || { score: sub.score?.toString() || '', feedback: sub.feedback || '' };
+                                const statusLabel = {
+                                    SUBMITTED: { text: '待批改', style: 'bg-blue-50 text-blue-600' },
+                                    submitted: { text: '待批改', style: 'bg-blue-50 text-blue-600' },
+                                    LATE: { text: '逾期提交', style: 'bg-amber-50 text-amber-700' },
+                                    GRADED: { text: '已批改', style: 'bg-emerald-50 text-emerald-600' },
+                                    graded: { text: '已批改', style: 'bg-emerald-50 text-emerald-600' },
+                                    RETURNED: { text: '已退回', style: 'bg-rose-50 text-rose-600' },
+                                }[sub.status] || { text: sub.status, style: 'bg-slate-50 text-slate-500' };
+
+                                return (
+                                    <div key={sub.id} className="p-5 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                                    <ElmIcon name="user" size={14} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-800">{student?.name || '未知学员'}</p>
+                                                    <p className="text-[10px] text-slate-400">{new Date(sub.submittedAt || Date.now()).toLocaleString('zh-CN')}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusLabel.style}`}>{statusLabel.text}</span>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                            {sub.content || '（无内容）'}
+                                        </div>
+                                        {sub.status === 'RETURNED' ? (
+                                            <div className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg">已退回，等待学员重新提交</div>
+                                        ) : sub.status === 'GRADED' || sub.status === 'graded' ? (
+                                            <div className="text-xs text-emerald-700 bg-emerald-50 p-3 rounded-lg space-y-1">
+                                                <p>得分：<span className="font-mono font-bold">{sub.score}</span></p>
+                                                {sub.feedback && <p className="text-slate-600">反馈：{sub.feedback}</p>}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-end gap-3">
+                                                <div className="w-24">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">分数 (0-100)</label>
+                                                    <input
+                                                        type="number" min="0" max="100"
+                                                        value={state.score}
+                                                        onChange={e => setSubValue(sub.id, 'score', e.target.value)}
+                                                        className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">反馈 / 退回原因</label>
+                                                    <input
+                                                        type="text"
+                                                        value={state.feedback}
+                                                        onChange={e => setSubValue(sub.id, 'feedback', e.target.value)}
+                                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                                        placeholder="评语或要求重做的原因"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => handleReturn(sub.id)}
+                                                    className="px-3 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-50"
+                                                >
+                                                    退回修改
+                                                </button>
+                                                <button
+                                                    onClick={() => handleGrade(sub.id)}
+                                                    className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 active:scale-95"
+                                                >
+                                                    评分
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

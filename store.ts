@@ -53,7 +53,7 @@ interface AppState {
     register: (data: any) => Promise<void>;
     registerCampusAdmin: (data: any) => Promise<void>;
     registerTeacher: (data: any) => Promise<void>;
-    fetchPendingUsers: (role: 'campus-admins' | 'teachers', campusId?: string) => Promise<any[]>;
+    fetchPendingUsers: (role: 'campus-admins' | 'teachers' | 'students', campusId?: string) => Promise<any[]>;
     approveUser: (userId: string) => Promise<void>;
     rejectUser: (userId: string) => Promise<void>;
     logout: () => void;
@@ -87,9 +87,12 @@ interface AppState {
     publishSchedules: (lessonIds: string[]) => Promise<void>;
 
     // Order & Asset Actions
-    createOrder: (orderData: { studentId?: string; student_id?: string; courseId: string; course_id?: string; amount: number; totalQty?: number; total_qty?: number; classId?: string; notes?: string;[key: string]: any }) => Promise<string>;
-    processPayment: (paymentData: { orderId: string; amount: number; channel: string; campusId: string }) => Promise<void>;
-    applyRefund: (refundData: { orderId: string; reason: string }) => Promise<void>;
+    createOrder: (orderData: { studentId?: string; student_id?: string; courseId: string; course_id?: string; classId?: string; notes?: string; [key: string]: any }) => Promise<string>;
+    createRenewalOrder: (orderData: { studentId?: string; courseId: string }) => Promise<string>;
+    processPayment: (paymentData: { orderId: string; amount: number; channel: string; campusId: string; classId?: string }) => Promise<void>;
+    getPaymentStatus: (orderId: string) => Promise<any>;
+    createStudentByAdmin: (data: { name: string; phone: string; gender?: string; campusName?: string; campus_id?: string }) => Promise<any>;
+    applyRefund: (refundData: { orderId: string; reason: string; refundQty?: number }) => Promise<void>;
     approveRefund: (refundId: string, isApproved: boolean) => Promise<void>;
     getPendingRefunds: () => Promise<any[]>;
 
@@ -230,9 +233,14 @@ export const useStore = create<AppState>()(
 
             fetchPendingUsers: async (role, campusId) => {
                 try {
-                    const url = role === 'campus-admins'
-                        ? '/api/users/pending/campus-admins'
-                        : `/api/users/pending/teachers${campusId ? `?campusId=${campusId}` : ''}`;
+                    let url: string;
+                    if (role === 'campus-admins') {
+                        url = '/api/users/pending/campus-admins';
+                    } else if (role === 'students') {
+                        url = `/api/users/pending/students${campusId ? `?campusId=${campusId}` : ''}`;
+                    } else {
+                        url = `/api/users/pending/teachers${campusId ? `?campusId=${campusId}` : ''}`;
+                    }
                     const res = await api.get(url);
                     return res.data;
                 } catch (error: any) {
@@ -488,10 +496,36 @@ export const useStore = create<AppState>()(
 
             createOrder: async (orderData) => {
                 try {
-                    const res = await api.post('/api/finance/order', orderData);
+                    // 后端权威计算 amount/totalQty，这里只传必要字段
+                    const studentId = orderData.studentId || orderData.student_id;
+                    const courseId = orderData.courseId || orderData.course_id;
+                    const res = await api.post('/api/finance/order', { studentId, courseId });
                     return res.data.id;
                 } catch (error: any) {
                     get().addToast(error.message || '下单失败', 'error');
+                    throw error;
+                }
+            },
+
+            createRenewalOrder: async (orderData) => {
+                try {
+                    const res = await api.post('/api/finance/order/renewal', {
+                        studentId: orderData.studentId,
+                        courseId: orderData.courseId,
+                    });
+                    return res.data.id;
+                } catch (error: any) {
+                    get().addToast(error.message || '续费下单失败', 'error');
+                    throw error;
+                }
+            },
+
+            getPaymentStatus: async (orderId) => {
+                try {
+                    const res = await api.get(`/api/finance/pay/status/${orderId}`);
+                    return res.data;
+                } catch (error: any) {
+                    get().addToast(error.message || '支付状态查询失败', 'error');
                     throw error;
                 }
             },
@@ -507,9 +541,36 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            createStudentByAdmin: async (data) => {
+                try {
+                    const res = await api.post('/api/users/students/create', data);
+                    get().addToast(`学员 ${res.data.name} 创建成功`, 'success');
+                    // 刷新学员列表
+                    const user = get().currentUser;
+                    if (user) {
+                        const studentsRes = await api.get('/api/users/students');
+                        const mapped = studentsRes.data.map((s: any) => ({
+                            id: s.id, name: s.name, gender: s.gender || 'male',
+                            phone: s.phone || '', status: s.status?.toLowerCase() || 'active',
+                            campus: s.user?.campusName || '', campus_id: s.user?.campus_id,
+                            balance: s.balance || 0,
+                        }));
+                        set({ students: mapped });
+                    }
+                    return res.data;
+                } catch (error: any) {
+                    get().addToast(error?.response?.data?.message || error.message || '创建学员失败', 'error');
+                    throw error;
+                }
+            },
+
             applyRefund: async (refundData) => {
                 try {
-                    await api.post('/api/finance/refund/apply', refundData);
+                    await api.post('/api/finance/refund/apply', {
+                        orderId: refundData.orderId,
+                        reason: refundData.reason,
+                        refundQty: refundData.refundQty,
+                    });
                     get().addToast('退费申请已提交', 'success');
                     await get().fetchMyAssets();
                 } catch (error: any) {

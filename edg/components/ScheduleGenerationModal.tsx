@@ -21,9 +21,21 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
     const [formData, setFormData] = useState({
         startDate: new Date().toISOString().split('T')[0],
         lessonsCount: 10,
-        durationMinutes: 45
+        durationMinutes: 45,
+        useCustomPattern: false,
+        weekdays: [1] as number[],    // 默认周一
+        timeOfDay: '09:00',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const toggleWeekday = (day: number) => {
+        setFormData(prev => ({
+            ...prev,
+            weekdays: prev.weekdays.includes(day)
+                ? prev.weekdays.filter(d => d !== day)
+                : [...prev.weekdays, day].sort()
+        }));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,14 +43,21 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
             addToast('未选中有效的教学任务', 'error');
             return;
         }
+        if (formData.useCustomPattern && formData.weekdays.length === 0) {
+            addToast('请至少选择一个上课日', 'error');
+            return;
+        }
 
         setIsSubmitting(true);
         try {
             await generateDraft(
-                assignmentId, 
-                formData.startDate, 
-                formData.lessonsCount, 
-                formData.durationMinutes
+                assignmentId,
+                formData.startDate,
+                formData.lessonsCount,
+                formData.durationMinutes,
+                formData.useCustomPattern
+                    ? { weekdays: formData.weekdays, timeOfDay: formData.timeOfDay }
+                    : undefined
             );
             addToast('课表草稿生成成功', 'success');
             onClose();
@@ -48,6 +67,8 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
             setIsSubmitting(false);
         }
     };
+
+    const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
     if (!isOpen) return null;
 
@@ -102,7 +123,7 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
                         <div className="space-y-2">
                             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">生成课次数量</label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs uppercase">Count</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">数量</span>
                                 <input
                                     type="number" required min="1" max="50"
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-16 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all font-bold text-slate-900"
@@ -123,15 +144,64 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
                                     value={formData.durationMinutes}
                                     onChange={e => setFormData({ ...formData, durationMinutes: parseInt(e.target.value) || 0 })}
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-[10px]">MINS</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-[10px]">分钟</span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* 自定义排课模式 */}
+                    <div className="space-y-3 p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={formData.useCustomPattern}
+                                onChange={e => setFormData({ ...formData, useCustomPattern: e.target.checked })}
+                                className="w-4 h-4 rounded border-slate-300"
+                            />
+                            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">自定义上课日与时间</span>
+                        </label>
+                        {formData.useCustomPattern && (
+                            <div className="space-y-3 pt-2">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-2">上课日（可多选）</label>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {WEEKDAY_LABELS.map((label, idx) => (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => toggleWeekday(idx)}
+                                                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                                                    formData.weekdays.includes(idx)
+                                                        ? 'bg-blue-600 text-white shadow-md'
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
+                                                }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 block mb-2">上课时间</label>
+                                    <input
+                                        type="time"
+                                        value={formData.timeOfDay}
+                                        onChange={e => setFormData({ ...formData, timeOfDay: e.target.value })}
+                                        className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all font-bold text-slate-900"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Hint */}
                     <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl text-amber-700 text-[10px] font-bold border border-amber-100/50 leading-relaxed">
                         <ElmIcon name="warning" size={16} />
-                        <span>系统将默认按“每周一次”的频率生成草稿。生成后，您可以在课表视图中手动调整具体每一节课的时间与教室。</span>
+                        <span>
+                            {formData.useCustomPattern
+                                ? `将按所选上课日（${formData.weekdays.map(d => WEEKDAY_LABELS[d]).join('/') || '未选'}）于 ${formData.timeOfDay} 生成课表。`
+                                : '默认按"每周一次"频率生成草稿。勾选上方选项可自定义上课日与时间。'}
+                        </span>
                     </div>
 
                     <div className="flex gap-3">

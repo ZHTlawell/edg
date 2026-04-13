@@ -22,6 +22,7 @@ import { Course, CourseStatus } from '../types';
 import { CourseFormModal } from './CourseFormModal';
 import { useStore } from '../store';
 import api from '../utils/api';
+import { exportCSV } from '../utils/exportCSV';
 
 export const CourseManagement: React.FC = () => {
   const { courses, currentUser, fetchCourses, addToast, setCourses, campuses, fetchCampuses, deleteCourse } = useStore();
@@ -139,7 +140,16 @@ export const CourseManagement: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">课程管理</h1>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+          <button
+            onClick={() => {
+              const headers = ['课程名称', '课程编号', '分类', '级别', '价格', '总课时', '状态'];
+              const rows = filteredCourses.map(c => [c.name, c.code || '', c.category || '', c.level || '', String(c.price), String(c.totalLessons), c.status === 'enabled' ? '启用' : '停用']);
+              if (!exportCSV(`课程数据_${new Date().toISOString().split('T')[0]}.csv`, headers, rows)) {
+                addToast('没有可导出的数据', 'warning');
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+          >
             <ElmIcon name="download" size={16} />
             导出数据
           </button>

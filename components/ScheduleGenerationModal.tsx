@@ -102,7 +102,7 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
                         <div className="space-y-2">
                             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">生成课次数量</label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs uppercase">Count</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">数量</span>
                                 <input
                                     type="number" required min="1" max="50"
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-16 pr-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all font-bold text-slate-900"
@@ -123,7 +123,7 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
                                     value={formData.durationMinutes}
                                     onChange={e => setFormData({ ...formData, durationMinutes: parseInt(e.target.value) || 0 })}
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-[10px]">MINS</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-[10px]">分钟</span>
                             </div>
                         </div>
                     </div>

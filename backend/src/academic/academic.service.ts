@@ -1,6 +1,59 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * 根据排课参数生成课次日期列表
+ * 支持两种模式：
+ *   模式1 (默认): 每周一节，从 startDate 起每 7 天一次
+ *   模式2 (新): weekdays + timeOfDay，灵活指定每周哪些星期几的什么时间
+ */
+export function buildScheduleDates(opts: {
+    startDate: string | Date;
+    lessonsCount: number;
+    durationMinutes: number;
+    weekdays?: number[];   // 0=周日, 1=周一, ..., 6=周六
+    timeOfDay?: string;    // "HH:mm" 例如 "09:00"
+}): { start: Date; end: Date }[] {
+    const { startDate, lessonsCount, durationMinutes, weekdays, timeOfDay } = opts;
+    const results: { start: Date; end: Date }[] = [];
+    const base = new Date(startDate);
+
+    // 模式2：灵活 weekdays
+    if (weekdays && weekdays.length > 0) {
+        let [hh, mm] = [base.getHours(), base.getMinutes()];
+        if (timeOfDay && /^\d{1,2}:\d{2}$/.test(timeOfDay)) {
+            const [h, m] = timeOfDay.split(':').map(n => parseInt(n, 10));
+            hh = h; mm = m;
+        }
+        const cursor = new Date(base);
+        cursor.setHours(0, 0, 0, 0);
+        while (results.length < lessonsCount) {
+            if (weekdays.includes(cursor.getDay())) {
+                const start = new Date(cursor);
+                start.setHours(hh, mm, 0, 0);
+                const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+                if (start >= base) {
+                    results.push({ start, end });
+                }
+            }
+            cursor.setDate(cursor.getDate() + 1);
+            if (cursor.getTime() - base.getTime() > 2 * 365 * 24 * 60 * 60 * 1000) break; // 安全阈值2年
+        }
+        return results;
+    }
+
+    // 模式1：每周一节（保持向后兼容）
+    const cur = new Date(base);
+    for (let i = 0; i < lessonsCount; i++) {
+        results.push({
+            start: new Date(cur),
+            end: new Date(cur.getTime() + durationMinutes * 60 * 1000)
+        });
+        cur.setDate(cur.getDate() + 7);
+    }
+    return results;
+}
+
 @Injectable()
 export class AcademicService {
     constructor(private prisma: PrismaService) { }
@@ -146,34 +199,34 @@ export class AcademicService {
                 });
 
                 if (data.assignment.schedule && data.assignment.schedule.lessonsCount > 0) {
-                    const { startDate, lessonsCount, durationMinutes, classroom } = data.assignment.schedule;
-                    
-                    // 自动分配逻辑：如果前端没传具体教室，我们尝试从本校区选一个
+                    const sched = data.assignment.schedule as any;
+                    const { startDate, lessonsCount, durationMinutes, classroom, weekdays, timeOfDay } = sched;
+
+                    // 自动分配逻辑
                     let autoRoom = null;
                     if (!classroom) {
                         const rooms = await tx.eduClassroom.findMany({ where: { campus_id: data.campus_id } });
-                        if (rooms.length > 0) autoRoom = rooms[0]; // 简化逻辑：暂选第一个，后续逻辑可优化为查重
+                        if (rooms.length > 0) autoRoom = rooms[0];
                     }
 
-                    const schedules = [];
-                    let currentDate = new Date(startDate);
+                    const schedules = buildScheduleDates({
+                        startDate,
+                        lessonsCount,
+                        durationMinutes,
+                        weekdays,
+                        timeOfDay,
+                    }).map((dt, i) => ({
+                        assignment_id: newAssignment.id,
+                        course_id: data.assignment!.course_id,  // 冗余字段
+                        lesson_no: i + 1,
+                        start_time: dt.start,
+                        end_time: dt.end,
+                        classroom: classroom || autoRoom?.name || '待分配',
+                        classroom_id: autoRoom?.id || null,
+                        status: 'DRAFT'
+                    }));
 
-                    for (let i = 1; i <= lessonsCount; i++) {
-                        schedules.push({
-                            assignment_id: newAssignment.id,
-                            lesson_no: i,
-                            start_time: new Date(currentDate),
-                            end_time: new Date(currentDate.getTime() + durationMinutes * 60 * 1000),
-                            classroom: classroom || autoRoom?.name || '待分配',
-                            classroom_id: autoRoom?.id || null,
-                            status: 'DRAFT'
-                        });
-                        currentDate.setDate(currentDate.getDate() + 7);
-                    }
-
-                    await tx.edLessonSchedule.createMany({
-                        data: schedules
-                    });
+                    await tx.edLessonSchedule.createMany({ data: schedules });
                 }
             }
 
@@ -261,25 +314,52 @@ export class AcademicService {
         }));
     }
 
-    async generateDraftSchedules(assignmentId: string, startDate: Date, lessonsCount: number, durationMinutes: number) {
-        const schedules = [];
-        let currentDate = new Date(startDate);
+    async generateDraftSchedules(assignmentId: string, startDate: Date, lessonsCount: number, durationMinutes: number, opts?: { weekdays?: number[]; timeOfDay?: string }) {
+        // 拿 course_id 回填冗余字段
+        const assignment = await (this.prisma as any).edClassAssignment.findUnique({ where: { id: assignmentId } });
+        const courseId = assignment?.course_id || null;
 
-        for (let i = 1; i <= lessonsCount; i++) {
-            schedules.push({
-                assignment_id: assignmentId,
-                lesson_no: i,
-                start_time: new Date(currentDate),
-                end_time: new Date(currentDate.getTime() + durationMinutes * 60 * 1000),
-                classroom: '待分配',
-                status: 'DRAFT'
-            });
-            currentDate.setDate(currentDate.getDate() + 7);
+        const schedules = buildScheduleDates({
+            startDate: startDate.toISOString(),
+            lessonsCount,
+            durationMinutes,
+            weekdays: opts?.weekdays,
+            timeOfDay: opts?.timeOfDay,
+        }).map((dt, i) => ({
+            assignment_id: assignmentId,
+            course_id: courseId,
+            lesson_no: i + 1,
+            start_time: dt.start,
+            end_time: dt.end,
+            classroom: '待分配',
+            status: 'DRAFT'
+        }));
+
+        return (this.prisma as any).edLessonSchedule.createMany({ data: schedules });
+    }
+
+    /**
+     * 同步 EdClass.enrolled 字段（基于 EduStudentInClass 实际计数）
+     * 所有入班/退班事务末尾应调用此函数
+     */
+    async syncClassEnrolled(classId: string, tx?: any) {
+        const client = tx || this.prisma;
+        const count = await client.eduStudentInClass.count({ where: { class_id: classId } });
+        await client.edClass.update({ where: { id: classId }, data: { enrolled: count } });
+        return count;
+    }
+
+    /**
+     * 批量修复所有班级的 enrolled 字段
+     */
+    async repairAllClassEnrolled() {
+        const classes = await this.prisma.edClass.findMany({ select: { id: true } });
+        let repaired = 0;
+        for (const cls of classes) {
+            await this.syncClassEnrolled(cls.id);
+            repaired++;
         }
-
-        return (this.prisma as any).edLessonSchedule.createMany({
-            data: schedules
-        });
+        return { repaired };
     }
 
     async publishSchedules(lessonIds: string[], operatorId: string) {

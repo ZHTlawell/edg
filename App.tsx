@@ -33,6 +33,7 @@ import { CourseMarketplace } from './components/CourseMarketplace';
 import { TeacherHomeworkMgmt } from './components/TeacherHomeworkMgmt';
 import { StudentHomework } from './components/StudentHomework';
 import { TeacherApproval } from './components/TeacherApproval';
+import { StudentApproval } from './components/StudentApproval';
 import { TeacherRegistration } from './components/TeacherRegistration';
 import { RefundManagement } from './components/RefundManagement';
 import { FinanceReport } from './components/FinanceReport';
@@ -170,7 +171,7 @@ const App: React.FC = () => {
           <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8 bg-[#F8FAFC]">
             <div className="max-w-[1440px] mx-auto h-full">
               {/* Core Dashboards by Role */}
-              {activeView === 'dashboard' && userRole === 'admin' && <Dashboard />}
+              {activeView === 'dashboard' && userRole === 'admin' && <Dashboard onNavigate={(view) => setActiveView(view)} />}
               {activeView === 'teaching' && userRole === 'teacher' && (
                 <TeacherDashboard
                   onEnterAttendance={handleEnterAttendance}
@@ -244,8 +245,11 @@ const App: React.FC = () => {
               {activeView === 'teacher-registration' && userRole === 'campus_admin' && (
                 <TeacherRegistration onNavigate={(id) => setActiveView(id)} />
               )}
-              {activeView === 'teacher-approval' && userRole === 'campus_admin' && (
+              {activeView === 'teacher-approval' && (userRole === 'campus_admin' || userRole === 'admin') && (
                 <TeacherApproval onBack={() => setActiveView('teaching')} />
+              )}
+              {activeView === 'student-approval' && (userRole === 'campus_admin' || userRole === 'admin') && (
+                <StudentApproval onBack={() => setActiveView('students')} />
               )}
               {activeView === 'refund-management' && <RefundManagement />}
               {activeView === 'finance-report' && <FinanceReport />}

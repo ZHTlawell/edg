@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Request, UseGuards, UnauthorizedException, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Request, UseGuards, UnauthorizedException, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -38,9 +38,55 @@ export class UsersController {
         if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
             throw new UnauthorizedException('无权访问');
         }
-        // 校区管理员只能看本校区
         const filterCampusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
         return this.usersService.findPendingTeachers(filterCampusId);
+    }
+
+    // 查询待审核的学员（校区管理员审本校区）
+    @UseGuards(AuthGuard('jwt'))
+    @Get('pending/students')
+    async getPendingStudents(@Request() req: any, @Query('campusId') campusId?: string) {
+        if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
+            throw new UnauthorizedException('无权访问');
+        }
+        const filterCampusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
+        return this.usersService.findPendingStudents(filterCampusId);
+    }
+
+    // 管理员代建学员
+    @UseGuards(AuthGuard('jwt'))
+    @Post('students/create')
+    async createStudentByAdmin(@Request() req: any, @Body() body: { name: string; phone: string; gender?: string; campusName?: string; campus_id?: string }) {
+        if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
+            throw new UnauthorizedException('无权操作');
+        }
+        const campus_id = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : body.campus_id;
+        const campusName = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusName : body.campusName;
+        return this.usersService.createStudentByAdmin({ ...body, campus_id, campusName });
+    }
+
+    // 学员状态流转
+    @UseGuards(AuthGuard('jwt'))
+    @Post('students/:id/status')
+    async updateStudentStatus(@Param('id') id: string, @Request() req: any, @Body() body: { toStatus: string; reason?: string }) {
+        if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
+            throw new UnauthorizedException('无权操作');
+        }
+        return this.usersService.updateStudentStatus({
+            studentId: id,
+            toStatus: body.toStatus,
+            reason: body.reason,
+            operatorId: req.user.userId,
+        });
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('students/:id/status-logs')
+    async getStudentStatusLogs(@Param('id') id: string, @Request() req: any) {
+        if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
+            throw new UnauthorizedException('无权操作');
+        }
+        return this.usersService.getStudentStatusLogs(id);
     }
 
     // 审核通过

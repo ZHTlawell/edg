@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -8,16 +8,22 @@ export class TeachingService {
     // =====================================
     // 作业分发与提交 (Homeworks)
     // =====================================
-    async publishHomework(teacherId: string, data: { title: string; content: string; classId: string; deadline: string; lesson_id?: string; attachmentName?: string; attachmentUrl?: string }) {
-        const cls = await this.prisma.edClass.findUnique({ where: { id: data.classId } });
-        if (!cls) throw new NotFoundException('找不到相关班级');
+    async publishHomework(teacherId: string, data: { title: string; content: string; classId: string; assignmentId?: string; deadline: string; lesson_id?: string; attachmentName?: string; attachmentUrl?: string }) {
+        // 兼容：classId 可能直接是 assignmentId（历史调用），也可能是真正的 class_id
+        // 先尝试 assignmentId（优先）；否则把 classId 当 assignment_id 使用（历史行为）
+        const assignmentId = data.assignmentId || data.classId;
+        const assignment = await this.prisma.edClassAssignment.findUnique({
+            where: { id: assignmentId }
+        });
+        if (!assignment) throw new NotFoundException('找不到对应教学分配');
 
         return this.prisma.teachHomework.create({
             data: {
                 title: data.title,
                 content: data.content,
                 deadline: new Date(data.deadline),
-                assignment_id: data.classId,
+                assignment_id: assignment.id,
+                class_id: assignment.class_id,     // 冗余字段，简化学员查询作业
                 teacher_id: teacherId,
                 lesson_id: data.lesson_id || null,
                 attachmentName: data.attachmentName,
@@ -41,11 +47,49 @@ export class TeachingService {
         const hw = await this.prisma.teachHomework.findUnique({ where: { id: data.homeworkId } });
         if (!hw) throw new NotFoundException('找不到指定作业');
 
+        // 欠费校验：剩余课时 > 0 才可提交
+        if (hw.class_id) {
+            const assignment = await this.prisma.edClassAssignment.findFirst({ where: { class_id: hw.class_id } });
+            if (assignment) {
+                const account = await this.prisma.finAssetAccount.findFirst({
+                    where: { student_id: studentId, course_id: assignment.course_id, status: 'ACTIVE' }
+                });
+                if (account && account.remaining_qty <= 0) {
+                    throw new ForbiddenException('课时余额为0，请先续费后再提交作业');
+                }
+            }
+        }
+
+        const now = new Date();
+        const isLate = now > hw.deadline;
+
+        // 支持退回后重交（status=RETURNED 的旧提交可覆盖）
+        const existing = await this.prisma.teachHomeworkSubmission.findFirst({
+            where: { homework_id: data.homeworkId, student_id: studentId }
+        });
+        if (existing) {
+            if (existing.status !== 'RETURNED') {
+                throw new BadRequestException('您已提交过该作业，如需修改请等待教师退回');
+            }
+            return this.prisma.teachHomeworkSubmission.update({
+                where: { id: existing.id },
+                data: {
+                    content: data.content,
+                    status: isLate ? 'LATE' : 'SUBMITTED',
+                    submission_count: { increment: 1 },
+                    submittedAt: now,
+                    score: null,
+                    feedback: null,
+                }
+            });
+        }
+
         return this.prisma.teachHomeworkSubmission.create({
             data: {
                 homework_id: data.homeworkId,
                 student_id: studentId,
                 content: data.content,
+                status: isLate ? 'LATE' : 'SUBMITTED',
             }
         });
     }
@@ -60,6 +104,9 @@ export class TeachingService {
         if (sub.homework.teacher_id !== teacherId) {
             throw new BadRequestException('越权访问，只能批改您自己发布的作业');
         }
+        if (sub.status === 'RETURNED') {
+            throw new BadRequestException('该提交已被退回，等待学员重交后再批改');
+        }
 
         return this.prisma.teachHomeworkSubmission.update({
             where: { id: data.submissionId },
@@ -68,6 +115,27 @@ export class TeachingService {
                 feedback: data.feedback,
                 status: 'GRADED'
             }
+        });
+    }
+
+    /**
+     * 教师退回作业，要求学员重新提交
+     */
+    async returnSubmission(teacherId: string, data: { submissionId: string; feedback: string }) {
+        const sub = await this.prisma.teachHomeworkSubmission.findUnique({
+            where: { id: data.submissionId },
+            include: { homework: true }
+        });
+        if (!sub) throw new NotFoundException('找不到该作业提交记录');
+        if (sub.homework.teacher_id !== teacherId) {
+            throw new BadRequestException('越权访问');
+        }
+        if (sub.status === 'RETURNED') {
+            throw new BadRequestException('已处于退回状态');
+        }
+        return this.prisma.teachHomeworkSubmission.update({
+            where: { id: data.submissionId },
+            data: { status: 'RETURNED', feedback: data.feedback }
         });
     }
 
@@ -193,11 +261,15 @@ export class TeachingService {
     // =====================================
     // 考勤登记与核减资产 (Attendance & Deductions)
     // =====================================
-    async submitAttendance(data: { lessonId: string; attendances: { studentId: string; status: string; deductAmount: number }[] }) {
+    async submitAttendance(data: { lessonId: string; operatorId?: string; attendances: { studentId: string; status: string; deductAmount?: number }[] }) {
         const lesson = await this.prisma.edLessonSchedule.findUnique({
-            where: { id: data.lessonId }
+            where: { id: data.lessonId },
+            include: { assignment: true }
         });
         if (!lesson) throw new NotFoundException('找不到该课次记录');
+        if (lesson.is_consumed) throw new BadRequestException('该课次已完成课消，不可重复登记');
+
+        const courseId = lesson.course_id || lesson.assignment.course_id;
 
         return this.prisma.$transaction(async (prisma) => {
             // Get approved leaves for this lesson
@@ -209,27 +281,143 @@ export class TeachingService {
 
             const results = [];
             for (const record of data.attendances) {
-                // Force approved-leave students to LEAVE status with 0 deduction
                 const isOnLeave = leaveStudentIds.has(record.studentId);
+                // 后端权威计算 deduct_amount：请假=0，其余默认 1（若前端传入则用前端值）
+                const computedDeduct = isOnLeave ? 0 :
+                    (record.status === 'leave' || record.status === 'LEAVE') ? 0 :
+                    (record.deductAmount !== undefined ? record.deductAmount : 1);
+
                 const att = await prisma.teachAttendance.create({
                     data: {
                         lesson_id: data.lessonId,
                         student_id: record.studentId,
                         status: isOnLeave ? 'LEAVE' : record.status,
                         deduct_status: isOnLeave ? 'NO_DEDUCTION' : 'PENDING',
-                        deduct_amount: isOnLeave ? 0 : record.deductAmount
+                        deduct_amount: computedDeduct
                     }
                 });
+
+                // 自动扣课时（考勤即扣）
+                if (computedDeduct > 0) {
+                    const account = await prisma.finAssetAccount.findFirst({
+                        where: { student_id: record.studentId, course_id: courseId, status: 'ACTIVE' },
+                        orderBy: { updatedAt: 'desc' }
+                    });
+                    const availableQty = account ? account.remaining_qty - account.locked_qty : 0;
+                    if (account && availableQty >= computedDeduct) {
+                        const updated = await prisma.finAssetAccount.update({
+                            where: { id: account.id },
+                            data: { remaining_qty: { decrement: computedDeduct } }
+                        });
+                        await prisma.finAssetLedger.create({
+                            data: {
+                                account_id: account.id,
+                                type: 'CONSUME',
+                                change_qty: -computedDeduct,
+                                balance_snapshot: updated.remaining_qty,
+                                ref_id: `CONSUME-${data.lessonId}-${record.studentId}`
+                            }
+                        });
+                        await prisma.teachAttendance.update({
+                            where: { id: att.id },
+                            data: { deduct_status: 'DEDUCTED' }
+                        });
+                    } else {
+                        await prisma.teachAttendance.update({
+                            where: { id: att.id },
+                            data: { deduct_status: 'FAILED_INSUFFICIENT_BALANCE' }
+                        });
+                    }
+                }
                 results.push(att);
             }
 
-            // 更新课次状态为 COMPLETED，但 is_consumed 仍为 false
+            // 考勤即扣：课次完成且已扣费
             await prisma.edLessonSchedule.update({
                 where: { id: data.lessonId },
-                data: { status: 'COMPLETED' }
+                data: { status: 'COMPLETED', is_consumed: true }
+            });
+
+            await prisma.sysAuditLog.create({
+                data: {
+                    action: 'ATTENDANCE_AND_CONSUMPTION',
+                    entity_type: 'LESSON_SCHEDULE',
+                    entity_id: data.lessonId,
+                    operator_id: data.operatorId,
+                    details: JSON.stringify({ count: data.attendances.length })
+                }
             });
 
             return { success: true, recordsProcessed: results.length };
+        });
+    }
+
+    /**
+     * 课消撤销（T+3 天内允许 CAMPUS_ADMIN/ADMIN 撤销）
+     */
+    async revokeConsumption(lessonId: string, operatorId: string, operatorRole: string) {
+        if (operatorRole !== 'ADMIN' && operatorRole !== 'CAMPUS_ADMIN') {
+            throw new ForbiddenException('仅 ADMIN/CAMPUS_ADMIN 可撤销课消');
+        }
+
+        const lesson = await this.prisma.edLessonSchedule.findUnique({
+            where: { id: lessonId },
+            include: { attendances: true }
+        });
+        if (!lesson) throw new NotFoundException('课次不存在');
+        if (!lesson.is_consumed) throw new BadRequestException('该课次尚未完成课消，无需撤销');
+
+        const now = Date.now();
+        if (now - lesson.end_time.getTime() > 3 * 24 * 60 * 60 * 1000) {
+            throw new BadRequestException('超出撤销时限（课次结束后 3 天内可撤销）');
+        }
+
+        return this.prisma.$transaction(async (prisma) => {
+            for (const att of lesson.attendances) {
+                if (att.deduct_status === 'DEDUCTED' && att.deduct_amount > 0) {
+                    const courseId = lesson.course_id;
+                    const account = await prisma.finAssetAccount.findFirst({
+                        where: { student_id: att.student_id, ...(courseId ? { course_id: courseId } : {}) },
+                        orderBy: { updatedAt: 'desc' }
+                    });
+                    if (account) {
+                        const updated = await prisma.finAssetAccount.update({
+                            where: { id: account.id },
+                            data: { remaining_qty: { increment: att.deduct_amount } }
+                        });
+                        await prisma.finAssetLedger.create({
+                            data: {
+                                account_id: account.id,
+                                type: 'CONSUME_REVOKE',
+                                change_qty: att.deduct_amount,
+                                balance_snapshot: updated.remaining_qty,
+                                ref_id: `REVOKE-${lessonId}-${att.student_id}`
+                            }
+                        });
+                    }
+                }
+                await prisma.teachAttendance.update({
+                    where: { id: att.id },
+                    data: { deduct_status: 'REVOKED', revoked_at: new Date() }
+                });
+            }
+
+            await prisma.edLessonSchedule.update({
+                where: { id: lessonId },
+                data: { is_consumed: false, status: 'SCHEDULED' }
+            });
+
+            await prisma.sysAuditLog.create({
+                data: {
+                    action: 'CONSUMPTION_REVOKE',
+                    entity_type: 'LESSON_SCHEDULE',
+                    entity_id: lessonId,
+                    operator_id: operatorId,
+                    details: JSON.stringify({ lesson_no: lesson.lesson_no, reverted: lesson.attendances.length })
+                }
+            });
+
+            return { success: true, message: '课消已撤销，课时已恢复' };
         });
     }
 

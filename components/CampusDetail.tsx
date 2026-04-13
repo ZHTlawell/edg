@@ -2,6 +2,7 @@ import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, MapPin, Calendar, User, Phone, Download, Image as ImageIcon, BarChart2, Target, UserCog, GraduationCap, Building2, Search, Filter } from 'lucide-react';
 import { useStore } from '../store';
+import { exportCSV } from '../utils/exportCSV';
 
 interface Campus {
     id: string;
@@ -122,7 +123,14 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
 
                     {/* Right: export + stats */}
                     <div className="flex flex-col gap-4 lg:items-end shrink-0">
-                        <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-blue-100">
+                        <button
+                            onClick={() => {
+                                const headers = ['校区', '在读人数', '在教职员工', '本月课消', '月营收'];
+                                const rows = [[campus.name, String(campusStudents.length || campus.students), String(staffList.length), String(monthlyLessons), `¥${campus.monthlyRevenue.toLocaleString()}`]];
+                                exportCSV(`校区报表_${campus.name}_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+                            }}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-blue-100"
+                        >
                             <ElmIcon name="download" size={16} />
                             导出报表
                         </button>

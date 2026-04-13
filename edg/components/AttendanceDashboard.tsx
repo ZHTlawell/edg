@@ -27,7 +27,8 @@ interface AttendanceDashboardProps {
 export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegister, onNavigate }) => {
   const { attendanceRecords, classes, courses, students, addToast, fetchAttendanceRecords, currentUser } = useStore();
   const [filterCampus, setFilterCampus] = useState('all');
-  const [displayLimit, setDisplayLimit] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   useEffect(() => {
     const campusId = currentUser?.role === 'campus_admin' ? currentUser.campus_id : undefined;
@@ -76,6 +77,28 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
 
     return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
   }, [attendanceRecords, classes, courses]);
+
+  const totalPages = Math.max(1, Math.ceil(displayRecords.length / pageSize));
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return displayRecords.slice(start, start + pageSize);
+  }, [displayRecords, currentPage, pageSize]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   // Compute absence alerts from real records: students with 2+ consecutive absents
   const absenceAlerts = useMemo(() => {
@@ -236,7 +259,7 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {displayRecords.slice(0, displayLimit).map((rec) => (
+                  {paginatedRecords.map((rec) => (
                     <tr key={rec.id} className="hover:bg-blue-50/5 transition-all group">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
@@ -294,24 +317,35 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
                 </tbody>
               </table>
               <div className="p-6 bg-slate-50/20 border-t border-slate-50 flex items-center justify-between px-8">
-                <span className="text-xs text-slate-400 font-medium">
-                  显示 {Math.min(displayLimit, displayRecords.length)} / {displayRecords.length} 条课次记录
-                </span>
-                {displayLimit < displayRecords.length ? (
+                <p className="text-xs text-slate-400 font-bold">
+                  显示 {Math.min((currentPage - 1) * pageSize + 1, displayRecords.length)} - {Math.min(currentPage * pageSize, displayRecords.length)}，共 <span className="text-slate-700">{displayRecords.length}</span> 条
+                </p>
+                <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => setDisplayLimit(prev => prev + 10)}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className={`p-1.5 rounded-lg transition-colors ${currentPage === 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
                   >
-                    加载更多 <ElmIcon name="arrow-down" size={14} />
+                    <ElmIcon name="arrow-left" size={14} />
                   </button>
-                ) : displayRecords.length > 10 ? (
+                  {getPageNumbers().map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => typeof p === 'number' && setCurrentPage(p)}
+                      disabled={typeof p !== 'number'}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${p === currentPage ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : typeof p === 'number' ? 'text-slate-400 hover:bg-white hover:text-slate-900' : 'text-slate-300 cursor-default'}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
                   <button
-                    onClick={() => setDisplayLimit(10)}
-                    className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`p-1.5 rounded-lg transition-colors ${currentPage === totalPages ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
                   >
-                    收起
+                    <ElmIcon name="arrow-right" size={14} />
                   </button>
-                ) : null}
+                </div>
               </div>
             </div>
           </div>

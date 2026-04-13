@@ -1,6 +1,7 @@
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { Search, Filter, ShieldAlert, LogIn, ExternalLink, Download, FileText } from 'lucide-react';
+import { exportCSV } from '../utils/exportCSV';
 
 export const AuditLogs: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -20,7 +21,14 @@ export const AuditLogs: React.FC = () => {
                     <h1 className="text-2xl font-bold text-slate-800">系统审计日志</h1>
                     <p className="text-sm text-slate-500 mt-1">记录平台关键操作及安全事件，默认保存180天。</p>
                 </div>
-                <button className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm self-start md:self-auto">
+                <button
+                    onClick={() => {
+                        const headers = ['时间', '操作员', '角色', '事件', 'IP地址', '状态', '类型'];
+                        const rows = logs.map(l => [l.time, l.user, l.role, l.action, l.ip, l.status, l.type]);
+                        exportCSV(`审计日志_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+                    }}
+                    className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm self-start md:self-auto"
+                >
                     <ElmIcon name="download" size={16} />
                     <span>导出当前日志</span>
                 </button>

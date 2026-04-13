@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "edg-frontend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/macmini/Desktop/Edg1/edg && npx vite --port 5173"],
+      "port": 5173
+    },
+    {
+      "name": "edg-backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/macmini/Desktop/Edg1/edg/backend && npm run start:dev"],
+      "port": 3001
+    }
+  ]
+}

@@ -141,7 +141,7 @@ export const StudentHomework: React.FC = () => {
                         </div>
                         <div className="text-center">
                             <p className="text-lg font-bold text-slate-600 mb-1">太棒了，暂无待办作业！</p>
-                            <p className="text-xs uppercase tracking-widest opacity-60 font-bold">You are all caught up</p>
+                            <p className="text-xs tracking-widest opacity-60 font-bold">全部完成</p>
                         </div>
                     </div>
                 )}

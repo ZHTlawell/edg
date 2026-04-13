@@ -77,7 +77,7 @@ export const StudentOrders: React.FC = () => {
             await createOrder({
                 studentId: currentStudent.id,
                 courseId: course.id,
-                amount: parseFloat(course.price.replace(/[^0-9.-]+/g, "")),
+                // 金额由后端根据课程计算，前端不再传 amount
             });
             setPurchaseModalOpen(false);
             // After creating an order, ideally we fetch orders again.

@@ -1,5 +1,6 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
@@ -28,7 +29,7 @@ export class UsersService {
         });
     }
 
-    // C 端学员注册专用接口 — 直接激活
+    // C 端学员自主注册 — 需校区管理员审核后激活
     async createStudentUser(data: {
         username: string;
         password_hash: string;
@@ -58,7 +59,7 @@ export class UsersService {
                     username: data.username,
                     password_hash: data.password_hash,
                     role: 'STUDENT',
-                    status: 'ACTIVE',
+                    status: 'PENDING_APPROVAL',   // 自注册需审核
                     campusName: data.campusName,
                     campus_id: data.campus_id
                 },
@@ -75,6 +76,59 @@ export class UsersService {
 
             return { user, student };
         });
+    }
+
+    // 管理员代建学员账号（直接激活，不走审核）
+    async createStudentByAdmin(data: {
+        name: string;
+        phone: string;
+        gender?: string;
+        campusName?: string;
+        campus_id?: string;
+    }) {
+        const username = data.phone;
+        const defaultPassword = data.phone.slice(-6);
+
+        const existing = await this.findOneByUsername(username);
+        if (existing) throw new ConflictException('该手机号已注册');
+        if (data.phone) {
+            const existingStudent = await this.prisma.eduStudent.findUnique({
+                where: { phone: data.phone }
+            });
+            if (existingStudent) throw new ConflictException('手机号已被注册');
+        }
+
+        const hash = await bcrypt.hash(defaultPassword, 10);
+        const result = await this.prisma.$transaction(async (prisma) => {
+            const user = await prisma.sysUser.create({
+                data: {
+                    username,
+                    password_hash: hash,
+                    role: 'STUDENT',
+                    status: 'ACTIVE',   // 管理员代建直接激活
+                    campusName: data.campusName,
+                    campus_id: data.campus_id,
+                },
+            });
+            const student = await prisma.eduStudent.create({
+                data: {
+                    name: data.name,
+                    phone: data.phone,
+                    gender: data.gender,
+                    user_id: user.id,
+                },
+            });
+            return { user, student };
+        });
+
+        return {
+            studentId: result.student.id,
+            userId: result.user.id,
+            name: result.student.name,
+            phone: result.student.phone,
+            username,
+            defaultPassword,
+        };
     }
 
     // 自主注册（校区端 / 教师端）— 创建 PENDING_APPROVAL 账号
@@ -170,6 +224,63 @@ export class UsersService {
             include: {
                 teacherProfile: true,
             },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    // 查询待审核的学员（校区管理员审本校区）
+    async findPendingStudents(campusId?: string) {
+        return this.prisma.sysUser.findMany({
+            where: {
+                role: 'STUDENT',
+                status: 'PENDING_APPROVAL',
+                ...(campusId ? { campus_id: campusId } : {}),
+            },
+            include: {
+                studentProfile: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    // 学员状态流转（TRIAL/ACTIVE/SUSPENDED/GRADUATED/CHURNED）
+    async updateStudentStatus(data: { studentId: string; toStatus: string; reason?: string; operatorId: string }) {
+        const student = await this.prisma.eduStudent.findUnique({ where: { id: data.studentId } });
+        if (!student) throw new NotFoundException('学员不存在');
+
+        const validTransitions: Record<string, string[]> = {
+            'TRIAL': ['ACTIVE', 'CHURNED'],
+            'ACTIVE': ['SUSPENDED', 'GRADUATED', 'CHURNED'],
+            'SUSPENDED': ['ACTIVE', 'GRADUATED', 'CHURNED'],
+            'GRADUATED': [],
+            'CHURNED': ['ACTIVE'],
+        };
+        const allowed = validTransitions[student.status] || [];
+        if (!allowed.includes(data.toStatus)) {
+            throw new ConflictException(`不允许从 ${student.status} 转换到 ${data.toStatus}`);
+        }
+
+        return this.prisma.$transaction(async (prisma) => {
+            const updated = await prisma.eduStudent.update({
+                where: { id: data.studentId },
+                data: { status: data.toStatus },
+            });
+            await prisma.studentStatusLog.create({
+                data: {
+                    student_id: data.studentId,
+                    from_status: student.status,
+                    to_status: data.toStatus,
+                    reason: data.reason,
+                    operator_id: data.operatorId,
+                }
+            });
+            return updated;
+        });
+    }
+
+    async getStudentStatusLogs(studentId: string) {
+        return this.prisma.studentStatusLog.findMany({
+            where: { student_id: studentId },
             orderBy: { createdAt: 'desc' },
         });
     }
