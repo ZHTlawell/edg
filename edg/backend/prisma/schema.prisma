@@ -144,7 +144,8 @@ model EduClassroom {
   id        String   @id @default(uuid())
   name      String
   campus_id String
-  status    String   @default("AVAILABLE")
+  capacity  Int      @default(30) // 教室额定容量
+  status    String   @default("AVAILABLE") // AVAILABLE, MAINTENANCE
   createdAt DateTime @default(now())
 
   schedules EdLessonSchedule[]

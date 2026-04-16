@@ -348,17 +348,40 @@ export class FinanceService {
                         });
 
                         if (dates.length > 0) {
-                            await prisma.edLessonSchedule.createMany({
-                                data: dates.map((dt, i) => ({
+                            // 查该校区可用教室（按容量贴近班级人数）
+                            const availableRooms = await prisma.eduClassroom.findMany({
+                                where: { campus_id: data.campusId, status: 'AVAILABLE' },
+                                orderBy: { capacity: 'asc' },
+                            });
+
+                            // 为每节课分配一个该时段无冲突的教室
+                            const scheduleData = await Promise.all(dates.map(async (dt, i) => {
+                                let roomId: string | null = null;
+                                let roomName = '待分配';
+                                for (const room of availableRooms) {
+                                    const conflict = await prisma.edLessonSchedule.findFirst({
+                                        where: {
+                                            classroom_id: room.id,
+                                            status: { in: ['PUBLISHED', 'DRAFT'] },
+                                            start_time: { lt: dt.end },
+                                            end_time:   { gt: dt.start },
+                                        },
+                                    });
+                                    if (!conflict) { roomId = room.id; roomName = room.name; break; }
+                                }
+                                return {
                                     assignment_id: assignment.id,
                                     course_id: order.course_id,
                                     lesson_no: i + 1,
                                     start_time: dt.start,
                                     end_time: dt.end,
-                                    classroom: '待分配',
+                                    classroom: roomName,
+                                    classroom_id: roomId,
                                     status: 'DRAFT',
-                                })),
-                            });
+                                };
+                            }));
+
+                            await prisma.edLessonSchedule.createMany({ data: scheduleData });
                         }
                     } else {
                         console.warn(`[Finance] 课程 ${course.name} 无授课教师，跳过自动排课`);

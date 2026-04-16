@@ -217,23 +217,31 @@ export class AcademicService {
                     const sched = data.assignment.schedule as any;
                     const { startDate, lessonsCount, durationMinutes, classroom, weekdays, timeOfDay } = sched;
 
-                    let autoRoom = null;
-                    if (!classroom) {
-                        const rooms = await tx.eduClassroom.findMany({ where: { campus_id: data.campus_id } });
-                        if (rooms.length > 0) autoRoom = rooms[0];
-                    }
+                    const dates = buildScheduleDates({ startDate, lessonsCount, durationMinutes, weekdays, timeOfDay });
 
-                    const schedules = buildScheduleDates({
-                        startDate, lessonsCount, durationMinutes, weekdays, timeOfDay
-                    }).map((dt, i) => ({
-                        assignment_id: newAssignment.id,
-                        course_id: data.assignment!.course_id,  // 冗余字段
-                        lesson_no: i + 1,
-                        start_time: dt.start,
-                        end_time: dt.end,
-                        classroom: classroom || autoRoom?.name || '待分配',
-                        classroom_id: autoRoom?.id || null,
-                        status: 'DRAFT'
+                    const schedules = await Promise.all(dates.map(async (dt, i) => {
+                        let roomId: string | null = null;
+                        let roomName = classroom || '待分配';
+                        if (!classroom) {
+                            const assigned = await this.autoAssignClassroom({
+                                campusId: data.campus_id,
+                                classEnrolled: newClass.enrolled || 0,
+                                startTime: dt.start,
+                                endTime: dt.end,
+                                tx,
+                            });
+                            if (assigned) { roomId = assigned.id; roomName = assigned.name; }
+                        }
+                        return {
+                            assignment_id: newAssignment.id,
+                            course_id: data.assignment!.course_id,
+                            lesson_no: i + 1,
+                            start_time: dt.start,
+                            end_time: dt.end,
+                            classroom: roomName,
+                            classroom_id: roomId,
+                            status: 'DRAFT',
+                        };
                     }));
 
                     await tx.edLessonSchedule.createMany({ data: schedules });
@@ -354,27 +362,81 @@ export class AcademicService {
             where: { assignment_id: assignmentId, status: 'DRAFT' }
         });
 
-        // 拿 course_id 回填冗余字段
-        const assignment = await (this.prisma as any).edClassAssignment.findUnique({ where: { id: assignmentId } });
+        // 拿 course_id 和 campus_id 回填冗余字段 + 用于教室分配
+        const assignment = await (this.prisma as any).edClassAssignment.findUnique({
+            where: { id: assignmentId },
+            include: { class: { select: { campus_id: true, enrolled: true } } }
+        });
         const courseId = assignment?.course_id || null;
+        const campusId: string = assignment?.class?.campus_id || '';
+        const enrolled: number = assignment?.class?.enrolled || 0;
 
-        const schedules = buildScheduleDates({
+        const dates = buildScheduleDates({
             startDate: startDate.toISOString(),
             lessonsCount,
             durationMinutes,
             weekdays: opts?.weekdays,
             timeOfDay: opts?.timeOfDay,
-        }).map((dt, i) => ({
-            assignment_id: assignmentId,
-            course_id: courseId,
-            lesson_no: maxPublishedNo + i + 1,
-            start_time: dt.start,
-            end_time: dt.end,
-            classroom: '待分配',
-            status: 'DRAFT'
+        });
+
+        const schedules = await Promise.all(dates.map(async (dt, i) => {
+            const assigned = campusId
+                ? await this.autoAssignClassroom({ campusId, classEnrolled: enrolled, startTime: dt.start, endTime: dt.end })
+                : null;
+            return {
+                assignment_id: assignmentId,
+                course_id: courseId,
+                lesson_no: maxPublishedNo + i + 1,
+                start_time: dt.start,
+                end_time: dt.end,
+                classroom: assigned?.name || '待分配',
+                classroom_id: assigned?.id || null,
+                status: 'DRAFT',
+            };
         }));
 
         return (this.prisma as any).edLessonSchedule.createMany({ data: schedules });
+    }
+
+    /**
+     * 自动分配教室
+     * 策略：同校区、状态 AVAILABLE、容量 >= 班级人数，且目标时段无冲突排课
+     * 优先选容量最接近班级人数的教室（避免大教室浪费），全无空闲时返回 null
+     */
+    async autoAssignClassroom(opts: {
+        campusId: string;
+        classEnrolled: number;
+        startTime: Date;
+        endTime: Date;
+        excludeScheduleId?: string;
+        tx?: any;
+    }): Promise<{ id: string; name: string } | null> {
+        const client = opts.tx || this.prisma;
+
+        // 查可用教室，按容量从小到大（贴近人数）
+        const rooms = await client.eduClassroom.findMany({
+            where: {
+                campus_id: opts.campusId,
+                status: 'AVAILABLE',
+                capacity: { gte: opts.classEnrolled > 0 ? opts.classEnrolled : 1 },
+            },
+            orderBy: { capacity: 'asc' },
+        });
+
+        for (const room of rooms) {
+            // 检查该时段教室是否已被其他排课占用
+            const conflict = await client.edLessonSchedule.findFirst({
+                where: {
+                    classroom_id: room.id,
+                    status: { in: ['PUBLISHED', 'DRAFT'] },
+                    start_time: { lt: opts.endTime },
+                    end_time:   { gt: opts.startTime },
+                    ...(opts.excludeScheduleId ? { id: { not: opts.excludeScheduleId } } : {}),
+                },
+            });
+            if (!conflict) return { id: room.id, name: room.name };
+        }
+        return null; // 全部教室都冲突，降级为"待分配"
     }
 
     /**
