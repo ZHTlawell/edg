@@ -1,6 +1,58 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * 标准课时槽池（weekday: 0=周日…6=周六）
+ * 按"分散优先"原则排序：先平铺到不同天，再增加时段
+ */
+const WEEKLY_SLOTS = [
+    { weekday: 1, timeOfDay: '10:00' }, // 周一上午
+    { weekday: 3, timeOfDay: '10:00' }, // 周三上午
+    { weekday: 5, timeOfDay: '10:00' }, // 周五上午
+    { weekday: 2, timeOfDay: '14:00' }, // 周二下午
+    { weekday: 4, timeOfDay: '14:00' }, // 周四下午
+    { weekday: 6, timeOfDay: '10:00' }, // 周六上午
+    { weekday: 0, timeOfDay: '14:00' }, // 周日下午
+    { weekday: 1, timeOfDay: '19:00' }, // 周一晚上
+    { weekday: 3, timeOfDay: '19:00' }, // 周三晚上
+    { weekday: 2, timeOfDay: '10:00' }, // 周二上午
+    { weekday: 4, timeOfDay: '10:00' }, // 周四上午
+    { weekday: 5, timeOfDay: '14:00' }, // 周五下午
+    { weekday: 6, timeOfDay: '14:00' }, // 周六下午
+    { weekday: 0, timeOfDay: '10:00' }, // 周日上午
+    { weekday: 2, timeOfDay: '19:00' }, // 周二晚上
+    { weekday: 4, timeOfDay: '19:00' }, // 周四晚上
+];
+
+/**
+ * 构建某周次、时间的排课日期序列（每周一次）
+ */
+function buildWeeklySchedule(opts: {
+    weekday: number;   // 0=周日 … 6=周六
+    timeOfDay: string; // "HH:mm"
+    startFrom: Date;   // 不早于此日期的第一次课
+    count: number;
+    durationMinutes: number;
+}): { start: Date; end: Date }[] {
+    const { weekday, timeOfDay, startFrom, count, durationMinutes } = opts;
+    const [hh, mm] = timeOfDay.split(':').map(Number);
+    const results: { start: Date; end: Date }[] = [];
+    const cursor = new Date(startFrom);
+    cursor.setHours(0, 0, 0, 0);
+    while (results.length < count) {
+        if (cursor.getDay() === weekday) {
+            const start = new Date(cursor);
+            start.setHours(hh, mm, 0, 0);
+            if (start >= startFrom) {
+                results.push({ start, end: new Date(start.getTime() + durationMinutes * 60_000) });
+            }
+        }
+        cursor.setDate(cursor.getDate() + 1);
+        if (cursor.getTime() - startFrom.getTime() > 2 * 365 * 24 * 3600_000) break;
+    }
+    return results;
+}
+
 @Injectable()
 export class FinanceService {
     constructor(private prisma: PrismaService) { }
@@ -250,31 +302,63 @@ export class FinanceService {
                             }
                         });
 
-                        // 自动生成草稿排课（DRAFT），等班级升为 ONGOING 后再 PUBLISH
-                        const startDate = new Date();
-                        const dayOfWeek = startDate.getDay();
-                        const daysUntilNextMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
-                        startDate.setDate(startDate.getDate() + daysUntilNextMonday);
-                        startDate.setHours(10, 0, 0, 0);
-                        const lessonDuration = (course as any).duration || 45;
+                        // ── 智能槽位分配：查找该校区尚未被占用的时间槽 ──
+                        const existingFirstLessons = await prisma.edLessonSchedule.findMany({
+                            where: {
+                                assignment: {
+                                    class: {
+                                        campus_id: data.campusId,
+                                        status: { in: ['ONGOING', 'PENDING'] },
+                                    }
+                                },
+                                status: { in: ['PUBLISHED', 'DRAFT'] },
+                            },
+                            select: { start_time: true },
+                            distinct: ['assignment_id'],
+                            orderBy: { start_time: 'asc' },
+                        });
 
-                        const scheduleData = [];
-                        for (let i = 0; i < Math.min(order.total_qty, 48); i++) {
-                            const lessonStart = new Date(startDate);
-                            lessonStart.setDate(lessonStart.getDate() + i * 7);
-                            const lessonEnd = new Date(lessonStart);
-                            lessonEnd.setMinutes(lessonEnd.getMinutes() + lessonDuration);
-                            scheduleData.push({
-                                assignment_id: assignment.id,
-                                course_id: order.course_id,
-                                lesson_no: i + 1,
-                                start_time: lessonStart,
-                                end_time: lessonEnd,
-                                status: 'DRAFT', // 招生中班级课表为草稿，正式开班后 publish
-                            });
+                        // 收集已占用的 "weekday-HH:mm" 指纹
+                        const occupied = new Set<string>();
+                        for (const l of existingFirstLessons) {
+                            const d = new Date(l.start_time);
+                            const wd = d.getDay();
+                            const hhmm = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                            occupied.add(`${wd}-${hhmm}`);
                         }
-                        if (scheduleData.length > 0) {
-                            await prisma.edLessonSchedule.createMany({ data: scheduleData });
+
+                        // 选第一个空闲槽；若全满则轮转
+                        const slot = WEEKLY_SLOTS.find(s => !occupied.has(`${s.weekday}-${s.timeOfDay}`))
+                            ?? WEEKLY_SLOTS[existingFirstLessons.length % WEEKLY_SLOTS.length];
+
+                        console.log(`[Finance] 课程「${course.name}」分配到槽位：周${['日','一','二','三','四','五','六'][slot.weekday]} ${slot.timeOfDay}`);
+
+                        // 从下一个满足该星期几的日期开始排课
+                        const startFrom = new Date();
+                        startFrom.setDate(startFrom.getDate() + 1); // 至少从明天开始
+                        startFrom.setHours(0, 0, 0, 0);
+
+                        const lessonDuration = (course as any).duration || 90;
+                        const dates = buildWeeklySchedule({
+                            weekday: slot.weekday,
+                            timeOfDay: slot.timeOfDay,
+                            startFrom,
+                            count: Math.min(order.total_qty, 48),
+                            durationMinutes: lessonDuration,
+                        });
+
+                        if (dates.length > 0) {
+                            await prisma.edLessonSchedule.createMany({
+                                data: dates.map((dt, i) => ({
+                                    assignment_id: assignment.id,
+                                    course_id: order.course_id,
+                                    lesson_no: i + 1,
+                                    start_time: dt.start,
+                                    end_time: dt.end,
+                                    classroom: '待分配',
+                                    status: 'DRAFT',
+                                })),
+                            });
                         }
                     } else {
                         console.warn(`[Finance] 课程 ${course.name} 无授课教师，跳过自动排课`);

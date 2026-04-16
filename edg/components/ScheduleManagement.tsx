@@ -425,7 +425,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                       ref={dateInputRef}
                       type="date"
                       className="absolute inset-0 opacity-0 pointer-events-none"
-                      onChange={(e) => e.target.value && setAnchorDate(new Date(e.target.value))}
+                      onChange={(e) => e.target.value && setAnchorDate(new Date(e.target.value + 'T12:00:00'))}
                     />
                   </div>
                   <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ElmIcon name="arrow-right" size={16} /></button>
@@ -461,11 +461,26 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
                   >
                     {weekRange.formatted}
                   </span>
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    className="absolute inset-0 opacity-0 pointer-events-none"
+                    onChange={(e) => e.target.value && setAnchorDate(new Date(e.target.value + 'T12:00:00'))}
+                  />
                 </div>
                 <button onClick={handleNextWeek} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><ElmIcon name="arrow-right" size={16} /></button>
               </div>
             </div>
-            <p className="text-xs font-bold text-slate-400">共有 <span className="text-blue-600">{displayLessons.length}</span> 节待上课程</p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs font-bold text-slate-400">本周 <span className="text-blue-600">{displayLessons.length}</span> 节课</p>
+              <button
+                onClick={() => fetchClasses(currentUser?.campus_id)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                title="刷新课表数据"
+              >
+                <ElmIcon name="refresh" size={13} /> 刷新
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -507,46 +522,74 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
               </div>
 
               {/* Day Columns */}
-              {[0, 1, 2, 3, 4, 5, 6].map(dayIdx => (
+              {[0, 1, 2, 3, 4, 5, 6].map(dayIdx => {
+                const dayLessons = displayLessons.filter(l => {
+                  const d = new Date(l.date).getDay(); // 0 is Sun
+                  const normalizedDay = d === 0 ? 6 : d - 1; // Mon=0 ... Sun=6
+                  return normalizedDay === dayIdx;
+                });
+
+                // Group by same start-time to handle overlapping lessons side-by-side
+                const timeGroups: Record<string, typeof dayLessons> = {};
+                for (const l of dayLessons) {
+                  const key = l.time.split(' - ')[0];
+                  if (!timeGroups[key]) timeGroups[key] = [];
+                  timeGroups[key].push(l);
+                }
+
+                return (
                 <div key={dayIdx} className="flex flex-col border-r border-slate-100 relative h-full">
                   {/* Background Grid Lines */}
                   {[0, 1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-24 border-b border-slate-100/50"></div>)}
 
-                  {/* Course Blocks for each day (Demo Logic) */}
-                  {displayLessons.filter(l => {
-                    const d = new Date(l.date).getDay(); // 0 is Sun
-                    const normalizedDay = d === 0 ? 6 : d - 1; // Mon=0 ... Sun=6
-                    return normalizedDay === dayIdx;
-                  }).map((lesson, idx) => {
-                    const statusConfig = getStatusConfig(lesson.status);
-                    // Determine vertical position based on mock time
-                    const startHour = parseInt(lesson.time.split(':')[0]);
-                    const topPos = (startHour - 8) * (96 / 2); // 96px per 2 hours
+                  {/* Course Blocks — overlapping lessons are split side-by-side */}
+                  {Object.entries(timeGroups).flatMap(([timeKey, lessons]) =>
+                    lessons.map((lesson, slotIdx) => {
+                      const statusConfig = getStatusConfig(lesson.status);
+                      const startHour = parseInt(timeKey.split(':')[0]);
+                      const startMin = parseInt(timeKey.split(':')[1] || '0');
+                      const topPos = (startHour - 8) * (96 / 2) + startMin * (96 / 120);
 
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => setSelectedLesson(lesson)}
-                        className={`absolute left-1 right-1 p-3 rounded-2xl border-2 transition-all cursor-pointer hover:shadow-lg hover:scale-[1.02] z-10 flex flex-col justify-between overflow-hidden group ${statusConfig.style}`}
-                        style={{ top: `${topPos}px`, height: '110px' }}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-bold uppercase tracking-widest opacity-60 font-mono">{lesson.time.split(' - ')[0]}</span>
-                            <div className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`}></div>
+                      const total = lessons.length;
+                      // Each slot gets equal share of width with 2px gap
+                      const slotW = 100 / total;
+                      const leftPct = slotW * slotIdx;
+
+                      return (
+                        <div
+                          key={`${lesson.id}-${slotIdx}`}
+                          onClick={() => setSelectedLesson(lesson)}
+                          className={`absolute p-2 rounded-xl border-2 transition-all cursor-pointer hover:shadow-lg hover:scale-[1.02] z-10 flex flex-col justify-between overflow-hidden group ${statusConfig.style}`}
+                          style={{
+                            top: `${topPos}px`,
+                            height: '100px',
+                            left: `calc(${leftPct}% + 2px)`,
+                            width: `calc(${slotW}% - 4px)`,
+                          }}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[8px] font-bold uppercase tracking-widest opacity-60 font-mono">{timeKey}</span>
+                              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusConfig.dot}`}></div>
+                            </div>
+                            <p className="text-[10px] font-bold leading-tight line-clamp-2">{lesson.courseName || lesson.className}</p>
+                            {total === 1 && (
+                              <p className="text-[9px] opacity-50 font-medium truncate">{lesson.teacherName} · {lesson.classroom}</p>
+                            )}
                           </div>
-                          <p className="text-xs font-bold truncate leading-tight">{lesson.className}</p>
-                          <p className="text-[10px] opacity-60 font-medium truncate">{lesson.teacherName} · {lesson.classroom}</p>
+                          {total === 1 && (
+                            <div className="flex items-center justify-between mt-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                              <span className="text-[9px] font-bold tracking-tighter">详情</span>
+                              <ElmIcon name="top-right" size={16} />
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center justify-between mt-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-[9px] font-bold tracking-tighter">详情</span>
-                          <ElmIcon name="top-right" size={16} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (
