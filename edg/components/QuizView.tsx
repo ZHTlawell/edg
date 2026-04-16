@@ -353,6 +353,15 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, cours
 
       {/* ── Score Result Screen ── */}
       {showResult && (() => {
+        // 统一计算，无论真题/本地模式，变量始终存在
+        const totalQ = QUESTIONS.length;
+        let correct = 0;
+        for (const q of QUESTIONS) {
+          const userAns = (answers[q.id] || []).sort().join(',');
+          const correctAns = (q.answer || []).sort().join(',');
+          if (userAns === correctAns && userAns !== '') correct++;
+        }
+
         let score: number;
         let passed: boolean;
         if (serverResult) {
@@ -360,17 +369,11 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, cours
           score = serverResult.totalScore > 0 ? Math.round(serverResult.score / serverResult.totalScore * 100) : 0;
           passed = serverResult.passed;
         } else {
-          // 假题/兜底模式：本地评分
-          const totalQ = QUESTIONS.length;
-          let correct = 0;
-          for (const q of QUESTIONS) {
-            const userAns = (answers[q.id] || []).sort().join(',');
-            const correctAns = (q.answer || []).sort().join(',');
-            if (userAns === correctAns && userAns !== '') correct++;
-          }
-          score = Math.round((correct / totalQ) * 100);
+          // 本地评分（兜底模式）
+          score = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
           passed = score >= 60;
         }
+
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
             <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" />

@@ -54,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     {
       id: 'stats-group', label: '统计报表', icon: <ElmIcon name="histogram" size={20} />, children: [
         { id: 'stats', label: '统计看板' },
-        { id: 'report-details', label: '报表明细' }
+        { id: 'finance-report', label: '财务报表' }
       ]
     },
     {
@@ -96,11 +96,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     {
       id: 'stats-group', label: '统计报表', icon: <ElmIcon name="histogram" size={20} />, children: [
         { id: 'stats', label: '统计看板' },
-        { id: 'report-details', label: '报表明细' },
         { id: 'finance-report', label: '财务报表' }
       ]
     },
-    { id: 'announcement-view', label: '系统公告', icon: <ElmIcon name="notification" size={20} /> }
+    {
+      id: 'announcement-group', label: '公告中心', icon: <ElmIcon name="notification" size={20} />, children: [
+        { id: 'announcemnt-mgmt', label: '公告管理' },
+        { id: 'announcement-view', label: '公告查看' }
+      ]
+    }
   ];
 
   const teacherMenu: MenuItem[] = [
@@ -108,8 +112,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     { id: 'schedule', label: '我的课表', icon: <ElmIcon name="calendar" size={20} /> },
     { id: 'classes', label: '班级学员', icon: <ElmIcon name="user" size={20} /> },
     { id: 'teacher-homework', label: '作业分发', icon: <ElmIcon name="finished" size={20} /> },
+    { id: 'leave-approval', label: '请假审批', icon: <ElmIcon name="chat-round" size={20} /> },
     { id: 'resources', label: '学习资源', icon: <ElmIcon name="reading" size={20} /> },
-    { id: 'my-stats', label: '教学统计', icon: <ElmIcon name="histogram" size={20} /> }
+    { id: 'my-stats', label: '教学统计', icon: <ElmIcon name="histogram" size={20} /> },
+    { id: 'announcement-view', label: '系统公告', icon: <ElmIcon name="notification" size={20} /> }
   ];
 
   const studentMenu: MenuItem[] = [
@@ -117,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
     { id: 'student-schedule', label: '我的课表', icon: <ElmIcon name="calendar" size={20} /> },
     { id: 'student-learning', label: '在线学习', icon: <ElmIcon name="video-play" size={20} /> },
     { id: 'student-homework', label: '我的作业', icon: <ElmIcon name="finished" size={20} /> },
-    { id: 'student-market', label: '精品市场', icon: <ElmIcon name="shopping-bag" size={20} /> },
+    { id: 'student-market', label: '课程市场', icon: <ElmIcon name="shopping-bag" size={20} /> },
     { id: 'student-orders', label: '订单与课时', icon: <ElmIcon name="wallet" size={20} /> },
     { id: 'student-notifications', label: '通知中心', icon: <ElmIcon name="comment" size={20} /> }
   ];
