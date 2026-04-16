@@ -174,10 +174,11 @@ export class AcademicService {
     // =====================================
     // 班级与排课管理 (Classes & Schedules)
     // =====================================
-    async createClass(data: { 
-        name: string; 
-        campus_id: string; 
+    async createClass(data: {
+        name: string;
+        campus_id: string;
         capacity: number;
+        min_students?: number;
         assignment?: {
             course_id: string;
             teacher_id: string;
@@ -190,13 +191,14 @@ export class AcademicService {
         }
     }) {
         return this.prisma.$transaction(async (tx: any) => {
-            // 1. Create Class
+            // 1. Create Class（管理员手动创建的班默认 PENDING，招生满 min_students 后再开班）
             const newClass = await tx.edClass.create({
                 data: {
                     name: data.name,
                     campus_id: data.campus_id,
                     capacity: data.capacity,
-                    status: 'ONGOING'
+                    min_students: data.min_students ?? 5,
+                    status: 'PENDING'
                 }
             });
 
@@ -458,6 +460,100 @@ export class AcademicService {
             phone: t.user.username,
             campus: t.user.campusName || '总校区',
             campus_id: t.user.campus_id
+        }));
+    }
+
+    /** 手动将学员加入班级 */
+    async enrollStudentInClass(classId: string, studentId: string) {
+        return (this.prisma as any).$transaction(async (prisma: any) => {
+            const cls = await prisma.edClass.findUnique({
+                where: { id: classId },
+                include: { assignments: true, students: true }
+            });
+            if (!cls) throw new NotFoundException('班级不存在');
+            if (cls.enrolled >= cls.capacity) throw new BadRequestException('班级已满，无法加入');
+
+            // 防重复
+            const existing = cls.students.find((s: any) => s.student_id === studentId);
+            if (existing) throw new BadRequestException('该学员已在此班级中');
+
+            // 校验学员是否购买了该班级对应的课程
+            const courseIds = cls.assignments.map((a: any) => a.course_id);
+            if (courseIds.length > 0) {
+                const hasAsset = await prisma.finAssetAccount.findFirst({
+                    where: { student_id: studentId, course_id: { in: courseIds }, status: 'ACTIVE' }
+                });
+                const hasOrder = await prisma.finOrder.findFirst({
+                    where: { student_id: studentId, course_id: { in: courseIds }, status: 'PAID' }
+                });
+                if (!hasAsset && !hasOrder) {
+                    throw new BadRequestException('该学员尚未购买此班级对应的课程，请先完成报名缴费');
+                }
+            }
+
+            await prisma.eduStudentInClass.create({
+                data: { student_id: studentId, class_id: classId }
+            });
+            await prisma.edClass.update({
+                where: { id: classId },
+                data: { enrolled: { increment: 1 } }
+            });
+            return { success: true, message: '学员已加入班级' };
+        });
+    }
+
+    /**
+     * 开班：将 PENDING 班升级为 ONGOING，同时发布草稿排课
+     * 条件：enrolled >= min_students（否则抛出异常，但 force=true 可强制开班）
+     */
+    async openClass(classId: string, force = false) {
+        const cls = await (this.prisma as any).edClass.findUnique({ where: { id: classId } });
+        if (!cls) throw new NotFoundException('班级不存在');
+        if (cls.status === 'ONGOING') throw new BadRequestException('班级已处于开班状态');
+        if (cls.status === 'CANCELLED' || cls.status === 'COMPLETED') {
+            throw new BadRequestException(`班级状态为 ${cls.status}，无法开班`);
+        }
+        if (!force && cls.enrolled < cls.min_students) {
+            throw new BadRequestException(
+                `当前人数 ${cls.enrolled} 未达到开班要求 ${cls.min_students} 人，如需强制开班请使用 force=true`
+            );
+        }
+        return (this.prisma as any).$transaction(async (tx: any) => {
+            // 升级班级状态
+            const updated = await tx.edClass.update({
+                where: { id: classId },
+                data: { status: 'ONGOING' }
+            });
+            // 将草稿排课一并发布
+            const result = await tx.edLessonSchedule.updateMany({
+                where: {
+                    assignment: { class_id: classId },
+                    status: 'DRAFT'
+                },
+                data: { status: 'PUBLISHED' }
+            });
+            return { success: true, class: updated, publishedSchedules: result.count };
+        });
+    }
+
+    /**
+     * 查询招生中（PENDING）的班级列表，便于管理员决定何时开班
+     */
+    async getPendingClasses(campusId?: string) {
+        const where: any = { status: 'PENDING' };
+        if (campusId) where.campus_id = campusId;
+        const classes = await (this.prisma as any).edClass.findMany({
+            where,
+            include: {
+                assignments: { include: { course: true, teacher: true } },
+                students: { include: { student: true } }
+            },
+            orderBy: { enrolled: 'desc' }
+        });
+        return classes.map((c: any) => ({
+            ...c,
+            readyToOpen: c.enrolled >= c.min_students,
+            shortage: Math.max(0, c.min_students - c.enrolled)
         }));
     }
 

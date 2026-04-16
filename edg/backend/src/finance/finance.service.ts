@@ -190,17 +190,19 @@ export class FinanceService {
 
             let assignedClassName = '';
             if (course) {
-                // 查找该课程在**同校区**的现有未满班级
-                const existingClass = await prisma.edClass.findFirst({
+                // 查找该课程在**同校区**的所有未满班级（ONGOING 或 PENDING），按 enrolled 降序优先填满现有班
+                const candidateClasses = await prisma.edClass.findMany({
                     where: {
                         assignments: { some: { course_id: order.course_id } },
                         campus_id: data.campusId,
-                        status: 'ONGOING',
+                        status: { in: ['ONGOING', 'PENDING'] },
                     },
-                    include: { assignments: true }
+                    orderBy: { enrolled: 'desc' }, // 优先填满已有班，避免碎片化
                 });
+                // 选第一个有空位的班
+                const existingClass = candidateClasses.find((c: any) => c.enrolled < c.capacity) || null;
 
-                if (existingClass && existingClass.enrolled < existingClass.capacity) {
+                if (existingClass) {
                     const alreadyEnrolled = await prisma.eduStudentInClass.findUnique({
                         where: { student_id_class_id: { student_id: order.student_id, class_id: existingClass.id } }
                     });
@@ -210,22 +212,30 @@ export class FinanceService {
                         });
                         // 通过 count 同步 enrolled，避免手动 increment 误差
                         const count = await prisma.eduStudentInClass.count({ where: { class_id: existingClass.id } });
+                        const updatedEnrolled = count;
+                        // 若满足开班人数则自动升级 PENDING → ONGOING
+                        const nextStatus = existingClass.status === 'PENDING' && updatedEnrolled >= (existingClass as any).min_students
+                            ? 'ONGOING'
+                            : existingClass.status;
                         await prisma.edClass.update({
                             where: { id: existingClass.id },
-                            data: { enrolled: count }
+                            data: { enrolled: updatedEnrolled, status: nextStatus }
                         });
                     }
                     assignedClassName = existingClass.name;
                 } else {
-                    // 创建新班级
+                    // 无可用班级 → 新建招生中班级（PENDING），凑齐 min_students 人后方可开班
+                    const MIN_STUDENTS = 5; // 默认最少开班人数
                     const monthStr = new Date().toISOString().slice(0, 7);
                     const newClass = await prisma.edClass.create({
                         data: {
                             name: `${course.name}-${monthStr}班`,
                             capacity: 30,
+                            min_students: MIN_STUDENTS,
                             enrolled: 1,
                             campus_id: data.campusId,
-                            status: 'ONGOING',
+                            // 仅 1 人时进入招生等待状态，凑满 min_students 后管理员/系统升级为 ONGOING
+                            status: 'PENDING',
                         }
                     });
 
@@ -240,13 +250,13 @@ export class FinanceService {
                             }
                         });
 
-                        // 自动排课：每周一节，从下周一开始
+                        // 自动生成草稿排课（DRAFT），等班级升为 ONGOING 后再 PUBLISH
                         const startDate = new Date();
-                        const dayOfWeek = startDate.getDay(); // 0=Sun … 6=Sat
-                        const daysUntilNextMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek); // Mon=7 days, not 0
+                        const dayOfWeek = startDate.getDay();
+                        const daysUntilNextMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
                         startDate.setDate(startDate.getDate() + daysUntilNextMonday);
                         startDate.setHours(10, 0, 0, 0);
-                        const lessonDuration = course.duration || 45;
+                        const lessonDuration = (course as any).duration || 45;
 
                         const scheduleData = [];
                         for (let i = 0; i < Math.min(order.total_qty, 48); i++) {
@@ -256,18 +266,17 @@ export class FinanceService {
                             lessonEnd.setMinutes(lessonEnd.getMinutes() + lessonDuration);
                             scheduleData.push({
                                 assignment_id: assignment.id,
-                                course_id: order.course_id,   // 冗余字段，简化后续课消查询
+                                course_id: order.course_id,
                                 lesson_no: i + 1,
                                 start_time: lessonStart,
                                 end_time: lessonEnd,
-                                status: 'PUBLISHED',
+                                status: 'DRAFT', // 招生中班级课表为草稿，正式开班后 publish
                             });
                         }
                         if (scheduleData.length > 0) {
                             await prisma.edLessonSchedule.createMany({ data: scheduleData });
                         }
                     } else {
-                        // 课程无教师时不创建排课，仅记录日志
                         console.warn(`[Finance] 课程 ${course.name} 无授课教师，跳过自动排课`);
                     }
 

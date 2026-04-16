@@ -77,12 +77,13 @@ model EdCourse {
 }
 
 model EdClass {
-  id        String @id @default(uuid())
-  name      String
-  capacity  Int
-  enrolled  Int    @default(0)
-  campus_id String
-  status    String @default("ONGOING")
+  id           String @id @default(uuid())
+  name         String
+  capacity     Int
+  enrolled     Int    @default(0)
+  min_students Int    @default(5) // 最少开班人数，达到后才可将 PENDING → ONGOING
+  campus_id    String
+  status       String @default("PENDING") // PENDING=招生中, ONGOING=开班中, COMPLETED=已结业, CANCELLED=已取消
 
   assignments EdClassAssignment[]
   students    EduStudentInClass[]
@@ -327,6 +328,17 @@ model SysAnnouncement {
   createdAt    DateTime                @default(now())
   updatedAt    DateTime                @updatedAt
   targets      SysAnnouncementTarget[]
+  reads        SysAnnouncementRead[]
+}
+
+model SysAnnouncementRead {
+  id              String          @id @default(uuid())
+  announcement_id String
+  user_id         String
+  readAt          DateTime        @default(now())
+  announcement    SysAnnouncement @relation(fields: [announcement_id], references: [id])
+
+  @@unique([announcement_id, user_id])
 }
 
 model SysAnnouncementTarget {

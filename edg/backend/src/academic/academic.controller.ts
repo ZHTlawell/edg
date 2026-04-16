@@ -128,6 +128,17 @@ export class AcademicController {
         return this.academicService.assignCourseToClass(body);
     }
 
+    /** 手动将学员加入班级 */
+    @UseGuards(AuthGuard('jwt'))
+    @Post('classes/:classId/enroll')
+    async enrollStudent(@Request() req: any, @Param('classId') classId: string, @Body() body: { studentId: string }) {
+        const userRole = req.user.role.toUpperCase();
+        if (!['ADMIN', 'CAMPUS_ADMIN'].includes(userRole)) {
+            throw new UnauthorizedException('仅管理员可手动分班');
+        }
+        return this.academicService.enrollStudentInClass(classId, body.studentId);
+    }
+
     // -------------------------
     // 智能排课与发布 API
     // -------------------------
@@ -180,5 +191,33 @@ export class AcademicController {
         const filterCampusId = userRole === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
         if (!filterCampusId) throw new BadRequestException('未指定校区');
         return this.academicService.getClassrooms(filterCampusId);
+    }
+
+    // ─────────────────────────────────────────────
+    // 招生管理：PENDING 班查询 & 手动开班
+    // ─────────────────────────────────────────────
+
+    /** 查看招生中（PENDING）的班级，了解距开班还差多少人 */
+    @UseGuards(AuthGuard('jwt'))
+    @Get('classes/pending')
+    async getPendingClasses(@Request() req: any, @Query('campusId') campusId?: string) {
+        const userRole = req.user.role.toUpperCase();
+        const filterCampusId = userRole === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
+        return this.academicService.getPendingClasses(filterCampusId);
+    }
+
+    /** 手动开班：将 PENDING 升级为 ONGOING，发布草稿排课 */
+    @UseGuards(AuthGuard('jwt'))
+    @Post('classes/:classId/open')
+    async openClass(
+        @Param('classId') classId: string,
+        @Body() body: { force?: boolean },
+        @Request() req: any
+    ) {
+        const userRole = req.user.role.toUpperCase();
+        if (userRole !== 'CAMPUS_ADMIN' && userRole !== 'ADMIN') {
+            throw new UnauthorizedException('仅教务主管可执行开班操作');
+        }
+        return this.academicService.openClass(classId, body.force ?? false);
     }
 }
