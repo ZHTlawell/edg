@@ -302,7 +302,7 @@ export class AcademicService {
                                 course: true,
                                 teacher: true,
                                 schedules: {
-                                    where: { status: 'PUBLISHED' },
+                                    where: { status: { in: ['PUBLISHED', 'COMPLETED'] } },
                                     orderBy: { start_time: 'asc' }
                                 }
                             }
