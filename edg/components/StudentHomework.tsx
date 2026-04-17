@@ -1,14 +1,93 @@
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
-import { UploadCloud, Link2, FileText, ChevronDown, ChevronUp, Paperclip, X } from 'lucide-react';
+import { API_BASE } from '../utils/config';
+import { UploadCloud, Link2, FileText, ChevronDown, ChevronUp, Paperclip, X, Edit3, Download, Eye } from 'lucide-react';
+
+/* ─── 文件预览工具 ─── */
+type PreviewKind = 'video' | 'audio' | 'pdf' | 'image' | 'office' | 'other';
+const detectKind = (filename: string): PreviewKind => {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'video';
+    if (['mp3', 'wav', 'aac', 'flac', 'm4a'].includes(ext)) return 'audio';
+    if (ext === 'pdf') return 'pdf';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return 'image';
+    if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) return 'office';
+    return 'other';
+};
+const isLocalhostUrl = (url: string) =>
+    /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01]))/i.test(url);
+
+interface PreviewFile { url: string; name: string; }
+
+const FilePreviewModal: React.FC<{ file: PreviewFile; onClose: () => void }> = ({ file, onClose }) => {
+    const kind = detectKind(file.name);
+    const absUrl = file.url.startsWith('http') ? file.url : `${API_BASE}${file.url}`;
+    const isLocal = isLocalhostUrl(absUrl);
+
+    return (
+        <div className="fixed inset-0 bg-black/70 z-[100] flex flex-col items-center justify-center p-4" onClick={onClose}>
+            <div className="w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50 shrink-0">
+                    <span className="text-sm font-bold text-slate-700 truncate max-w-[80%]">{file.name}</span>
+                    <div className="flex items-center gap-2">
+                        <a href={absUrl} download={file.name} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-3 py-1.5 bg-indigo-50 rounded-lg">
+                            <Download size={12} /> 下载
+                        </a>
+                        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X size={18} /></button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-auto bg-slate-100 flex items-center justify-center min-h-[400px]">
+                    {kind === 'video' && (
+                        <video src={absUrl} controls className="max-w-full max-h-[70vh] rounded" />
+                    )}
+                    {kind === 'audio' && (
+                        <audio src={absUrl} controls className="w-full max-w-lg" />
+                    )}
+                    {kind === 'pdf' && (
+                        <iframe src={absUrl} className="w-full h-[70vh] border-0" title={file.name} />
+                    )}
+                    {kind === 'image' && (
+                        <img src={absUrl} alt={file.name} className="max-w-full max-h-[70vh] object-contain rounded" />
+                    )}
+                    {kind === 'office' && !isLocal && (
+                        <iframe
+                            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absUrl)}`}
+                            className="w-full h-[70vh] border-0"
+                            title={file.name}
+                        />
+                    )}
+                    {kind === 'office' && isLocal && (
+                        <div className="text-center p-10 space-y-4">
+                            <FileText size={48} className="mx-auto text-slate-300" />
+                            <p className="text-slate-500 font-medium">Office 文档在线预览需要公网地址</p>
+                            <a href={absUrl} download={file.name} className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700">
+                                <Download size={14} /> 下载查看
+                            </a>
+                        </div>
+                    )}
+                    {kind === 'other' && (
+                        <div className="text-center p-10 space-y-4">
+                            <FileText size={48} className="mx-auto text-slate-300" />
+                            <p className="text-slate-500 font-medium">该文件类型不支持在线预览</p>
+                            <a href={absUrl} download={file.name} className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700">
+                                <Download size={14} /> 下载文件
+                            </a>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 type FilterTab = 'all' | 'pending' | 'submitted' | 'graded';
 type SubmitMode = 'text' | 'link' | 'file';
 
 export const StudentHomework: React.FC = () => {
-    const { currentUser, homeworks, homeworkSubmissions, submitHomework, fetchMyHomeworks, addToast } = useStore();
+    const { currentUser, homeworks, homeworkSubmissions, submitHomework, editSubmission, fetchMyHomeworks, addToast } = useStore();
     const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+    const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
 
     useEffect(() => {
         if (currentUser?.role === 'student') {
@@ -21,6 +100,12 @@ export const StudentHomework: React.FC = () => {
     const [linkInput, setLinkInput] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Editing state
+    const [editingSubId, setEditingSubId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState('');
+    const [editFile, setEditFile] = useState<File | null>(null);
+    const [editMode, setEditMode] = useState<SubmitMode>('text');
+    const editFileRef = useRef<HTMLInputElement>(null);
 
     const myHomeworks = useMemo(() => {
         return (homeworks || []).slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -64,37 +149,65 @@ export const StudentHomework: React.FC = () => {
         }
     };
 
-    const handleSubmit = (hwId: string) => {
+    const handleSubmit = async (hwId: string) => {
         if (typeof submitHomework !== 'function') {
             alert('检测到系统内核热更新缓存，请按 F5 或 Cmd+R 强制刷新页面后重试！');
             return;
         }
 
-        let content = '';
-        if (submitMode === 'text') {
-            content = submissionContent.trim();
-            if (!content) { addToast?.('请填写作业内容', 'warning'); return; }
-        } else if (submitMode === 'link') {
-            content = linkInput.trim();
-            if (!content) { addToast?.('请输入提交链接', 'warning'); return; }
-            if (!/^https?:\/\//i.test(content)) { addToast?.('请输入有效的 URL（以 http:// 或 https:// 开头）', 'warning'); return; }
-            content = `[链接提交] ${content}`;
-        } else if (submitMode === 'file') {
-            if (!selectedFile) { addToast?.('请选择要上传的文件', 'warning'); return; }
-            content = `[文件提交] ${selectedFile.name}`;
-        }
+        try {
+            if (submitMode === 'file') {
+                if (!selectedFile) { addToast?.('请选择要上传的文件', 'warning'); return; }
+                // 真实文件上传
+                const fd = new FormData();
+                fd.append('file', selectedFile);
+                fd.append('homeworkId', hwId);
+                const { default: api } = await import('../utils/api');
+                await api.post('/api/teaching/homeworks/submit-file', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                addToast?.('作业文件已提交', 'success');
+            } else {
+                let content = '';
+                if (submitMode === 'text') {
+                    content = submissionContent.trim();
+                    if (!content) { addToast?.('请填写作业内容', 'warning'); return; }
+                } else if (submitMode === 'link') {
+                    content = linkInput.trim();
+                    if (!content) { addToast?.('请输入提交链接', 'warning'); return; }
+                    if (!/^https?:\/\//i.test(content)) { addToast?.('请输入有效的 URL（以 http:// 或 https:// 开头）', 'warning'); return; }
+                    content = `[链接提交] ${content}`;
+                }
+                await submitHomework({
+                    homework_id: hwId,
+                    student_id: currentUser?.bindStudentId || 'S10001',
+                    content,
+                });
+            }
+            fetchMyHomeworks?.();
+        } catch { /* handled by toast */ }
 
-        submitHomework({
-            homework_id: hwId,
-            student_id: currentUser?.bindStudentId || 'S10001',
-            content,
-        }).then(() => {
-            fetchMyHomeworks?.(); // Refresh homework list after submission
-        }).catch(() => {});
         setSubmissionContent('');
         setLinkInput('');
         setSelectedFile(null);
         setExpandedHw(null);
+    };
+
+    const startEdit = (sub: any) => {
+        setEditingSubId(sub.id);
+        setEditContent(sub.content || '');
+        setEditFile(null);
+        setEditMode(sub.attachmentUrl ? 'file' : 'text');
+    };
+
+    const handleEdit = async (subId: string) => {
+        try {
+            if (editMode === 'file' && editFile) {
+                await editSubmission(subId, `[文件提交] ${editFile.name}`, editFile);
+            } else {
+                if (!editContent.trim()) { addToast?.('请填写内容', 'warning'); return; }
+                await editSubmission(subId, editContent);
+            }
+            setEditingSubId(null);
+        } catch { /* handled */ }
     };
 
     const filterTabs: { key: FilterTab; label: string; count: number; color: string }[] = [
@@ -113,6 +226,7 @@ export const StudentHomework: React.FC = () => {
 
     return (
         <div className="max-w-[900px] mx-auto space-y-6 animate-in fade-in duration-500 pb-20">
+        {previewFile && <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
             {/* Header */}
             <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-6 mb-6">
@@ -207,6 +321,24 @@ export const StudentHomework: React.FC = () => {
                                             <h3 className="text-base font-bold text-slate-800 truncate">{hw.title}</h3>
                                         </div>
                                         <p className="text-sm text-slate-600 leading-relaxed line-clamp-2">{hw.content}</p>
+                                        {hw.attachmentName && (
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <button
+                                                    onClick={e => { e.stopPropagation(); setPreviewFile({ url: hw.attachmentUrl!, name: hw.attachmentName! }); }}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors"
+                                                >
+                                                    <Eye size={12} /> {hw.attachmentName}
+                                                </button>
+                                                <a
+                                                    href={`${API_BASE}${hw.attachmentUrl}`}
+                                                    download={hw.attachmentName}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+                                                >
+                                                    <Download size={11} />
+                                                </a>
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-5 text-xs font-semibold text-slate-400">
                                             <span className="flex items-center gap-1.5">
                                                 <ElmIcon name="clock" size={14} />
@@ -257,27 +389,101 @@ export const StudentHomework: React.FC = () => {
                                             <p className="text-sm text-indigo-700 font-medium">{mySubmission.feedback}</p>
                                         </div>
                                     )}
-                                    {mySubmission.content && (
+                                    {(mySubmission.content || (mySubmission as any).attachmentUrl) && (
                                         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">我的提交</p>
-                                            <p className="text-sm text-slate-600 font-medium whitespace-pre-wrap break-all">{mySubmission.content}</p>
+                                            {(mySubmission as any).attachmentUrl ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => setPreviewFile({ url: (mySubmission as any).attachmentUrl, name: (mySubmission as any).attachmentName || '附件' })}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors"
+                                                    >
+                                                        <Eye size={12} /> {(mySubmission as any).attachmentName || '预览附件'}
+                                                    </button>
+                                                    <a href={`${API_BASE}${(mySubmission as any).attachmentUrl}`} download={(mySubmission as any).attachmentName}
+                                                        className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors">
+                                                        <Download size={11} />
+                                                    </a>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-slate-600 font-medium whitespace-pre-wrap break-all">{mySubmission.content}</p>
+                                            )}
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {/* Expanded: Submitted pending grade */}
+                            {/* Expanded: Submitted pending grade — with edit capability */}
                             {isSubmitted && !isGraded && (
-                                <div className="px-6 pb-6 border-t border-slate-100 pt-4">
-                                    <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-start gap-3">
-                                        <ElmIcon name="circle-check" size={16} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-emerald-700">作业已提交，等待老师批改</p>
-                                            {mySubmission.content && (
-                                                <p className="text-xs text-emerald-600 mt-1 break-all line-clamp-2">{mySubmission.content}</p>
+                                <div className="px-6 pb-6 border-t border-slate-100 pt-4 space-y-3">
+                                    {editingSubId === mySubmission.id ? (
+                                        /* ── Edit form ── */
+                                        <div className="space-y-3">
+                                            <div className="flex gap-2">
+                                                {([
+                                                    { key: 'text' as SubmitMode, icon: <FileText size={13} />, label: '文字' },
+                                                    { key: 'file' as SubmitMode, icon: <Paperclip size={13} />, label: '文件' },
+                                                ]).map(m => (
+                                                    <button key={m.key} onClick={() => setEditMode(m.key)}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${editMode === m.key ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {m.icon}{m.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {editMode === 'text' ? (
+                                                <textarea rows={4} value={editContent} onChange={e => setEditContent(e.target.value)}
+                                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 resize-none" placeholder="修改作业内容..." />
+                                            ) : (
+                                                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-300 transition-all"
+                                                    onClick={() => editFileRef.current?.click()}>
+                                                    <input ref={editFileRef} type="file" className="hidden"
+                                                        accept=".pdf,.doc,.docx,.zip,.rar,.txt,.md,.js,.ts,.jsx,.tsx,.py,.java"
+                                                        onChange={e => setEditFile(e.target.files?.[0] || null)} />
+                                                    {editFile ? (
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <Paperclip size={14} className="text-blue-500" />
+                                                            <span className="text-sm font-bold text-slate-700">{editFile.name}</span>
+                                                            <button onClick={e => { e.stopPropagation(); setEditFile(null); }} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-slate-400">点击选择新文件</p>
+                                                    )}
+                                                </div>
                                             )}
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setEditingSubId(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-500 text-xs font-bold rounded-lg">取消</button>
+                                                <button onClick={() => handleEdit(mySubmission.id)} className="flex-1 py-2 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">保存修改</button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        /* ── Normal submitted view ── */
+                                        <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex items-start gap-3">
+                                            <ElmIcon name="circle-check" size={16} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-emerald-700">作业已提交，等待老师批改</p>
+                                                {(mySubmission as any).attachmentUrl ? (
+                                                    <div className="flex items-center gap-1.5 mt-1">
+                                                        <button
+                                                            onClick={() => setPreviewFile({ url: (mySubmission as any).attachmentUrl, name: (mySubmission as any).attachmentName || '附件' })}
+                                                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-white border border-emerald-200 text-emerald-700 rounded-md text-xs font-bold hover:bg-emerald-100 transition-colors"
+                                                        >
+                                                            <Eye size={12} /> {(mySubmission as any).attachmentName || '预览附件'}
+                                                        </button>
+                                                        <a href={`${API_BASE}${(mySubmission as any).attachmentUrl}`} download={(mySubmission as any).attachmentName}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-emerald-200 text-emerald-600 rounded-md text-xs font-bold hover:bg-emerald-100 transition-colors">
+                                                            <Download size={11} />
+                                                        </a>
+                                                    </div>
+                                                ) : mySubmission.content && (
+                                                    <p className="text-xs text-emerald-600 mt-1 break-all line-clamp-2">{mySubmission.content}</p>
+                                                )}
+                                            </div>
+                                            <button onClick={() => startEdit(mySubmission)}
+                                                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-emerald-200 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors shrink-0">
+                                                <Edit3 size={12} /> 编辑
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

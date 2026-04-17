@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ElmIcon } from './ElmIcon';
-import { Plus, Trash2, FileText, X, ChevronDown, ChevronRight as ChevRight } from 'lucide-react';
+import { Plus, Trash2, FileText, X, ChevronDown, ChevronRight as ChevRight, Upload, Download } from 'lucide-react';
 import api from '../utils/api';
 import { useStore } from '../store';
+import { parseQuizFile, downloadQuizTemplate } from '../utils/quizImport';
 
 interface Chapter {
     id: string;
@@ -56,6 +57,29 @@ const QuizEditorModal: React.FC<{
     const [passScore, setPassScore] = useState(60);
     const [questions, setQuestions] = useState<QuestionDraft[]>([blankQuestion()]);
     const [saving, setSaving] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
+
+        const { questions: parsed, errors } = await parseQuizFile(file);
+
+        if (errors.length > 0) {
+            addToast(`导入有 ${errors.length} 条警告：${errors[0]}`, 'warning');
+        }
+        if (parsed.length === 0) {
+            addToast('未解析到有效题目，请检查文件格式', 'error');
+            return;
+        }
+
+        setQuestions(prev => {
+            const isBlank = prev.length === 1 && !prev[0].text.trim();
+            return isBlank ? parsed : [...prev, ...parsed];
+        });
+        addToast(`成功导入 ${parsed.length} 道题目`, 'success');
+    };
 
     const updateQ = (idx: number, patch: Partial<QuestionDraft>) => {
         setQuestions(prev => prev.map((q, i) => (i === idx ? { ...q, ...patch } : q)));
@@ -129,7 +153,22 @@ const QuizEditorModal: React.FC<{
                         <h3 className="text-xl font-bold text-slate-900">为「{chapter.title}」出题</h3>
                         <p className="text-xs text-slate-400 mt-1">所有引用此课程标准的实例课程都会用上这套题</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X size={18} /></button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={downloadQuizTemplate}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors"
+                            title="下载题目模板">
+                            <Download size={14} /> 下载模板
+                        </button>
+                        <button onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors"
+                            title="从 Excel/CSV 导入题目">
+                            <Upload size={14} /> 导入题目
+                        </button>
+                        <input ref={fileInputRef} type="file" className="hidden"
+                            accept=".xlsx,.xls,.csv"
+                            onChange={handleImportFile} />
+                        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X size={18} /></button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-6">

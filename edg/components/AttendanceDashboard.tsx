@@ -272,15 +272,14 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
             <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tighter mt-1">{stats.absent}</h3>
           </div>
         </div>
-        <div className="bg-slate-900 p-6 rounded-[2rem] text-white space-y-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-2xl -translate-y-12 translate-x-12"></div>
-          <div className="flex items-center justify-between relative z-10">
-            <div className="p-2.5 bg-white/10 rounded-2xl text-blue-400"><School size={24} /></div>
-            <span className="text-[10px] font-bold opacity-60 tracking-widest uppercase">全校档案</span>
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="p-2.5 bg-indigo-50 rounded-2xl text-indigo-500"><School size={22} /></div>
+            <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">全校档案</span>
           </div>
-          <div className="relative z-10">
-            <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">累计考勤人次</p>
-            <h3 className="text-2xl font-bold font-mono tracking-tighter mt-1">{attendanceRecords.length > 0 ? `${attendanceRecords.length.toLocaleString()}` : '0'}</h3>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">累计考勤人次</p>
+            <h3 className="text-2xl font-bold text-slate-800 font-mono tracking-tighter mt-1">{attendanceRecords.length > 0 ? `${attendanceRecords.length.toLocaleString()}` : '0'}</h3>
           </div>
         </div>
       </div>
@@ -509,35 +508,6 @@ export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegi
             </div>
           </div>
 
-          <div className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-4 shadow-xl shadow-blue-100 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/10 to-transparent pointer-events-none"></div>
-            <div className="space-y-3 relative z-10">
-              <h4 className="text-sm font-bold opacity-80 uppercase tracking-widest">本周到课趋势</h4>
-              {weeklyTrend.every(d => d.total === 0) ? (
-                <p className="text-xs opacity-60 italic py-6 text-center">本周暂无考勤数据</p>
-              ) : (
-                <>
-                  <div className="flex items-end gap-2 h-24 pt-2">
-                    {weeklyTrend.map((d, i) => (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                        <div
-                          className={`w-full rounded-t-lg relative group transition-all cursor-help ${d.total === 0 ? 'bg-white/10' : 'bg-white/30 hover:bg-white/50'}`}
-                          style={{ height: `${Math.max(d.rate, d.total > 0 ? 8 : 4)}%` }}
-                        >
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white text-blue-600 px-2 py-1 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
-                            {d.rate}% · {d.total} 人次
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-[10px] font-bold opacity-60 pt-1">
-                    {weeklyTrend.map((d, i) => <span key={i} className="flex-1 text-center">周{d.label}</span>)}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>

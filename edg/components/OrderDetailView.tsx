@@ -31,12 +31,13 @@ import { useStore } from '../store';
 interface OrderDetailViewProps {
   orderId: string;
   onBack: () => void;
+  onViewStudent?: (student: any) => void;
 }
 
 type OrderStatus = 'pending' | 'partial' | 'completed' | 'refunded' | 'partial_refunded' | 'canceled';
 type TabType = 'items' | 'payments' | 'lessons' | 'history';
 
-export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBack }) => {
+export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBack, onViewStudent }) => {
   const { orders, students, courses, processPayment, addToast } = useStore();
   const [activeTab, setActiveTab] = useState<TabType>('items');
 
@@ -123,9 +124,6 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
         </div>
         
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
-            <Edit3 size={16} /> 编辑订单
-          </button>
           {status !== 'completed' && status !== 'canceled' && (
             <button
               onClick={async () => {
@@ -503,7 +501,10 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
                 <p className="text-xs text-slate-400 font-medium">{courseName} 学员</p>
               </div>
             </div>
-            <button className="w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+            <button
+              onClick={() => student && onViewStudent?.(student)}
+              className="w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all flex items-center justify-center gap-2"
+            >
               查看学员详情档案 <ElmIcon name="arrow-right" size={16} />
             </button>
           </div>
@@ -543,18 +544,6 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
         </div>
       </div>
 
-      {/* Fixed bottom actions */}
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-md border-t border-slate-100 px-8 flex items-center justify-between z-30 lg:left-64">
-        <button onClick={onBack} className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
-          返回订单列表
-        </button>
-        <div className="flex items-center gap-4">
-           <p className="text-xs text-slate-400 font-medium hidden md:block">如有疑问请咨询系统管理员或财务审计人员</p>
-           <button className="px-10 py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95">
-             查看合同样本
-           </button>
-        </div>
-      </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         .no-scrollbar::-webkit-scrollbar { display: none; }

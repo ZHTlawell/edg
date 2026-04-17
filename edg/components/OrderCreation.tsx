@@ -33,14 +33,17 @@ interface OrderCreationProps {
 import { useStore } from '../store';
 
 export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess }) => {
-  const { students, courses, campuses, fetchCampuses, createOrder, addToast } = useStore();
+  const { students, courses, campuses, fetchCampuses, createOrder, addToast, currentUser } = useStore();
 
   useEffect(() => {
     fetchCampuses();
   }, [fetchCampuses]);
+  // 校区端：校区锁定为当前登录校区；总部端：允许选择
+  const isCampusAdmin = currentUser?.role === 'campus_admin';
+  const lockedCampusName = isCampusAdmin ? (currentUser?.campusName || '本校区') : '';
   // --- Form State ---
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [campus, setCampus] = useState('总校区');
+  const [campus, setCampus] = useState(lockedCampusName || '总校区');
   const [courseId, setCourseId] = useState('');
   const [level, setLevel] = useState('');
   const [classId, setClassId] = useState('pending'); // pending = 待分班
@@ -99,8 +102,10 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
       return;
     }
 
-    // 映射当前校区 ID
-    const campusId = (campuses || []).find(c => c.name === campus)?.id || 'C001';
+    // 校区端：直接用当前登录校区 ID；总部端：按选择的校区名映射
+    const campusId = isCampusAdmin
+      ? (currentUser?.campus_id || '')
+      : ((campuses || []).find(c => c.name === campus)?.id || 'C001');
 
     // 执行 Store 动作，完成订单创建与资产流转
     const orderId = createOrder({
@@ -236,15 +241,21 @@ export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">意向校区 <span className="text-red-500">*</span></label>
-                  <select
-                    value={campus}
-                    onChange={(e) => setCampus(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
-                  >
-                    {(campuses || []).map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
+                  {isCampusAdmin ? (
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-500 cursor-not-allowed">
+                      {lockedCampusName} <span className="text-[10px] font-normal text-slate-400 ml-2">（当前校区，不可修改）</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={campus}
+                      onChange={(e) => setCampus(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all text-sm font-bold text-slate-900"
+                    >
+                      {(campuses || []).map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="space-y-2">

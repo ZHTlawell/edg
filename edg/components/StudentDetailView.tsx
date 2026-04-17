@@ -66,6 +66,30 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
 
   const { applyRefund, transferClass, addToast } = useStore();
 
+  // 资产财务：点击 tab 时实时拉取
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [localOrders, setLocalOrders] = useState<any[]>([]);
+  const [localAssets, setLocalAssets] = useState<any[]>([]);
+  const [localLedgers, setLocalLedgers] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (activeTab === 'payment' && student.id) {
+      setPaymentLoading(true);
+      Promise.all([
+        api.get(`/api/finance/assets/${student.id}`).then(r => r.data).catch(() => ({ accounts: [] })),
+        api.get(`/api/finance/orders`).then(r => r.data).catch(() => []),
+      ]).then(([assetData, allOrders]) => {
+        const accounts = assetData?.accounts || [];
+        setLocalAssets(accounts);
+        setLocalLedgers(
+          accounts.flatMap((acc: any) => (acc.ledgers || []).map((l: any) => ({ ...l, student_id: student.id })))
+            .sort((a: any, b: any) => new Date(b.occurTime).getTime() - new Date(a.occurTime).getTime())
+        );
+        setLocalOrders((allOrders || []).filter((o: any) => o.student_id === student.id));
+      }).finally(() => setPaymentLoading(false));
+    }
+  }, [activeTab, student.id]);
+
   // 作业 + 测验：按学员 ID 局部 fetch（仅 admin/campus_admin/teacher 视角使用）
   const [studentHomeworks, setStudentHomeworks] = useState<any[]>([]);
   const [studentQuizzes, setStudentQuizzes] = useState<any[]>([]);
@@ -400,6 +424,13 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
 
         {activeTab === 'payment' && (
           <div className="space-y-8">
+            {paymentLoading && (
+              <div className="flex items-center justify-center py-16 text-slate-400 gap-2 text-sm">
+                <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                加载资产数据中...
+              </div>
+            )}
+            {!paymentLoading && (<>
             <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                 <h4 className="font-bold text-slate-800">购课订单记录</h4>
@@ -416,7 +447,7 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {studentOrders.length > 0 ? studentOrders.map(order => (
+                  {localOrders.length > 0 ? localOrders.map(order => (
                     <tr key={order.id} className="hover:bg-slate-50/50 transition-all">
                       <td className="px-8 py-6 font-mono text-xs text-slate-400 font-bold tracking-tighter">{order.id}</td>
                       <td className="px-8 py-6">
@@ -460,38 +491,38 @@ export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: i
             <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="p-6 border-b border-slate-100 bg-slate-50/30">
                 <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                  <History size={18} className="text-blue-500" /> 资产变动明细 (Audit Ledger)
+                  <History size={18} className="text-blue-500" /> 资产变动明细
                 </h4>
               </div>
               <div className="p-8 space-y-3">
-                {studentLedgers.map(ledger => (
+                {localLedgers.map((ledger: any) => (
                   <div key={ledger.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-all hover:border-blue-100 group">
                     <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ledger.businessType === 'BUY' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
-                        }`}>
-                        {ledger.businessType === 'BUY' ? <ElmIcon name="plus" size={16} /> : <ElmIcon name="clock" size={16} />}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ledger.type === 'BUY' || ledger.businessType === 'BUY' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                        {ledger.type === 'BUY' || ledger.businessType === 'BUY' ? <ElmIcon name="plus" size={16} /> : <ElmIcon name="clock" size={16} />}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-800">
-                          {ledger.businessType === 'BUY' ? '购入课时' : '上课扣除'}
-                          <span className="text-xs text-slate-400 font-medium ml-2 font-mono">#{ledger.refId}</span>
+                          {ledger.type === 'BUY' || ledger.businessType === 'BUY' ? '购入课时' : ledger.type === 'REFUND' ? '退费扣减' : '上课扣除'}
+                          {(ledger.refId || ledger.ref_id) && <span className="text-xs text-slate-400 font-medium ml-2 font-mono">#{ledger.refId || ledger.ref_id}</span>}
                         </p>
                         <p className="text-[10px] text-slate-400 font-medium">{new Date(ledger.occurTime).toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-bold ${ledger.changeQty > 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
-                        {ledger.changeQty > 0 ? '+' : ''}{ledger.changeQty} 课时
+                      <p className={`text-sm font-bold ${(ledger.changeQty ?? ledger.change_qty) > 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
+                        {(ledger.changeQty ?? ledger.change_qty) > 0 ? '+' : ''}{ledger.changeQty ?? ledger.change_qty} 课时
                       </p>
-                      <p className="text-[10px] text-slate-400 font-medium font-mono">结余: {ledger.balanceSnapshot}</p>
+                      <p className="text-[10px] text-slate-400 font-medium font-mono">结余: {ledger.balanceSnapshot ?? ledger.balance_snapshot}</p>
                     </div>
                   </div>
                 ))}
-                {studentLedgers.length === 0 && (
+                {localLedgers.length === 0 && (
                   <p className="text-center py-10 text-slate-300 text-xs font-medium italic">尚未产生任何资产变动流水</p>
                 )}
               </div>
             </div>
+            </>)}
           </div>
         )}
 

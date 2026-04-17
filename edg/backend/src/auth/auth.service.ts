@@ -30,12 +30,23 @@ export class AuthService {
     }
 
     async login(user: any) {
+        // 存量校区管理员如果没有 campus_id，登录时为其补全一个独立的校区ID
+        // 防止多个校区管理员因 campus_id 都是 null 而互相看到彼此数据
+        let campusId = user.campus_id;
+        if (user.role === 'CAMPUS_ADMIN' && !campusId) {
+            const { randomUUID } = await import('crypto');
+            campusId = randomUUID();
+            await this.usersService.updateCampusId(user.id, campusId);
+            // 顺便给新校区初始化20个教室
+            await this.usersService.initClassroomsForCampus(campusId);
+        }
+
         const payload: any = {
             username: user.username,
             sub: user.id,
             role: user.role,
             name: user.teacherProfile?.name || user.studentProfile?.name || user.username,
-            campusId: user.campus_id,
+            campusId,
             campusName: user.campusName,
             studentId: user.studentProfile?.id,
             teacherId: user.teacherProfile?.id

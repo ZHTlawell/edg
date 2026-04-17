@@ -16,19 +16,29 @@ import { useStore } from '../store';
 
 type Step = 'select-student' | 'select-course' | 'select-class' | 'confirm' | 'payment' | 'success';
 
-export const Payments: React.FC = () => {
+interface PaymentsProps {
+    initialTab?: 'enroll' | 'orders';
+    onViewOrder?: (orderId: string) => void;
+}
+
+export const Payments: React.FC<PaymentsProps> = ({ initialTab = 'enroll', onViewOrder }) => {
     const {
         students,
         courses,
         classes,
         campuses,
+        orders,
         createOrder,
         processPayment,
         createStudentByAdmin,
         addToast,
         currentUser,
-        fetchClasses
+        fetchClasses,
+        fetchOrders
     } = useStore();
+
+    // ─── Top-Level Tab ────────────────────────────────────────────
+    const [topTab, setTopTab] = useState<'enroll' | 'orders'>(initialTab);
 
     // ─── Step Control ────────────────────────────────────────────
     const [step, setStep] = useState<Step>('select-student');
@@ -128,7 +138,7 @@ export const Payments: React.FC = () => {
     const handleSelectCourse = (id: string) => {
         setSelectedCourseId(id);
         setSelectedClassId('');
-        setStep('select-class');
+        setStep('confirm'); // 跳过选班级（后端 processPayment 自动分班）
     };
 
     const handleSelectClass = (id: string) => {
@@ -198,24 +208,143 @@ export const Payments: React.FC = () => {
     const STEPS: { key: Step; label: string }[] = [
         { key: 'select-student', label: '选择学员' },
         { key: 'select-course', label: '选择课程' },
-        { key: 'select-class', label: '选择班级' },
+        // select-class 已移除：后端 processPayment 自动分班
         { key: 'confirm', label: '确认信息' },
         { key: 'payment', label: '缴费登记' },
         { key: 'success', label: '完成' },
     ];
     const currentStepIdx = STEPS.findIndex(s => s.key === step);
 
+    // 订单记录列表数据
+    const [orderSearch, setOrderSearch] = useState('');
+    const [orderPage, setOrderPage] = useState(1);
+    const orderPageSize = 10;
+
+    useEffect(() => {
+        if (topTab === 'orders') {
+            const campusId = currentUser?.role === 'campus_admin' ? currentUser.campus_id : undefined;
+            fetchOrders(campusId);
+        }
+    }, [topTab]);
+
+    const filteredOrders = useMemo(() => {
+        return (orders || []).filter(o => {
+            if (!orderSearch) return true;
+            const kw = orderSearch.toLowerCase();
+            return (o.course?.name || '').toLowerCase().includes(kw) ||
+                (o.student_id || '').includes(kw) ||
+                (o.id || '').includes(kw);
+        }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    }, [orders, orderSearch]);
+
+    const orderTotalPages = Math.max(1, Math.ceil(filteredOrders.length / orderPageSize));
+    const pagedOrders = filteredOrders.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
+
+    const statusMap: Record<string, { label: string; cls: string }> = {
+        PAID: { label: '已支付', cls: 'bg-emerald-50 text-emerald-600' },
+        PENDING_PAYMENT: { label: '待支付', cls: 'bg-amber-50 text-amber-600' },
+        PARTIAL_REFUNDED: { label: '部分退款', cls: 'bg-blue-50 text-blue-600' },
+        REFUNDED: { label: '已退款', cls: 'bg-slate-100 text-slate-500' },
+        VOIDED: { label: '已作废', cls: 'bg-red-50 text-red-500' },
+    };
+
     return (
         <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20 pt-2">
             {/* Header */}
-            <div className="space-y-1">
-                <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
-                    报名缴费中心
-                    <div className="bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full border border-blue-100 tracking-widest font-bold">报名缴费</div>
-                </h1>
-                <p className="text-slate-400 text-sm font-medium">为学员办理课程报名与线下缴费登记</p>
+            <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
+                        {topTab === 'enroll' ? '报名缴费中心' : '订单记录'}
+                        <div className="bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full border border-blue-100 tracking-widest font-bold">
+                            {topTab === 'enroll' ? '报名缴费' : '订单管理'}
+                        </div>
+                    </h1>
+                    <p className="text-slate-400 text-sm font-medium">
+                        {topTab === 'enroll' ? '为学员办理课程报名与线下缴费登记' : '查看全部报名订单与支付状态'}
+                    </p>
+                </div>
+                <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+                    <button
+                        onClick={() => setTopTab('enroll')}
+                        className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${topTab === 'enroll' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        报名缴费
+                    </button>
+                    <button
+                        onClick={() => setTopTab('orders')}
+                        className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${topTab === 'orders' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        订单记录 ({orders.length})
+                    </button>
+                </div>
             </div>
 
+            {topTab === 'orders' && (
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                    {/* Search */}
+                    <div className="p-6 border-b border-slate-50">
+                        <div className="relative max-w-md">
+                            <ElmIcon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="搜索课程名称、订单号..."
+                                value={orderSearch}
+                                onChange={e => { setOrderSearch(e.target.value); setOrderPage(1); }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-sm"
+                            />
+                        </div>
+                    </div>
+                    {/* Table */}
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50/50 border-b border-slate-100">
+                            <tr>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">订单号</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">课程</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">金额</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">课时</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">状态</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">下单时间</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {pagedOrders.length > 0 ? pagedOrders.map(o => {
+                                const st = statusMap[o.status] || { label: o.status, cls: 'bg-slate-100 text-slate-500' };
+                                return (
+                                    <tr key={o.id} onClick={() => onViewOrder?.(o.id)} className="hover:bg-slate-50/50 transition-colors cursor-pointer">
+                                        <td className="px-6 py-4 text-xs font-mono text-slate-500">{o.id.slice(0, 8).toUpperCase()}</td>
+                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{o.course?.name || '—'}</td>
+                                        <td className="px-6 py-4 text-sm font-mono font-bold text-emerald-600">¥{o.amount?.toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-sm font-mono text-slate-600">{o.total_qty} H</td>
+                                        <td className="px-6 py-4"><span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${st.cls}`}>{st.label}</span></td>
+                                        <td className="px-6 py-4 text-xs text-slate-400">{o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}</td>
+                                    </tr>
+                                );
+                            }) : (
+                                <tr><td colSpan={6} className="px-6 py-16 text-center text-slate-300 text-sm italic">暂无订单记录</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                    {/* Pagination */}
+                    <div className="p-4 border-t border-slate-50 flex items-center justify-between px-6">
+                        <p className="text-xs text-slate-400">
+                            共 <span className="text-slate-700 font-bold">{filteredOrders.length}</span> 条{orderSearch && '（已筛选）'}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={() => setOrderPage(p => Math.max(1, p - 1))} disabled={orderPage === 1}
+                                className={`p-1.5 rounded-lg ${orderPage === 1 ? 'text-slate-200' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}>
+                                <ElmIcon name="arrow-left" size={14} />
+                            </button>
+                            <span className="text-xs font-bold text-slate-500 px-2">{orderPage} / {orderTotalPages}</span>
+                            <button onClick={() => setOrderPage(p => Math.min(orderTotalPages, p + 1))} disabled={orderPage === orderTotalPages}
+                                className={`p-1.5 rounded-lg ${orderPage === orderTotalPages ? 'text-slate-200' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}>
+                                <ElmIcon name="arrow-right" size={14} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {topTab === 'enroll' && <>
             {/* Step Bar */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-4">
                 <div className="flex items-center gap-2">
@@ -418,7 +547,7 @@ export const Payments: React.FC = () => {
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between">
                         <h2 className="font-bold text-slate-800 flex items-center gap-2"><CheckCircle2 size={18} /> 确认报名信息</h2>
-                        <button onClick={() => setStep('select-class')} className="text-xs text-slate-400 hover:text-blue-600 font-bold flex items-center gap-1"><ArrowLeft size={14} /> 返回</button>
+                        <button onClick={() => setStep('select-course')} className="text-xs text-slate-400 hover:text-blue-600 font-bold flex items-center gap-1"><ArrowLeft size={14} /> 返回</button>
                     </div>
                     <div className="bg-slate-50 rounded-2xl p-5 space-y-4 border border-slate-100">
                         <div className="grid grid-cols-2 gap-4">
@@ -555,6 +684,7 @@ export const Payments: React.FC = () => {
                     </div>
                 </div>
             )}
+            </>}
         </div>
     );
 };

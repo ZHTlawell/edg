@@ -32,15 +32,41 @@ const DocCard: React.FC<{ label: string }> = ({ label }) => (
 
 const TABS = ['基本资料', '教职员工', '班级学员'];
 
-// Mock staff data (would normally be fetched from store or API)
+// 教职员工数据（按 campus_id 匹配）
 const allStaff = [
-    { id: '1', name: '王主管', role: '校区总监', campus: '上海徐汇旗舰中心', phone: '138****0011', status: '在职' },
-    { id: '2', name: '李建国', role: '全职教师', campus: '北京朝阳双井校区', phone: '139****0002', status: '在职' },
-    { id: '3', name: '张会计', role: '财务专员', campus: '上海徐汇旗舰中心', phone: '137****0003', status: '在职' },
-    { id: '4', name: '林教师', role: '教研组长', campus: '上海徐汇旗舰中心', phone: '186****0005', status: '在职' },
-    { id: '5', name: '谢老师', role: '全职教师', campus: '深圳南山科技园校区', phone: '187****0006', status: '在职' },
-    { id: '6', name: '陈班导', role: '资深班主任', campus: '上海徐汇旗舰中心', phone: '135****8888', status: '在职' },
+    // 浦东校区
+    { id: 's1', name: '赵校长', role: '校区负责人', campus_id: 'CAMPUS_PUDONG', campus: '浦东校区', phone: '138****6001', status: '在职' },
+    { id: 's2', name: '张明', role: '全栈开发讲师', campus_id: 'CAMPUS_PUDONG', campus: '浦东校区', phone: '139****6002', status: '在职' },
+    { id: 's3', name: '李华', role: 'UI/UX设计讲师', campus_id: 'CAMPUS_PUDONG', campus: '浦东校区', phone: '137****6003', status: '在职' },
+    { id: 's4', name: '王丽', role: '教务专员', campus_id: 'CAMPUS_PUDONG', campus: '浦东校区', phone: '186****6004', status: '在职' },
+    { id: 's5', name: '刘伟', role: '财务出纳', campus_id: 'CAMPUS_PUDONG', campus: '浦东校区', phone: '135****6005', status: '在职' },
+    { id: 's6', name: '陈思', role: '班主任', campus_id: 'CAMPUS_PUDONG', campus: '浦东校区', phone: '188****6006', status: '在职' },
+    // 徐汇校区
+    { id: 's7', name: '周主任', role: '校区负责人', campus_id: 'CAMPUS_XUHUI', campus: '徐汇校区', phone: '138****7001', status: '在职' },
+    { id: 's8', name: '孙涛', role: 'Python讲师', campus_id: 'CAMPUS_XUHUI', campus: '徐汇校区', phone: '139****7002', status: '在职' },
+    { id: 's9', name: '马芳', role: '产品经理讲师', campus_id: 'CAMPUS_XUHUI', campus: '徐汇校区', phone: '137****7003', status: '在职' },
+    { id: 's10', name: '黄琳', role: '教务专员', campus_id: 'CAMPUS_XUHUI', campus: '徐汇校区', phone: '186****7004', status: '在职' },
 ];
+
+// 校区证照数据
+const campusCerts: Record<string, { name: string; no: string; expiry: string; status: '有效' | '即将到期' | '待办理' }[]> = {
+    CAMPUS_PUDONG: [
+        { name: '营业执照', no: '91310115MA1K****', expiry: '2028-12-31', status: '有效' },
+        { name: '办学许可证', no: '教民1310115****', expiry: '2027-06-30', status: '有效' },
+        { name: '消防合格证', no: '沪消验字[2024]****', expiry: '2026-09-15', status: '即将到期' },
+        { name: '卫生许可证', no: '沪卫许可字****', expiry: '2027-03-20', status: '有效' },
+        { name: '场地租赁登记', no: '沪房租备****', expiry: '2029-01-01', status: '有效' },
+        { name: '税务登记证', no: '沪税登字****', expiry: '长期有效', status: '有效' },
+    ],
+    CAMPUS_XUHUI: [
+        { name: '营业执照', no: '91310104MA1G****', expiry: '2029-06-30', status: '有效' },
+        { name: '办学许可证', no: '教民1310104****', expiry: '2027-12-31', status: '有效' },
+        { name: '消防合格证', no: '沪消验字[2025]****', expiry: '2027-05-10', status: '有效' },
+        { name: '卫生许可证', no: '', expiry: '', status: '待办理' },
+        { name: '场地租赁登记', no: '沪房租备****', expiry: '2028-08-01', status: '有效' },
+        { name: '税务登记证', no: '沪税登字****', expiry: '长期有效', status: '有效' },
+    ],
+};
 
 export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) => {
     const [activeTab, setActiveTab] = useState('基本资料');
@@ -55,24 +81,23 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
         '已停业': 'bg-slate-100 text-slate-500 border border-slate-200',
     };
 
-    // Filter staff for this campus
+    // Filter staff for this campus (按 campus_id 或 campus 名匹配)
     const staffList = useMemo(() => {
-        // In a real app, this would be a filtered fetch from the backend
-        // For this demo, we filter the mock list by campus name and search term
         return allStaff.filter(s =>
-            s.campus === campus.name &&
+            (s.campus_id === campus.id || s.campus === campus.name) &&
             (s.name.includes(searchTerm) || s.role.includes(searchTerm) || s.phone.includes(searchTerm))
         );
     }, [campus.name, searchTerm]);
 
     // Filter students for this campus
     const campusStudents = useMemo(() => {
-        // Students in the store are mapped with campus name
-        return (students || []).filter(s =>
-            (s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')) &&
-            (s.name.includes(searchTerm) || (s.className && s.className.includes(searchTerm)) || s.phone.includes(searchTerm))
-        );
-    }, [students, campus.name, searchTerm]);
+        return (students || []).filter(s => {
+            // 按 campus_id 或 campus 名匹配
+            const matchCampus = s.campus_id === campus.id || s.campus === campus.id || s.campus === campus.name;
+            const matchSearch = !searchTerm || s.name.includes(searchTerm) || (s.className && s.className.includes(searchTerm)) || s.phone.includes(searchTerm);
+            return matchCampus && matchSearch;
+        });
+    }, [students, campus.id, campus.name, searchTerm]);
 
     return (
         <div className="space-y-5 animate-in fade-in duration-300">
@@ -162,14 +187,14 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                             }`}
                     >
                         {tab}
-                        {tab === '教职员工' && allStaff.filter(s => s.campus === campus.name).length > 0 && (
+                        {tab === '教职员工' && allStaff.filter(s => s.campus_id === campus.id || s.campus === campus.name).length > 0 && (
                             <span className="ml-1.5 bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded-full">
-                                {allStaff.filter(s => s.campus === campus.name).length}
+                                {allStaff.filter(s => s.campus_id === campus.id || s.campus === campus.name).length}
                             </span>
                         )}
-                        {tab === '班级学员' && (students || []).filter(s => s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')).length > 0 && (
+                        {tab === '班级学员' && (students || []).filter(s => s.campus_id === campus.id || s.campus === campus.id || s.campus === campus.name).length > 0 && (
                             <span className="ml-1.5 bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full">
-                                {(students || []).filter(s => s.campus === campus.name || (campus.name === '上海徐汇旗舰中心' && s.campus === '总校区')).length}
+                                {(students || []).filter(s => s.campus_id === campus.id || s.campus === campus.id || s.campus === campus.name).length}
                             </span>
                         )}
                     </button>
@@ -207,9 +232,24 @@ export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) =>
                                 <BarChart2 size={16} className="text-blue-500" />
                                 <h2 className="font-bold text-slate-800">证照信息</h2>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                                {['营业执照', '办学许可证', '消防合格证', '卫生许可证', '场地租赁登记', '税务登记证'].map(doc => (
-                                    <DocCard key={doc} label={doc} />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {(campusCerts[campus.id] || [{ name: '营业执照', no: '', expiry: '', status: '待办理' as const }, { name: '办学许可证', no: '', expiry: '', status: '待办理' as const }]).map(cert => (
+                                    <div key={cert.name} className={`p-4 rounded-xl border ${cert.status === '有效' ? 'bg-emerald-50/50 border-emerald-100' : cert.status === '即将到期' ? 'bg-amber-50/50 border-amber-100' : 'bg-slate-50 border-slate-200 border-dashed'}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-sm font-bold text-slate-700">{cert.name}</p>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cert.status === '有效' ? 'bg-emerald-100 text-emerald-600' : cert.status === '即将到期' ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                {cert.status}
+                                            </span>
+                                        </div>
+                                        {cert.no ? (
+                                            <>
+                                                <p className="text-xs text-slate-400 font-mono">{cert.no}</p>
+                                                <p className="text-[10px] text-slate-400 mt-1">有效期至：{cert.expiry}</p>
+                                            </>
+                                        ) : (
+                                            <p className="text-xs text-slate-400 italic">暂未上传</p>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </div>

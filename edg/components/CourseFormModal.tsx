@@ -68,7 +68,7 @@ export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClos
 
   useEffect(() => {
     if (!isOpen) return;
-    api.get('/api/course-standard/standards')
+    api.get('/api/course-standards/standards')
       .then(res => {
         const list = (res.data || []).filter((s: any) => s.status === 'ENABLED' || s.status === 'PUBLISHED');
         setStandards(list);

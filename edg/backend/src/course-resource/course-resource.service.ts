@@ -53,9 +53,62 @@ export class CourseResourceService {
         file_size?: number;
         description?: string;
         standard_id?: string;
+        class_id?: string;
+        scope?: string;
         creator_id: string;
+        status?: string;
     }) {
         return this.prisma.stdResource.create({ data });
+    }
+
+    async findClassMaterials(classId: string) {
+        return this.prisma.stdResource.findMany({
+            where: { class_id: classId, scope: 'CLASS', status: 'PUBLISHED' },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async findMaterialsForStudent(userId: string) {
+        // userId 是 SysUser.id，先找到 EduStudent.id
+        const student = await this.prisma.eduStudent.findUnique({ where: { user_id: userId } });
+        if (!student) return [];
+        // 查学员所在班级
+        const enrollments = await this.prisma.eduStudentInClass.findMany({
+            where: { student_id: student.id },
+            include: {
+                class: {
+                    include: {
+                        assignments: { include: { course: { select: { id: true, name: true } } }, take: 1 },
+                        students: { include: { student: { select: { id: true, name: true, phone: true } } } },
+                    },
+                },
+            },
+        });
+        // 逐班级拉取资料
+        const classIds = enrollments.map(e => e.class_id);
+        const materials = classIds.length > 0
+            ? await this.prisma.stdResource.findMany({
+                where: { class_id: { in: classIds }, scope: 'CLASS', status: 'PUBLISHED' },
+                orderBy: { createdAt: 'desc' },
+            })
+            : [];
+        // 按班级分组返回
+        return enrollments.map(e => ({
+            classId: e.class_id,
+            className: e.class.name,
+            courseId: e.class.assignments?.[0]?.course?.id || '',
+            courseName: e.class.assignments?.[0]?.course?.name || '',
+            materials: materials.filter(m => m.class_id === e.class_id),
+            members: (e.class.students || []).map(s => ({ id: s.student.id, name: s.student.name, phone: s.student.phone })),
+        }));
+    }
+
+    async deleteClassMaterial(id: string, userId: string) {
+        const res = await this.prisma.stdResource.findUnique({ where: { id } });
+        if (!res) throw new NotFoundException('资源不存在');
+        if (res.scope !== 'CLASS') throw new BadRequestException('仅可删除班级资料');
+        if (res.creator_id !== userId) throw new ForbiddenException('仅可删除自己上传的资料');
+        return this.prisma.stdResource.delete({ where: { id } });
     }
 
     async assertResourceOwner(id: string, userId: string) {

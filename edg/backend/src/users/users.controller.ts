@@ -12,6 +12,8 @@ export class UsersController {
         if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role)) {
             throw new UnauthorizedException('无权访问');
         }
+        // 校区管理员未绑定 campus_id 时返回空，防止数据泄漏
+        if (req.user.role === 'CAMPUS_ADMIN' && !req.user.campusId) return { data: [], total: 0 };
         // Campus admin can only see their own campus students
         const effectiveCampusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
         return this.usersService.findAllStudents(

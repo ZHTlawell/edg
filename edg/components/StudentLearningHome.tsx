@@ -5,6 +5,7 @@ import {
   ChevronRight, Calendar, Star, Search
 } from 'lucide-react';
 import api from '../utils/api';
+import { API_BASE } from '../utils/config';
 
 interface Props {
   onSelectCourse: (id: string) => void;
@@ -109,7 +110,7 @@ export const StudentLearningHome: React.FC<Props> = ({ onSelectCourse }) => {
                 <div className="h-40 bg-slate-100 relative">
                   {item.course.standard?.cover_url ? (
                     <img
-                      src={`http://localhost:3001${item.course.standard.cover_url}`}
+                      src={`${API_BASE}${item.course.standard.cover_url}`}
                       alt={item.course.name}
                       className="w-full h-full object-cover"
                     />
@@ -142,10 +143,6 @@ export const StudentLearningHome: React.FC<Props> = ({ onSelectCourse }) => {
                         <ElmIcon name="calendar" size={16} />
                         剩余{item.remaining_qty}/{item.total_qty || item.course.standard?.total_lessons || 0}课时
                       </span>
-                    </div>
-                    <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-1 rounded-lg text-[10px] font-bold">
-                      <Star size={10} fill="currentColor" />
-                      官方认证
                     </div>
                   </div>
                 </div>

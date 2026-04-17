@@ -377,7 +377,7 @@ export class FinanceService {
                                     end_time: dt.end,
                                     classroom: roomName,
                                     classroom_id: roomId,
-                                    status: 'DRAFT',
+                                    status: 'PUBLISHED', // 购课即发布，学员可立即在课表中看到
                                 };
                             }));
 
@@ -505,14 +505,6 @@ export class FinanceService {
             if (!refund) throw new NotFoundException('退费申请不存在');
             if (refund.status !== 'PENDING') {
                 throw new BadRequestException('该申请已处理');
-            }
-
-            // 校区阈值校验：超过阈值需总部审批
-            if (data.campusId && refund.estimated_amount) {
-                const threshold = await this.getRefundThreshold(data.campusId);
-                if (refund.estimated_amount > threshold && data.approverRole !== 'ADMIN') {
-                    throw new BadRequestException(`退费金额 ${refund.estimated_amount} 超过校区阈值 ${threshold}，需总部审批`);
-                }
             }
 
             const account = refund.account_id

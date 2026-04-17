@@ -5,7 +5,12 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  });
   app.setGlobalPrefix('api');
   // Serve uploaded files as static assets
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });

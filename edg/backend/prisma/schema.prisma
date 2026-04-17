@@ -277,6 +277,8 @@ model TeachHomeworkSubmission {
   homework_id      String
   student_id       String
   content          String
+  attachmentName   String?       // 附件原始文件名
+  attachmentUrl    String?       // 附件存储路径
   score            Float?
   feedback         String?
   // 状态: SUBMITTED | GRADED | LATE | RETURNED
@@ -429,13 +431,17 @@ model StdResource {
   file_size   Int?
   description String?
   status      String              @default("DRAFT")
+  scope       String              @default("STANDARD")   // STANDARD = 课程标准资源(需审批), CLASS = 班级资料(教师直传)
   standard_id String?
+  class_id    String?                                     // 班级资料关联的班级
   creator_id  String
   sort_order  Int                 @default(0)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   lessonLinks StdLessonResource[]
   standard    StdCourseStandard?  @relation(fields: [standard_id], references: [id])
+
+  @@index([class_id])
 }
 
 model StdCourseChapter {

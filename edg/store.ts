@@ -1,7 +1,31 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Student, Course, Class as ClassInfo, Teacher, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order, PaymentRecord, RefundRecord, Homework, HomeworkSubmission, Announcement } from './types';
 import api from './utils/api';
+import { getActiveRole, setActiveRole, setTokenForRole, removeTokenForRole, migrateOldToken, getStoreKey } from './utils/session';
+
+// 兼容迁移旧 token
+migrateOldToken();
+
+/**
+ * 按角色隔离的 localStorage 存储适配器
+ *
+ * active_role 在 sessionStorage（标签页级），所以：
+ *   Tab A（教师）读写 localStorage['edg_store_teacher']
+ *   Tab B（学员）读写 localStorage['edg_store_student']
+ * 刷新后各自恢复各自的数据，互不干扰。
+ */
+const roleStorage = createJSONStorage(() => ({
+    getItem: (_name: string) => {
+        return localStorage.getItem(getStoreKey());
+    },
+    setItem: (_name: string, value: string) => {
+        localStorage.setItem(getStoreKey(), value);
+    },
+    removeItem: (_name: string) => {
+        localStorage.removeItem(getStoreKey());
+    },
+}));
 
 // 基础数据字典类型
 export type Campus = { id: string; name: string };
@@ -112,14 +136,20 @@ interface AppState {
 
     // Homework Actions
     fetchMyHomeworks: () => Promise<void>;
-    publishHomework: (homeworkData: { title: string; content: string; class_id: string; deadline: string; teacher_id: string; attachmentName?: string; attachmentUrl?: string }) => Promise<string>;
+    fetchTeacherHomeworks: () => Promise<void>;
+    publishHomework: (homeworkData: { title: string; content: string; class_id: string; deadline: string; teacher_id: string }, file?: File) => Promise<string>;
     submitHomework: (submissionData: { homework_id: string; student_id: string; content: string }) => Promise<string>;
     gradeHomework: (submission_id: string, score: number, feedback: string, teacher_id: string) => Promise<void>;
     returnSubmission: (submissionId: string, feedback: string) => Promise<void>;
+    editSubmission: (submissionId: string, content: string, file?: File) => Promise<void>;
+    editHomework: (homeworkId: string, data: { title?: string; content?: string; deadline?: string }, file?: File) => Promise<void>;
+    deleteHomework: (homeworkId: string) => Promise<void>;
 
     // Announcement Actions
     fetchAnnouncementsAdmin: () => Promise<void>;
     fetchAnnouncementsActive: () => Promise<void>;
+    fetchUnreadAnnouncements: () => Promise<Announcement[]>;
+    markAnnouncementRead: (announcementId: string) => Promise<void>;
     createAnnouncement: (data: { title: string; content: string; scope: string; campusIds?: string[] }) => Promise<string>;
     updateAnnouncement: (id: string, data: { title?: string; content?: string; scope?: string; campusIds?: string[] }) => Promise<void>;
     publishAnnouncement: (id: string) => Promise<void>;
@@ -184,13 +214,25 @@ export const useStore = create<AppState>()(
                     const res = await api.post('/api/auth/login', { username, password });
                     const { access_token, user } = res.data;
 
-                    localStorage.setItem('token', access_token);
+                    const role = user.role.toLowerCase();
+
+                    // 设置当前活跃角色 & 角色专属 token
+                    setActiveRole(role);
+                    setTokenForRole(role, access_token);
+
+                    // 清除上一个角色残留的业务数据，防止跨端数据污染
+                    set({
+                        students: [], courses: [], classes: [], orders: [],
+                        attendance: [], assets: [], teachers: [], classrooms: [],
+                        homeworks: [], homeworkSubmissions: [], announcements: [],
+                        workbenchOverview: null,
+                    });
 
                     const currentUser: User = {
                         id: user.sub,
                         username: user.username,
                         name: user.name,
-                        role: user.role.toLowerCase(),
+                        role,
                         campus: user.campusName || '总校区',
                         campus_id: user.campusId,
                         teacherId: user.teacherId,
@@ -276,7 +318,8 @@ export const useStore = create<AppState>()(
             },
 
             logout: () => {
-                localStorage.removeItem('token');
+                const role = get().currentUser?.role;
+                if (role) removeTokenForRole(role);
                 set({ currentUser: null });
                 get().addToast('已安全退出', 'info');
             },
@@ -293,7 +336,8 @@ export const useStore = create<AppState>()(
                 if (user.role === 'student') {
                     await Promise.all([
                         get().fetchMyAssets(),
-                        get().fetchOrders()
+                        get().fetchOrders(),
+                        get().fetchMyHomeworks(),
                     ]);
                 }
 
@@ -304,6 +348,13 @@ export const useStore = create<AppState>()(
                         get().fetchTeachers(),
                         get().fetchClassrooms(cid),
                         get().fetchAssetAccounts(cid)
+                    ]);
+                }
+
+                if (user.role === 'teacher') {
+                    await Promise.all([
+                        get().fetchAttendanceRecords(),
+                        get().fetchTeacherHomeworks(),
                     ]);
                 }
 
@@ -369,6 +420,7 @@ export const useStore = create<AppState>()(
                         gender: bs.gender === 'FEMALE' ? 'female' : 'male',
                         balance: bs.balance,
                         className: bs.classes?.[0]?.class?.name || '未分班',
+                        campus_id: bs.classes?.[0]?.class?.campus_id || '',
                         campus: bs.classes?.[0]?.class?.campus_id || '',
                         balanceAmount: bs.balance || 0,
                         balanceLessons: bs.accounts?.reduce((sum: number, acc: any) => sum + acc.remaining_qty, 0) || 0,
@@ -458,12 +510,13 @@ export const useStore = create<AppState>()(
                         const res = await api.get('/api/finance/orders', { params });
                         data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
                     }
-                    // Normalize field names: backend returns snake_case, frontend expects both
+                    // Normalize field names: backend returns flat fields, frontend expects nested course object
                     const normalized = data.map((o: any) => ({
                         ...o,
                         courseId: o.course_id || o.courseId,
                         studentId: o.student_id || o.studentId,
                         campusId: o.campus_id || o.course?.campus_id || o.campusId,
+                        course: o.course || { name: o.course_name || '未知课程', id: o.course_id },
                     }));
                     set({ orders: normalized });
                 } catch (error: any) {
@@ -531,9 +584,9 @@ export const useStore = create<AppState>()(
             submitAttendance: async (lesson_id, course_id, class_id, campus_id, records) => {
                 try {
                     const data = {
-                        lesson_id,
+                        lessonId: lesson_id,
                         attendances: records.map(r => ({
-                            student_id: r.student_id,
+                            studentId: r.student_id,
                             status: r.status.toUpperCase(),
                             deductAmount: r.deductHours
                         }))
@@ -781,6 +834,7 @@ export const useStore = create<AppState>()(
             },
 
             fetchMyHomeworks: async () => {
+                if (get().currentUser?.role !== 'student') return;
                 try {
                     const res = await api.get('/api/teaching/my-homeworks');
                     const homeworks = (res.data || []).map((hw: any) => ({
@@ -810,6 +864,8 @@ export const useStore = create<AppState>()(
                                 feedback: sub.feedback,
                                 status: sub.status?.toLowerCase() || 'submitted',
                                 submittedAt: sub.submittedAt,
+                                attachmentName: sub.attachmentName,
+                                attachmentUrl: sub.attachmentUrl,
                             };
                         });
                     set({ homeworks, homeworkSubmissions: submissions });
@@ -818,13 +874,76 @@ export const useStore = create<AppState>()(
                 }
             },
 
-            publishHomework: async (homeworkData) => {
+            fetchTeacherHomeworks: async () => {
+                const role = get().currentUser?.role;
+                if (role !== 'teacher' && role !== 'campus_admin' && role !== 'admin') return;
                 try {
-                    const res = await api.post('/api/teaching/homeworks', homeworkData);
+                    const res = await api.get('/api/teaching/teacher-homeworks');
+                    const homeworks = (res.data || []).map((hw: any) => ({
+                        id: hw.id,
+                        title: hw.title,
+                        content: hw.content,
+                        course_id: hw.assignment?.course?.id || '',
+                        class_id: hw.class_id || hw.assignment?.class_id || '',
+                        teacher_id: hw.teacher_id,
+                        teacher_name: hw.teacher?.name || '',
+                        deadline: hw.deadline,
+                        status: new Date(hw.deadline) > new Date() ? 'active' : 'expired',
+                        createdAt: hw.createdAt,
+                        attachmentName: hw.attachmentName,
+                        attachmentUrl: hw.attachmentUrl,
+                    }));
+                    const submissions = (res.data || []).flatMap((hw: any) =>
+                        (hw.submissions || []).map((sub: any) => ({
+                            id: sub.id,
+                            homework_id: hw.id,
+                            student_id: sub.student_id,
+                            status: sub.status,
+                            score: sub.score,
+                            content: sub.content,
+                            feedback: sub.feedback,
+                            submittedAt: sub.submittedAt,
+                            attachmentName: sub.attachmentName,
+                            attachmentUrl: sub.attachmentUrl,
+                        }))
+                    );
+                    set({ homeworks, homeworkSubmissions: submissions });
+                } catch (error: any) {
+                    console.error('fetchTeacherHomeworks failed:', error);
+                }
+            },
+
+            publishHomework: async (homeworkData, file?) => {
+                try {
+                    let res;
+                    if (file) {
+                        const fd = new FormData();
+                        fd.append('title', homeworkData.title);
+                        fd.append('content', homeworkData.content || '');
+                        fd.append('class_id', homeworkData.class_id);
+                        fd.append('deadline', homeworkData.deadline);
+                        fd.append('teacher_id', homeworkData.teacher_id);
+                        fd.append('file', file);
+                        res = await api.post('/api/teaching/homeworks', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    } else {
+                        res = await api.post('/api/teaching/homeworks', homeworkData);
+                    }
                     get().addToast('作业发布成功', 'success');
+                    await get().fetchTeacherHomeworks();
                     return res.data.id;
                 } catch (error: any) {
-                    get().addToast(error.message, 'error');
+                    get().addToast(error?.response?.data?.message || error.message, 'error');
+                    throw error;
+                }
+            },
+
+            deleteHomework: async (homeworkId) => {
+                try {
+                    await api.post('/api/teaching/homeworks/delete', { homeworkId });
+                    get().addToast('作业已删除', 'success');
+                    await get().fetchTeacherHomeworks();
+                } catch (error: any) {
+                    get().addToast(error?.response?.data?.message || error.message || '删除失败', 'error');
                     throw error;
                 }
             },
@@ -848,8 +967,9 @@ export const useStore = create<AppState>()(
                 try {
                     await api.post('/api/teaching/homeworks/grade', { submissionId, score, feedback, teacherId });
                     get().addToast('评分完成', 'success');
+                    await get().fetchTeacherHomeworks();
                 } catch (error: any) {
-                    get().addToast(error.message, 'error');
+                    get().addToast(error?.response?.data?.message || error.message || '评分失败', 'error');
                 }
             },
 
@@ -859,6 +979,44 @@ export const useStore = create<AppState>()(
                     get().addToast('已退回学员，等待重新提交', 'success');
                 } catch (error: any) {
                     get().addToast(error.message || '退回失败', 'error');
+                    throw error;
+                }
+            },
+
+            editSubmission: async (submissionId, content, file?) => {
+                try {
+                    if (file) {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        fd.append('content', content || `[文件提交] ${file.name}`);
+                        await api.post(`/api/teaching/homeworks/submission/${submissionId}/edit`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    } else {
+                        await api.post(`/api/teaching/homeworks/submission/${submissionId}/edit`, { content });
+                    }
+                    get().addToast('作业已更新', 'success');
+                    await get().fetchMyHomeworks();
+                } catch (error: any) {
+                    get().addToast(error?.response?.data?.message || error.message || '编辑失败', 'error');
+                    throw error;
+                }
+            },
+
+            editHomework: async (homeworkId, data, file?) => {
+                try {
+                    if (file) {
+                        const fd = new FormData();
+                        if (data.title) fd.append('title', data.title);
+                        if (data.content) fd.append('content', data.content);
+                        if (data.deadline) fd.append('deadline', data.deadline);
+                        fd.append('file', file);
+                        await api.post(`/api/teaching/homeworks/${homeworkId}/edit`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    } else {
+                        await api.post(`/api/teaching/homeworks/${homeworkId}/edit`, data);
+                    }
+                    get().addToast('作业已更新', 'success');
+                    await get().fetchTeacherHomeworks();
+                } catch (error: any) {
+                    get().addToast(error?.response?.data?.message || error.message || '编辑失败', 'error');
                     throw error;
                 }
             },
@@ -879,6 +1037,21 @@ export const useStore = create<AppState>()(
                 } catch (error: any) {
                     get().addToast(error.message, 'error');
                 }
+            },
+
+            fetchUnreadAnnouncements: async () => {
+                try {
+                    const res = await api.get('/api/announcements/unread');
+                    return res.data || [];
+                } catch {
+                    return [];
+                }
+            },
+
+            markAnnouncementRead: async (announcementId: string) => {
+                try {
+                    await api.post(`/api/announcements/${announcementId}/read`);
+                } catch { /* silent */ }
             },
 
             createAnnouncement: async (data) => {
@@ -959,7 +1132,8 @@ export const useStore = create<AppState>()(
             }
         }),
         {
-            name: 'eduadmin-storage-v2', // Bumped version to clear corrupted cache and ensure new properties exist
+            name: 'edg_store_default', // actual key determined by roleStorage adapter
+            storage: roleStorage,
         }
     )
 );

@@ -218,10 +218,11 @@ export class CourseStandardService {
     async findAvailableForCampus(campus_id: string) {
         return this.prisma.stdCourseStandard.findMany({
             where: {
-                status: 'ENABLED',
+                status: { in: ['ENABLED', 'PUBLISHED'] },
                 OR: [
                     { campuses: { some: { campus_id: 'ALL' } } },
                     { campuses: { some: { campus_id } } },
+                    { campuses: { none: {} } }, // 未配置校区限制 → 全校区可用
                 ],
             },
             include: { category: true, templates: true },

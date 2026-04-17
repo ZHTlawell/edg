@@ -160,7 +160,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       case 'student':
         return {
           ...base,
-          title: '学员/家长端',
+          title: '学员端',
           desc: '在线学习进度与课表查询中心',
           label: '手机号 / 学号',
           icon: <GraduationCap size={20} />
@@ -179,8 +179,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <School size={36} />
         </div>
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">EduAdmin Pro</h1>
-          <p className="text-slate-400 font-bold text-xs tracking-[0.2em]">智慧教育管理系统</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">进阶教育培训信息管理系统</h1>
         </div>
       </div>
 
@@ -217,7 +216,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       {/* Main Card */}
       <div className="w-full max-w-[480px] bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden relative animate-in fade-in duration-700 delay-200">
-        <div className="p-10 md:p-12">
+        <div className="p-8 md:p-10">
 
           {isForgotPassword ? (
             // Forgot Password Form View
@@ -325,13 +324,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           ) : (
             // Standard Login Form
             <div className="animate-in fade-in-fast">
-              <div className="mb-10 text-center sm:text-left space-y-2">
-                <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                  {config.title}
-                  <ElmIcon name="circle-check" size={16} />
-                </h2>
-                <p className="text-slate-400 text-sm font-medium">{config.desc}</p>
-              </div>
+              <div className="mb-4"></div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="space-y-5">

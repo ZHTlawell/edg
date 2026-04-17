@@ -8,14 +8,27 @@ export class TeachingService {
     // =====================================
     // 作业分发与提交 (Homeworks)
     // =====================================
-    async publishHomework(teacherId: string, data: { title: string; content: string; classId: string; assignmentId?: string; deadline: string; lesson_id?: string; attachmentName?: string; attachmentUrl?: string }) {
-        // 兼容：classId 可能直接是 assignmentId（历史调用），也可能是真正的 class_id
-        // 先尝试 assignmentId（优先）；否则把 classId 当 assignment_id 使用（历史行为）
-        const assignmentId = data.assignmentId || data.classId;
-        const assignment = await this.prisma.edClassAssignment.findUnique({
-            where: { id: assignmentId }
-        });
-        if (!assignment) throw new NotFoundException('找不到对应教学分配');
+    async publishHomework(teacherId: string, data: {
+        title: string; content: string;
+        classId?: string; class_id?: string;       // 兼容驼峰与下划线
+        assignmentId?: string; assignment_id?: string;
+        deadline: string; lesson_id?: string;
+        attachmentName?: string; attachmentUrl?: string;
+    }) {
+        // 兼容前端字段名：assignmentId / assignment_id > classId / class_id
+        const rawId = data.assignmentId || data.assignment_id || data.classId || data.class_id || '';
+
+        // 先尝试直接当 assignment_id
+        let assignment = await this.prisma.edClassAssignment.findUnique({ where: { id: rawId } });
+
+        // 如果找不到，rawId 可能是 class_id，查该班级下属于此教师的 assignment
+        if (!assignment && rawId) {
+            assignment = await this.prisma.edClassAssignment.findFirst({
+                where: { class_id: rawId, teacher_id: teacherId }
+            });
+        }
+
+        if (!assignment) throw new NotFoundException('找不到对应教学分配，请确认班级与教师分配关系');
 
         return this.prisma.teachHomework.create({
             data: {
@@ -43,7 +56,7 @@ export class TeachingService {
         });
     }
 
-    async submitHomework(studentId: string, data: { homeworkId: string; content: string }) {
+    async submitHomework(studentId: string, data: { homeworkId: string; content: string; attachmentName?: string; attachmentUrl?: string }) {
         const hw = await this.prisma.teachHomework.findUnique({ where: { id: data.homeworkId } });
         if (!hw) throw new NotFoundException('找不到指定作业');
 
@@ -75,6 +88,8 @@ export class TeachingService {
                 where: { id: existing.id },
                 data: {
                     content: data.content,
+                    attachmentName: data.attachmentName ?? null,
+                    attachmentUrl: data.attachmentUrl ?? null,
                     status: isLate ? 'LATE' : 'SUBMITTED',
                     submission_count: { increment: 1 },
                     submittedAt: now,
@@ -89,9 +104,53 @@ export class TeachingService {
                 homework_id: data.homeworkId,
                 student_id: studentId,
                 content: data.content,
+                attachmentName: data.attachmentName ?? null,
+                attachmentUrl: data.attachmentUrl ?? null,
                 status: isLate ? 'LATE' : 'SUBMITTED',
             }
         });
+    }
+
+    // 学生编辑已提交作业（仅 SUBMITTED/LATE 状态可编辑，GRADED 不可）
+    async editSubmission(studentId: string, data: { submissionId: string; content: string; attachmentName?: string; attachmentUrl?: string }) {
+        const sub = await this.prisma.teachHomeworkSubmission.findUnique({ where: { id: data.submissionId } });
+        if (!sub) throw new NotFoundException('找不到该提交记录');
+        if (sub.student_id !== studentId) throw new ForbiddenException('只能编辑自己的提交');
+        if (sub.status === 'GRADED') throw new BadRequestException('已批改的作业无法编辑');
+        return this.prisma.teachHomeworkSubmission.update({
+            where: { id: data.submissionId },
+            data: {
+                content: data.content,
+                attachmentName: data.attachmentName ?? sub.attachmentName,
+                attachmentUrl: data.attachmentUrl ?? sub.attachmentUrl,
+                submittedAt: new Date(),
+            }
+        });
+    }
+
+    // 教师编辑已发布作业
+    async editHomework(teacherId: string, data: { homeworkId: string; title?: string; content?: string; deadline?: string; attachmentName?: string; attachmentUrl?: string }) {
+        const hw = await this.prisma.teachHomework.findUnique({ where: { id: data.homeworkId } });
+        if (!hw) throw new NotFoundException('找不到该作业');
+        if (hw.teacher_id !== teacherId) throw new ForbiddenException('只能编辑自己发布的作业');
+        const updateData: any = {};
+        if (data.title !== undefined) updateData.title = data.title;
+        if (data.content !== undefined) updateData.content = data.content;
+        if (data.deadline !== undefined) updateData.deadline = new Date(data.deadline);
+        if (data.attachmentName !== undefined) updateData.attachmentName = data.attachmentName;
+        if (data.attachmentUrl !== undefined) updateData.attachmentUrl = data.attachmentUrl;
+        return this.prisma.teachHomework.update({ where: { id: data.homeworkId }, data: updateData });
+    }
+
+    // 教师删除作业（级联删除所有提交）
+    async deleteHomework(teacherId: string, homeworkId: string) {
+        const hw = await this.prisma.teachHomework.findUnique({ where: { id: homeworkId } });
+        if (!hw) throw new NotFoundException('找不到该作业');
+        if (hw.teacher_id !== teacherId) throw new ForbiddenException('只能删除自己发布的作业');
+        // 先删提交记录，再删作业
+        await this.prisma.teachHomeworkSubmission.deleteMany({ where: { homework_id: homeworkId } });
+        await this.prisma.teachHomework.delete({ where: { id: homeworkId } });
+        return { success: true, message: '作业已删除' };
     }
 
     async gradeHomework(teacherId: string, data: { submissionId: string; score: number; feedback: string }) {
@@ -176,6 +235,25 @@ export class TeachingService {
         });
     }
 
+    async getTeacherHomeworks(teacherId: string) {
+        return this.prisma.teachHomework.findMany({
+            where: { teacher_id: teacherId },
+            include: {
+                teacher: { select: { id: true, name: true } },
+                assignment: {
+                    include: {
+                        course: { select: { id: true, name: true } },
+                        class: { select: { id: true, name: true } },
+                    },
+                },
+                submissions: {
+                    select: { id: true, student_id: true, status: true, score: true, content: true, feedback: true, submittedAt: true, attachmentName: true, attachmentUrl: true },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
     // =====================================
     // 作业种子数据（开发用）
     // =====================================
@@ -225,6 +303,26 @@ export class TeachingService {
     }
 
     // =====================================
+    // 班级成员查询（考勤用）
+    // =====================================
+    async getClassMembers(classId: string) {
+        const members = await this.prisma.eduStudentInClass.findMany({
+            where: { class_id: classId },
+            include: {
+                student: {
+                    select: { id: true, name: true, phone: true, accounts: { select: { remaining_qty: true } } },
+                },
+            },
+        });
+        return members.map(m => ({
+            student_id: m.student_id,
+            name: m.student.name,
+            phone: m.student.phone,
+            remainingQty: m.student.accounts?.reduce((sum: number, a: any) => sum + (a.remaining_qty || 0), 0) || 0,
+        }));
+    }
+
+    // =====================================
     // 考勤数据查询
     // =====================================
     async getAttendanceRecords(scope: { campusId?: string; classId?: string; studentId?: string; teacherId?: string; from?: string; to?: string } = {}) {
@@ -249,6 +347,7 @@ export class TeachingService {
         const records = await this.prisma.teachAttendance.findMany({
             where,
             include: {
+                student: { select: { id: true, name: true } },
                 lesson: {
                     include: {
                         assignment: {
@@ -264,10 +363,12 @@ export class TeachingService {
             id: r.id,
             lesson_id: r.lesson_id,
             student_id: r.student_id,
+            student_name: (r as any).student?.name || '',
             class_id: r.lesson?.assignment?.class?.id,
             course_id: r.lesson?.assignment?.course_id,
             status: r.status.toLowerCase(),
             deductHours: r.deduct_amount,
+            deductStatus: r.deduct_status?.toLowerCase(),
             createdAt: (r.lesson?.start_time ?? new Date()).toISOString()
         }));
     }
@@ -543,9 +644,18 @@ export class TeachingService {
         });
     }
 
-    async getPendingLeaves(campusId?: string) {
+    async getApprovedLeavesByLesson(lessonId: string) {
+        return this.prisma.leaveRequest.findMany({
+            where: { lesson_id: lessonId, status: 'APPROVED' },
+            select: { id: true, student_id: true, reason: true }
+        });
+    }
+
+    async getPendingLeaves(campusId?: string, teacherId?: string) {
         const where: any = { status: 'PENDING' };
         if (campusId) where.campus_id = campusId;
+        // 教师只看自己所授课次的请假
+        if (teacherId) where.lesson = { assignment: { teacher_id: teacherId } };
         return this.prisma.leaveRequest.findMany({
             where,
             orderBy: { createdAt: 'desc' },

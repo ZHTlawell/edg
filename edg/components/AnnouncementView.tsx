@@ -8,10 +8,15 @@ import { Announcement } from '../types';
 export const AnnouncementView: React.FC = () => {
     const { announcements, fetchAnnouncementsActive } = useStore();
     const [selectedAnn, setSelectedAnn] = useState<Announcement | null>(null);
+    const [activeGroup, setActiveGroup] = useState<'all' | 'hq' | 'campus'>('all');
 
     useEffect(() => {
         fetchAnnouncementsActive();
     }, [fetchAnnouncementsActive]);
+
+    const hqAnnouncements = announcements.filter(a => a.scope === 'ALL');
+    const campusAnnouncements = announcements.filter(a => a.scope === 'SPECIFIC');
+    const filteredAnnouncements = activeGroup === 'all' ? announcements : activeGroup === 'hq' ? hqAnnouncements : campusAnnouncements;
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
@@ -29,23 +34,32 @@ export const AnnouncementView: React.FC = () => {
                 {/* List side */}
                 <div className="md:col-span-1 space-y-4">
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col max-h-[70vh]">
-                        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 space-y-2">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Inbox size={14} /> 公告列表
                             </span>
-                            <span className="bg-emerald-100 text-emerald-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                {announcements.length}
-                            </span>
+                            <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                                {([
+                                    { id: 'all', label: '全部', count: announcements.length },
+                                    { id: 'hq', label: '总部', count: hqAnnouncements.length },
+                                    { id: 'campus', label: '校区', count: campusAnnouncements.length },
+                                ] as const).map(tab => (
+                                    <button key={tab.id} onClick={() => setActiveGroup(tab.id)}
+                                        className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${activeGroup === tab.id ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>
+                                        {tab.label} ({tab.count})
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <div className="overflow-y-auto divide-y divide-slate-50 flex-1 custom-scrollbar">
-                            {announcements.length === 0 ? (
+                            {filteredAnnouncements.length === 0 ? (
                                 <div className="p-8 text-center space-y-2">
                                     <ElmIcon name="clock" size={16} />
-                                    <p className="text-xs text-slate-400 font-medium whitespace-nowrap">暂无新通知</p>
+                                    <p className="text-xs text-slate-400 font-medium whitespace-nowrap">暂无公告</p>
                                 </div>
                             ) : (
-                                (announcements || []).map((ann) => (
+                                filteredAnnouncements.map((ann) => (
                                     <div
                                         key={ann.id}
                                         onClick={() => setSelectedAnn(ann)}
@@ -55,9 +69,14 @@ export const AnnouncementView: React.FC = () => {
                                             <div className="absolute left-0 top-0 w-1 h-full bg-emerald-500" />
                                         )}
                                         <div className="space-y-2">
-                                            <h4 className={`text-sm font-bold truncate transition-colors ${selectedAnn?.id === ann.id ? 'text-emerald-700' : 'text-slate-700 group-hover:text-emerald-600'}`}>
-                                                {ann.title}
-                                            </h4>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ann.scope === 'ALL' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                    {ann.scope === 'ALL' ? '总部' : '校区'}
+                                                </span>
+                                                <h4 className={`text-sm font-bold truncate transition-colors flex-1 ${selectedAnn?.id === ann.id ? 'text-emerald-700' : 'text-slate-700 group-hover:text-emerald-600'}`}>
+                                                    {ann.title}
+                                                </h4>
+                                            </div>
                                             <p className="text-xs text-slate-400 line-clamp-1 leading-relaxed">
                                                 {ann.content}
                                             </p>
@@ -84,8 +103,8 @@ export const AnnouncementView: React.FC = () => {
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -translate-y-12 translate-x-12 opacity-50 blur-2xl" />
                                 <div className="relative z-10 space-y-4">
                                     <div className="flex items-center gap-3">
-                                        <span className="bg-emerald-100 text-emerald-600 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-emerald-200 uppercase tracking-widest">
-                                            系统公告
+                                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-widest ${selectedAnn.scope === 'ALL' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                            {selectedAnn.scope === 'ALL' ? '总部公告' : '校区公告'}
                                         </span>
                                         <span className="text-xs text-slate-300 font-bold flex items-center gap-1">
                                             <ElmIcon name="calendar" size={16} />
@@ -101,13 +120,6 @@ export const AnnouncementView: React.FC = () => {
                                 <div className="text-slate-600 text-lg leading-relaxed space-y-6 whitespace-pre-wrap font-medium font-serif">
                                     {selectedAnn.content}
                                 </div>
-                            </div>
-                            <div className="px-10 py-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-slate-400 text-xs font-bold">
-                                <div className="flex items-center gap-2">
-                                    <Send size={14} className="text-emerald-500" />
-                                    <span>发布方：教学资源总部</span>
-                                </div>
-                                <span>© 2024 EDG 教育管理系统</span>
                             </div>
                         </div>
                     ) : (

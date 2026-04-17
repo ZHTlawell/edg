@@ -1,4 +1,4 @@
-import { Controller, Get, Res, Query, UseGuards, UnauthorizedException, Request } from '@nestjs/common';
+import { Controller, Get, Res, Query, UseGuards, UnauthorizedException, ForbiddenException, Request } from '@nestjs/common';
 import { StatisticsService } from './statistics.service';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
@@ -11,7 +11,7 @@ export class StatisticsController {
     @Get('workbench-overview')
     async getWorkbenchOverview(@Request() req: any) {
         if (req.user.role !== 'ADMIN') {
-            throw new UnauthorizedException('仅总部管理员可访问此接口');
+            throw new ForbiddenException('仅总部管理员可访问此接口');
         }
         return this.statisticsService.getWorkbenchOverview();
     }

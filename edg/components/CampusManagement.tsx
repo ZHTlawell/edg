@@ -4,6 +4,7 @@ import { Search, MapPin, ChevronLeft, ChevronRight, MoreHorizontal, SlidersHoriz
 import { ElmIcon } from './ElmIcon';
 import { CampusAudit } from './CampusAudit';
 import { CampusDetail } from './CampusDetail';
+import { useStore } from '../store';
 
 interface Campus {
     id: string;
@@ -18,17 +19,24 @@ interface Campus {
     icon?: string;
 }
 
-const campusData: Campus[] = [
-    { id: '1', name: '上海徐汇旗舰中心', region: '华东地区', level: '旗舰校区', manager: '张文杰', students: 1240, classes: 42, monthlyRevenue: 452000, status: '正常运营' },
-    { id: '2', name: '北京朝阳双井校区', region: '华北地区', level: '标准校区', manager: '李思思', students: 860, classes: 28, monthlyRevenue: 312500, status: '正常运营' },
-    { id: '3', name: '深圳南山科技园校区', region: '华南地区', level: '旗舰校区', manager: '王健', students: 1100, classes: 36, monthlyRevenue: 388000, status: '维护中', icon: 'star-filled' },
-    { id: '4', name: '杭州西湖文三校区', region: '华东地区', level: '社区中心', manager: '陈晓东', students: 450, classes: 15, monthlyRevenue: 128000, status: '正常运营' },
-    { id: '5', name: '广州天河中怡校区', region: '华南地区', level: '标准校区', manager: '周小芳', students: 920, classes: 30, monthlyRevenue: 345000, status: '正常运营' },
-    { id: '6', name: '成都高新天府校区', region: '西南地区', level: '标准校区', manager: '刘明', students: 680, classes: 22, monthlyRevenue: 198000, status: '正常运营' },
-    { id: '7', name: '武汉光谷软件园校区', region: '华中地区', level: '标准校区', manager: '陈佳', students: 540, classes: 18, monthlyRevenue: 165000, status: '正常运营' },
-    { id: '8', name: '南京河西新城校区', region: '华东地区', level: '旗舰校区', manager: '赵磊', students: 780, classes: 26, monthlyRevenue: 287000, status: '正常运营' },
-    { id: '9', name: '西安曲江新区校区', region: '西北地区', level: '社区中心', manager: '王霞', students: 320, classes: 10, monthlyRevenue: 89000, status: '维护中' },
-    { id: '10', name: '重庆渝北区校区', region: '西南地区', level: '标准校区', manager: '黄伟', students: 610, classes: 20, monthlyRevenue: 213000, status: '正常运营' },
+// 真实校区的补充字段（负责人/地区/级别）
+const campusMeta: Record<string, { region: string; level: string; manager: string }> = {
+    CAMPUS_PUDONG: { region: '华东地区', level: '旗舰校区', manager: '赵校长' },
+    CAMPUS_XUHUI: { region: '华东地区', level: '标准校区', manager: '周主任' },
+};
+
+// 展示用 mock 校区（排在真实校区后面）
+const mockCampusData: Campus[] = [
+    { id: 'mock-1', name: '北京朝阳双井校区', region: '华北地区', level: '旗舰校区', manager: '李思思', students: 86, classes: 5, monthlyRevenue: 31200, status: '正常运营' },
+    { id: 'mock-2', name: '深圳南山科技园校区', region: '华南地区', level: '旗舰校区', manager: '王健', students: 72, classes: 4, monthlyRevenue: 28800, status: '正常运营' },
+    { id: 'mock-3', name: '杭州西湖文三校区', region: '华东地区', level: '社区中心', manager: '陈晓东', students: 45, classes: 3, monthlyRevenue: 12800, status: '正常运营' },
+    { id: 'mock-4', name: '广州天河中怡校区', region: '华南地区', level: '标准校区', manager: '周小芳', students: 58, classes: 4, monthlyRevenue: 22400, status: '正常运营' },
+    { id: 'mock-5', name: '成都高新天府校区', region: '西南地区', level: '标准校区', manager: '刘明', students: 39, classes: 3, monthlyRevenue: 15600, status: '正常运营' },
+    { id: 'mock-6', name: '武汉光谷软件园校区', region: '华中地区', level: '标准校区', manager: '陈佳', students: 42, classes: 3, monthlyRevenue: 16800, status: '维护中' },
+    { id: 'mock-7', name: '南京河西新城校区', region: '华东地区', level: '旗舰校区', manager: '赵磊', students: 61, classes: 4, monthlyRevenue: 24400, status: '正常运营' },
+    { id: 'mock-8', name: '西安曲江新区校区', region: '西北地区', level: '社区中心', manager: '王霞', students: 28, classes: 2, monthlyRevenue: 8900, status: '正常运营' },
+    { id: 'mock-9', name: '重庆渝北区校区', region: '西南地区', level: '标准校区', manager: '黄伟', students: 35, classes: 3, monthlyRevenue: 14000, status: '正常运营' },
+    { id: 'mock-10', name: '长沙岳麓区校区', region: '华中地区', level: '社区中心', manager: '谢芳', students: 31, classes: 2, monthlyRevenue: 9600, status: '正常运营' },
 ];
 
 const PAGE_SIZE = 5;
@@ -49,35 +57,82 @@ const StatusBadge: React.FC<{ status: Campus['status'] }> = ({ status }) => {
 };
 
 export const CampusManagement: React.FC = () => {
+    const { students, classes: storeClasses, orders, campuses, fetchCampuses, fetchStudents, fetchOrders } = useStore();
+
+    React.useEffect(() => {
+        fetchCampuses();
+        fetchStudents();
+        fetchOrders();
+    }, []);
+
     const [showAudit, setShowAudit] = useState(false);
     const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [regionFilter, setRegionFilter] = useState('全部地区');
     const [currentPage, setCurrentPage] = useState(1);
 
-    const regions = ['全部地区', '华东地区', '华北地区', '华南地区', '西南地区', '华中地区', '西北地区'];
+    const regions = useMemo(() => {
+        const set = new Set(['全部地区']);
+        mockCampusData.forEach(c => set.add(c.region));
+        Object.values(campusMeta).forEach(m => set.add(m.region));
+        return Array.from(set);
+    }, []);
+
+    // 基于真实数据构建校区列表 + 追加 mock 展示校区
+    const enrichedCampusData = useMemo(() => {
+        const now = new Date();
+        const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+        // 真实校区（从后端拉取）
+        const realCampuses: Campus[] = (campuses || []).map((c: any) => {
+            const cid = c.id;
+            const campusStudents = (students || []).filter(s => (s.campus_id === cid || s.campus === cid) && s.status !== 'inactive');
+            const campusClasses = (storeClasses || []).filter((cl: any) => cl.campus_id === cid);
+            const campusOrders = (orders || []).filter((o: any) => {
+                const oCampus = o.course?.campus_id || o.campusId || o.campus_id;
+                return oCampus === cid && o.status === 'PAID' && (o.createdAt || '').startsWith(currentYM);
+            });
+            const monthlyRev = campusOrders.reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
+
+            const meta = campusMeta[cid] || {};
+            return {
+                id: cid,
+                name: c.name,
+                region: meta.region || '华东地区',
+                level: meta.level || '标准校区',
+                manager: meta.manager || '—',
+                students: campusStudents.length,
+                classes: campusClasses.length,
+                monthlyRevenue: monthlyRev,
+                status: '正常运营' as Campus['status'],
+            };
+        });
+
+        // 真实校区排前面，mock 校区接后面
+        return [...realCampuses, ...mockCampusData];
+    }, [students, storeClasses, orders, campuses]);
 
     const filtered = useMemo(() => {
-        return campusData.filter(c => {
+        return enrichedCampusData.filter(c => {
             const matchSearch = !searchTerm || c.name.includes(searchTerm) || c.manager.includes(searchTerm) || c.region.includes(searchTerm);
             const matchRegion = regionFilter === '全部地区' || c.region === regionFilter;
             return matchSearch && matchRegion;
         });
-    }, [searchTerm, regionFilter]);
+    }, [searchTerm, regionFilter, enrichedCampusData]);
 
-    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const pageData = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
     // Stats
-    const totalStudents = campusData.reduce((s, c) => s + c.students, 0);
-    const totalClasses = campusData.reduce((s, c) => s + c.classes, 0);
-    const totalRevenue = campusData.reduce((s, c) => s + c.monthlyRevenue, 0);
+    const totalStudents = enrichedCampusData.reduce((s, c) => s + c.students, 0);
+    const totalClasses = enrichedCampusData.reduce((s, c) => s + c.classes, 0);
+    const totalRevenue = enrichedCampusData.reduce((s, c) => s + c.monthlyRevenue, 0);
 
     const stats = [
-        { label: '校区总数', value: campusData.length.toString(), sub: '-2%', subColor: 'text-emerald-500', subBg: 'bg-emerald-50' },
-        { label: '在读总人数', value: totalStudents.toLocaleString(), sub: '-5.4%', subColor: 'text-red-400', subBg: 'bg-red-50' },
-        { label: '总教室数', value: totalClasses.toString(), sub: '稳定', subColor: 'text-slate-500', subBg: 'bg-slate-100' },
-        { label: '本月总营收', value: `¥${(totalRevenue / 10000).toFixed(0)}万`, sub: '-12%', subColor: 'text-red-400', subBg: 'bg-red-50' },
+        { label: '校区总数', value: enrichedCampusData.length.toString(), sub: '', subColor: 'text-slate-400', subBg: 'bg-slate-50' },
+        { label: '在读总人数', value: totalStudents.toLocaleString(), sub: '', subColor: 'text-slate-400', subBg: 'bg-slate-50' },
+        { label: '总班级数', value: totalClasses.toString(), sub: '', subColor: 'text-slate-400', subBg: 'bg-slate-50' },
+        { label: '本月总营收', value: totalRevenue > 0 ? `¥${(totalRevenue / 10000).toFixed(1)}万` : '¥0', sub: '', subColor: 'text-slate-400', subBg: 'bg-slate-50' },
     ];
 
     const handlePageClick = (p: number) => {

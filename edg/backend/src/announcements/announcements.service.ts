@@ -140,4 +140,28 @@ export class AnnouncementsService {
             include: { targets: true },
         });
     }
+
+    /** 获取用户未读的已发布公告 */
+    async findUnreadForUser(campusId: string, userId: string) {
+        return this.prisma.sysAnnouncement.findMany({
+            where: {
+                status: 'PUBLISHED',
+                OR: [
+                    { scope: 'ALL' },
+                    { targets: { some: { campus_id: campusId } } },
+                ],
+                reads: { none: { user_id: userId } },
+            },
+            orderBy: { publishTime: 'desc' },
+        });
+    }
+
+    /** 标记公告为已读 */
+    async markAsRead(announcementId: string, userId: string) {
+        return this.prisma.sysAnnouncementRead.upsert({
+            where: { announcement_id_user_id: { announcement_id: announcementId, user_id: userId } },
+            create: { announcement_id: announcementId, user_id: userId },
+            update: {},
+        });
+    }
 }

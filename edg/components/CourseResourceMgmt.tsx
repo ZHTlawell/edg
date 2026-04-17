@@ -7,7 +7,10 @@ import {
     Download, Globe, Building2, Clock, HardDrive, X, Send, RotateCcw
 } from 'lucide-react';
 import api from '../utils/api';
+import { API_BASE } from '../utils/config';
+import { getActiveToken } from '../utils/session';
 import { useStore } from '../store';
+import { parseResourceFile, downloadResourceTemplate, ResourceDraft } from '../utils/resourceImport';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Resource {
@@ -81,7 +84,7 @@ const formatSize = (bytes?: number) => {
 
 // ─── Resource Preview Modal ───────────────────────────────────────────────────
 const PreviewModal: React.FC<{ resource: Resource; onClose: () => void }> = ({ resource, onClose }) => {
-    const backendBase = 'http://localhost:3001';
+    const backendBase = API_BASE;
     const fullUrl = resource.url.startsWith('/') ? `${backendBase}${resource.url}` : resource.url;
 
     return (
@@ -146,7 +149,7 @@ const UploadModal: React.FC<{
     onClose: () => void;
     onSuccess: () => void;
 }> = ({ standards, onClose, onSuccess }) => {
-    const [mode, setMode] = useState<'file' | 'url'>('file');
+    const [mode, setMode] = useState<'file' | 'url' | 'batch'>('file');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [standardId, setStandardId] = useState('');
@@ -157,6 +160,56 @@ const UploadModal: React.FC<{
     const [progress, setProgress] = useState(0);
     const { addToast } = useStore();
     const fileRef = useRef<HTMLInputElement>(null);
+    // ─── 批量导入 ─────────────────────────────────────
+    const batchFileRef = useRef<HTMLInputElement>(null);
+    const [batchResources, setBatchResources] = useState<ResourceDraft[]>([]);
+    const [batchErrors, setBatchErrors] = useState<string[]>([]);
+    const [batchImporting, setBatchImporting] = useState(false);
+    const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0, failed: 0 });
+
+    const handleBatchFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        const { resources, errors } = await parseResourceFile(f);
+        setBatchResources(resources);
+        setBatchErrors(errors);
+        if (resources.length === 0 && errors.length > 0) {
+            addToast(errors[0], 'error');
+        } else {
+            addToast(`已解析 ${resources.length} 条资源${errors.length ? `，${errors.length} 条警告` : ''}`, 'success');
+        }
+        if (batchFileRef.current) batchFileRef.current.value = '';
+    };
+
+    const handleBatchImport = async () => {
+        if (batchResources.length === 0) { addToast('请先上传导入文件', 'warning'); return; }
+        setBatchImporting(true);
+        let done = 0, failed = 0;
+        setBatchProgress({ done: 0, total: batchResources.length, failed: 0 });
+        for (const r of batchResources) {
+            try {
+                // 根据 standardCode 匹配 standard_id
+                let sid: string | undefined;
+                if (r.standardCode) {
+                    const s = standards.find(x => x.code === r.standardCode);
+                    sid = s?.id;
+                }
+                await api.post('/api/course-resource/url', {
+                    title: r.title,
+                    description: r.description,
+                    type: r.type,
+                    url: r.url,
+                    standard_id: sid,
+                });
+                done++;
+            } catch { failed++; }
+            setBatchProgress({ done: done + failed, total: batchResources.length, failed });
+        }
+        setBatchImporting(false);
+        addToast(`导入完成：成功 ${done} 条${failed ? `，失败 ${failed} 条` : ''}`, failed ? 'warning' : 'success');
+        if (done > 0) { onSuccess(); }
+        if (failed === 0) { onClose(); }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0];
@@ -187,7 +240,7 @@ const UploadModal: React.FC<{
                 if (description) formData.append('description', description);
                 if (standardId) formData.append('standard_id', standardId);
 
-                const token = localStorage.getItem('token');
+                const token = getActiveToken();
                 await api.post('/api/course-resource/upload', formData, {
                     headers: {
                         Authorization: token ? `Bearer ${token}` : ''
@@ -218,8 +271,8 @@ const UploadModal: React.FC<{
                 <div className="p-6 space-y-5">
                     {/* Mode switch */}
                     <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 w-fit">
-                        {[['file', '文件上传'], ['url', '外链地址']].map(([k, l]) => (
-                            <button key={k} onClick={() => setMode(k as 'file' | 'url')}
+                        {[['file', '文件上传'], ['url', '外链地址'], ['batch', '批量导入']].map(([k, l]) => (
+                            <button key={k} onClick={() => setMode(k as 'file' | 'url' | 'batch')}
                                 className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === k ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{l}
                             </button>
                         ))}
@@ -261,19 +314,81 @@ const UploadModal: React.FC<{
                         </div>
                     )}
 
-                    <div className="space-y-3">
-                        <input type="text" placeholder="资源标题 *" value={title} onChange={e => setTitle(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100" />
-                        <input type="text" placeholder="说明（可选）" value={description} onChange={e => setDescription(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100" />
-                        <select value={standardId} onChange={e => setStandardId(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
-                            <option value="">关联课程标准（可选）</option>
-                            {standards.map(s => <option key={s.id} value={s.id}>[{s.code}] {s.name}</option>)}
-                        </select>
-                    </div>
+                    {mode === 'batch' ? (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3">
+                                <p className="text-xs text-indigo-700">从 Excel / CSV 批量导入资源（仅支持外链）</p>
+                                <button onClick={downloadResourceTemplate}
+                                    className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                                    <Download size={12} /> 下载模板
+                                </button>
+                            </div>
+                            <div
+                                onClick={() => batchFileRef.current?.click()}
+                                onDrop={async (e) => {
+                                    e.preventDefault();
+                                    const f = e.dataTransfer.files[0];
+                                    if (!f) return;
+                                    const { resources, errors } = await parseResourceFile(f);
+                                    setBatchResources(resources); setBatchErrors(errors);
+                                }}
+                                onDragOver={e => e.preventDefault()}
+                                className="border-2 border-dashed border-slate-200 hover:border-indigo-200 rounded-xl p-6 text-center cursor-pointer"
+                            >
+                                <input ref={batchFileRef} type="file" className="hidden"
+                                    accept=".xlsx,.xls,.csv" onChange={handleBatchFileSelect} />
+                                <Upload size={24} className="mx-auto text-slate-300 mb-2" />
+                                <p className="text-sm text-slate-500 font-medium">点击或拖拽上传 .xlsx / .csv 文件</p>
+                            </div>
+                            {batchResources.length > 0 && (
+                                <div className="bg-slate-50 rounded-xl p-3 max-h-40 overflow-y-auto border border-slate-100">
+                                    <p className="text-xs font-bold text-slate-500 mb-2">已解析 {batchResources.length} 条：</p>
+                                    <ul className="space-y-1">
+                                        {batchResources.slice(0, 8).map((r, i) => (
+                                            <li key={i} className="text-xs text-slate-600 truncate">
+                                                <span className="inline-block w-12 text-indigo-500">[{r.type}]</span> {r.title}
+                                            </li>
+                                        ))}
+                                        {batchResources.length > 8 && <li className="text-xs text-slate-400">...还有 {batchResources.length - 8} 条</li>}
+                                    </ul>
+                                </div>
+                            )}
+                            {batchErrors.length > 0 && (
+                                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 max-h-32 overflow-y-auto">
+                                    <p className="text-xs font-bold text-amber-700 mb-1">警告 ({batchErrors.length})：</p>
+                                    <ul className="space-y-0.5 text-xs text-amber-600">
+                                        {batchErrors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+                            {batchImporting && (
+                                <div className="space-y-1.5">
+                                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-indigo-500 rounded-full transition-all"
+                                            style={{ width: `${batchProgress.total ? (batchProgress.done / batchProgress.total) * 100 : 0}%` }} />
+                                    </div>
+                                    <p className="text-xs text-slate-400 text-center">
+                                        导入中：{batchProgress.done} / {batchProgress.total}
+                                        {batchProgress.failed > 0 && <span className="text-rose-500 ml-2">失败 {batchProgress.failed}</span>}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <input type="text" placeholder="资源标题 *" value={title} onChange={e => setTitle(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100" />
+                            <input type="text" placeholder="说明（可选）" value={description} onChange={e => setDescription(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100" />
+                            <select value={standardId} onChange={e => setStandardId(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
+                                <option value="">关联课程标准（可选）</option>
+                                {standards.map(s => <option key={s.id} value={s.id}>[{s.code}] {s.name}</option>)}
+                            </select>
+                        </div>
+                    )}
 
-                    {uploading && (
+                    {uploading && mode !== 'batch' && (
                         <div className="space-y-1.5">
                             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                 <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
@@ -284,11 +399,18 @@ const UploadModal: React.FC<{
                 </div>
 
                 <div className="px-6 pb-6 flex gap-3">
-                    <button onClick={handleSubmit} disabled={uploading}
-                        className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                        <Upload size={16} />{uploading ? '上传中...' : '确认上传'}
-                    </button>
-                    <button onClick={onClose} disabled={uploading}
+                    {mode === 'batch' ? (
+                        <button onClick={handleBatchImport} disabled={batchImporting || batchResources.length === 0}
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                            <Upload size={16} />{batchImporting ? '导入中...' : `确认导入 ${batchResources.length} 条`}
+                        </button>
+                    ) : (
+                        <button onClick={handleSubmit} disabled={uploading}
+                            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                            <Upload size={16} />{uploading ? '上传中...' : '确认上传'}
+                        </button>
+                    )}
+                    <button onClick={onClose} disabled={uploading || batchImporting}
                         className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all">取消</button>
                 </div>
             </div>

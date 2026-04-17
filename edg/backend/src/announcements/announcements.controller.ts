@@ -101,9 +101,24 @@ export class AnnouncementsController {
     @UseGuards(AuthGuard('jwt'))
     @Get('active')
     async findActive(@Request() req: any) {
-        // Both ADMIN and CAMPUS_ADMIN can call this, but filter by campus
         const campusId = req.user.campusId || 'HQ';
         return this.announcementsService.findActiveForCampus(campusId);
+    }
+
+    /** 获取当前用户的未读公告（用于弹窗） */
+    @UseGuards(AuthGuard('jwt'))
+    @Get('unread')
+    async findUnread(@Request() req: any) {
+        const campusId = req.user.campusId || 'HQ';
+        const userId = req.user.userId;
+        return this.announcementsService.findUnreadForUser(campusId, userId);
+    }
+
+    /** 标记公告为已读 */
+    @UseGuards(AuthGuard('jwt'))
+    @Post(':id/read')
+    async markAsRead(@Request() req: any, @Param('id') id: string) {
+        return this.announcementsService.markAsRead(id, req.user.userId);
     }
 
     @UseGuards(AuthGuard('jwt'))

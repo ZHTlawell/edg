@@ -448,24 +448,9 @@ export const CourseManagement: React.FC = () => {
           </table>
         </div>
 
-        {/* Pagination Footer */}
-        <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between bg-slate-50/20">
-          <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-            <span>显示 1 到 {filteredCourses.length} 条 / 共 {filteredCourses.length} 条数据</span>
-            <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
-              <button className="px-3 py-1 bg-slate-100 rounded-md text-slate-800">10 条/页</button>
-              <ElmIcon name="arrow-down" size={16} />
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-300 cursor-not-allowed">上一页</button>
-            <div className="flex items-center">
-              <button className="w-10 h-10 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-100">1</button>
-              <button className="w-10 h-10 bg-transparent text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-100">2</button>
-              <button className="w-10 h-10 bg-transparent text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-100">3</button>
-            </div>
-            <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">下一页</button>
-          </div>
+        {/* Footer */}
+        <div className="px-8 py-4 border-t border-slate-100 bg-slate-50/20">
+          <span className="text-xs font-bold text-slate-400">共 {filteredCourses.length} 条课程</span>
         </div>
       </div>
 

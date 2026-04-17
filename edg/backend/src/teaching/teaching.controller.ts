@@ -1,4 +1,21 @@
-import { Controller, Post, Get, Body, Query, Param, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Param, UseGuards, Request, UnauthorizedException, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+
+const HW_UPLOAD_DIR = './uploads/homework';
+if (!existsSync(HW_UPLOAD_DIR)) mkdirSync(HW_UPLOAD_DIR, { recursive: true });
+
+/** multer 把中文文件名按 latin1 编码，需要还原为 utf8 */
+function fixOriginalName(file: Express.Multer.File): string {
+    try {
+        return Buffer.from(file.originalname, 'latin1').toString('utf8');
+    } catch {
+        return file.originalname;
+    }
+}
+
 import { TeachingService } from './teaching.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -8,12 +25,35 @@ export class TeachingController {
     constructor(private readonly teachingService: TeachingService) { }
 
     @Post('homeworks')
-    async publishHomework(@Request() req: any, @Body() body: any) {
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: HW_UPLOAD_DIR,
+            filename: (_req, file, cb) => {
+                const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                cb(null, `${unique}${extname(file.originalname)}`);
+            },
+        }),
+        limits: { fileSize: 50 * 1024 * 1024 },
+    }))
+    async publishHomework(@Request() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: any) {
         if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
             throw new UnauthorizedException('仅教师或教务人员可以发布作业');
         }
-        const teacherId = body.teacherId || req.user.teacherId;
+        const teacherId = req.user.teacherId || req.user.userId;
+        if (file) {
+            body.attachmentName = fixOriginalName(file);
+            body.attachmentUrl = `/uploads/homework/${file.filename}`;
+        }
         return this.teachingService.publishHomework(teacherId, body);
+    }
+
+    @Post('homeworks/delete')
+    async deleteHomework(@Request() req: any, @Body() body: { homeworkId: string }) {
+        if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅教师可删除作业');
+        }
+        const teacherId = req.user.teacherId || req.user.userId;
+        return this.teachingService.deleteHomework(teacherId, body.homeworkId);
     }
 
     @Post('homeworks/submit')
@@ -25,9 +65,55 @@ export class TeachingController {
         return this.teachingService.submitHomework(studentId, body);
     }
 
+    @Post('homeworks/submit-file')
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: HW_UPLOAD_DIR,
+            filename: (_req, file, cb) => {
+                const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                cb(null, `${unique}${extname(file.originalname)}`);
+            },
+        }),
+        limits: { fileSize: 50 * 1024 * 1024 },
+    }))
+    async submitHomeworkFile(@Request() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: any) {
+        if (req.user.role !== 'STUDENT') throw new UnauthorizedException('仅学生账户可提交');
+        if (!file) throw new Error('未收到文件');
+        const studentId = req.user.studentId;
+        return this.teachingService.submitHomework(studentId, {
+            homeworkId: body.homeworkId,
+            content: `[文件提交] ${fixOriginalName(file)}`,
+            attachmentName: fixOriginalName(file),
+            attachmentUrl: `/uploads/homework/${file.filename}`,
+        });
+    }
+
+    @Post('homeworks/submission/:id/edit')
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: HW_UPLOAD_DIR,
+            filename: (_req, file, cb) => {
+                const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                cb(null, `${unique}${extname(file.originalname)}`);
+            },
+        }),
+        limits: { fileSize: 50 * 1024 * 1024 },
+    }))
+    async editSubmission(@Request() req: any, @Param('id') submissionId: string, @UploadedFile() file: Express.Multer.File, @Body() body: any) {
+        if (req.user.role !== 'STUDENT') throw new UnauthorizedException('仅学生可编辑提交');
+        const studentId = req.user.studentId;
+        const data: any = { submissionId, content: body.content };
+        if (file) {
+            data.attachmentName = fixOriginalName(file);
+            data.attachmentUrl = `/uploads/homework/${file.filename}`;
+        }
+        return this.teachingService.editSubmission(studentId, data);
+    }
+
     @Post('homeworks/grade')
     async gradeHomework(@Request() req: any, @Body() body: any) {
-        const teacherId = body.teacherId || req.user.teacherId;
+        // Always use the JWT's teacherId — never trust client-supplied value
+        const teacherId = req.user.teacherId || req.user.userId;
         return this.teachingService.gradeHomework(teacherId, body);
     }
 
@@ -41,6 +127,15 @@ export class TeachingController {
         }
         const teacherId = req.user.teacherId || req.user.userId;
         return this.teachingService.returnSubmission(teacherId, { submissionId, feedback: body.feedback });
+    }
+
+    @Get('teacher-homeworks')
+    async getTeacherHomeworks(@Request() req: any) {
+        if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅教师账户可查询自己的作业');
+        }
+        const teacherId = req.user.teacherId || req.user.userId;
+        return this.teachingService.getTeacherHomeworks(teacherId);
     }
 
     @Get('my-homeworks')
@@ -73,6 +168,39 @@ export class TeachingController {
         return this.teachingService.getHomeworkByLesson(lessonId);
     }
 
+    /** 教师编辑已发布作业（放在所有 homeworks/* 具名路由之后，避免 :id 通配吞掉 grade/submit/seed 等） */
+    @Post('homeworks/:id/edit')
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: HW_UPLOAD_DIR,
+            filename: (_req, file, cb) => {
+                const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                cb(null, `${unique}${extname(file.originalname)}`);
+            },
+        }),
+        limits: { fileSize: 50 * 1024 * 1024 },
+    }))
+    async editHomework(@Request() req: any, @Param('id') homeworkId: string, @UploadedFile() file: Express.Multer.File, @Body() body: any) {
+        if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
+            throw new UnauthorizedException('仅教师可编辑作业');
+        }
+        const teacherId = req.user.teacherId || req.user.userId;
+        const data: any = { homeworkId };
+        if (body.title !== undefined) data.title = body.title;
+        if (body.content !== undefined) data.content = body.content;
+        if (body.deadline !== undefined) data.deadline = body.deadline;
+        if (file) {
+            data.attachmentName = fixOriginalName(file);
+            data.attachmentUrl = `/uploads/homework/${file.filename}`;
+        }
+        return this.teachingService.editHomework(teacherId, data);
+    }
+
+    @Get('class-members/:classId')
+    async getClassMembers(@Param('classId') classId: string) {
+        return this.teachingService.getClassMembers(classId);
+    }
+
     @Get('attendance')
     async getAttendanceRecords(
         @Request() req: any,
@@ -91,6 +219,7 @@ export class TeachingController {
             scope.campusId = campusId;
             scope.studentId = studentId;
         } else if (role === 'CAMPUS_ADMIN') {
+            if (!req.user.campusId) return []; // 没有绑定校区，防止数据泄漏
             scope.campusId = req.user.campusId; // 强制锁定到本校区
             scope.studentId = studentId;
         } else if (role === 'TEACHER') {
@@ -171,12 +300,23 @@ export class TeachingController {
         return this.teachingService.getMyLeaves(req.user.studentId);
     }
 
+    @Get('leave/by-lesson/:lessonId')
+    async getLeavesByLesson(@Request() req: any, @Param('lessonId') lessonId: string) {
+        if (!['TEACHER', 'CAMPUS_ADMIN', 'ADMIN'].includes(req.user.role)) {
+            throw new UnauthorizedException('无权限');
+        }
+        return this.teachingService.getApprovedLeavesByLesson(lessonId);
+    }
+
     @Get('leave/pending')
     async getPendingLeaves(@Request() req: any) {
         if (req.user.role !== 'TEACHER' && req.user.role !== 'CAMPUS_ADMIN' && req.user.role !== 'ADMIN') {
             throw new UnauthorizedException('无权限');
         }
+        // CAMPUS_ADMIN 无 campus_id → 返回空；TEACHER 过滤为自己所授课的请假
+        if (req.user.role === 'CAMPUS_ADMIN' && !req.user.campusId) return [];
         const campusId = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : undefined;
-        return this.teachingService.getPendingLeaves(campusId);
+        const teacherId = req.user.role === 'TEACHER' ? req.user.teacherId : undefined;
+        return this.teachingService.getPendingLeaves(campusId, teacherId);
     }
 }

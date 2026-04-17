@@ -12,7 +12,7 @@ import { JwtStrategy } from './jwt.strategy';
     PassportModule,
     JwtModule.register({
       secret: 'SECRET_KEY_FOR_EDG_THESIS', // For dev only
-      signOptions: { expiresIn: '60m' }, // 60 minutes
+      signOptions: { expiresIn: '7d' }, // 7 days
     }),
   ],
   providers: [AuthService, JwtStrategy],

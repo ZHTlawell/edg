@@ -3,9 +3,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
    ArrowLeft, BookOpen, Clock, Users2, CheckCircle2, Lock,
    Play, FileText, Music, File, Download, ChevronRight, ChevronDown,
-   CircleDot, Circle, Award, X, BookOpenCheck, ClipboardCheck
+   CircleDot, Circle, Award, X, BookOpenCheck, ClipboardCheck,
+   FolderOpen, Eye, Trash2,
 } from 'lucide-react';
 import api from '../utils/api';
+import { API_BASE } from '../utils/config';
 import { useStore } from '../store';
 import { QuizView } from './QuizView';
 
@@ -46,49 +48,62 @@ const TYPE_MAP: Record<string, { icon: any; label: string; color: string; bg: st
 };
 
 const formatSize = (b?: number) => !b ? '' : b < 1048576 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1048576).toFixed(1)}MB`;
-const BASE = 'http://localhost:3001';
+const BASE = API_BASE;
 
 // ─── Resource Viewer ──────────────────────────────────────────────────────────
+// 根据文件扩展名识别真实预览类型
+const detectKind = (res: LessonResource): 'video' | 'audio' | 'pdf' | 'image' | 'office' | 'text' | 'video_embed' | 'download' => {
+   const name = (res.file_name || res.url || '').toLowerCase();
+   const ext = name.split('.').pop() || '';
+   if (res.type === 'VIDEO_EMBED') return 'video_embed';
+   if (['mp4', 'webm', 'mov', 'avi', 'ogv', 'm4v'].includes(ext)) return 'video';
+   if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext)) return 'audio';
+   if (ext === 'pdf') return 'pdf';
+   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'heic'].includes(ext)) return 'image';
+   if (['ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'].includes(ext)) return 'office';
+   if (['txt', 'md', 'json', 'xml', 'log', 'csv'].includes(ext)) return 'text';
+   return 'download';
+};
+
 const ResourceViewer: React.FC<{ resource: LessonResource; onClose: () => void }> = ({ resource, onClose }) => {
    const url = resource.url.startsWith('/') ? `${BASE}${resource.url}` : resource.url;
    const cfg = TYPE_MAP[resource.type] || TYPE_MAP.OTHER;
+   const kind = detectKind(resource);
+   const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(url);
+   const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+
    return (
       <div className="fixed inset-0 z-[500] bg-black/80 flex flex-col" onClick={onClose}>
          <div className="flex items-center justify-between px-6 py-3 bg-black/60 flex-shrink-0" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3">
-               <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all">
+            <div className="flex items-center gap-3 min-w-0">
+               <button onClick={onClose} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all flex-shrink-0">
                   <ArrowLeft size={14} />返回
                </button>
-               <div className="w-px h-4 bg-white/20" />
-               <cfg.icon size={18} className="text-white/70" />
+               <div className="w-px h-4 bg-white/20 flex-shrink-0" />
+               <cfg.icon size={18} className="text-white/70 flex-shrink-0" />
                <span className="text-white font-bold truncate">{resource.title}</span>
-               <span className="text-white/40 text-xs">{cfg.label} {formatSize(resource.file_size) && `· ${formatSize(resource.file_size)}`}</span>
+               <span className="text-white/40 text-xs flex-shrink-0">{cfg.label}{resource.file_size ? ` · ${formatSize(resource.file_size)}` : ''}</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
                <a href={url} download={resource.file_name} onClick={e => e.stopPropagation()}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all">
-                  <ElmIcon name="download" size={16} />下载
+                  <Download size={14} />下载
                </a>
             </div>
          </div>
          <div className="flex-1 flex items-center justify-center overflow-hidden" onClick={e => e.stopPropagation()}>
-            {resource.type === 'VIDEO' && (
+            {kind === 'video' && (
                <video controls autoPlay className="max-h-full max-w-full" src={url}>不支持视频播放</video>
             )}
-            {resource.type === 'VIDEO_EMBED' && (
-               <iframe
-                  src={url}
-                  className="w-full h-full"
-                  style={{ minHeight: '60vh' }}
-                  title={resource.title}
-                  allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-               />
+            {kind === 'video_embed' && (
+               <iframe src={url} className="w-full h-full" style={{ minHeight: '60vh' }}
+                  title={resource.title} allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
             )}
-            {resource.type === 'PDF' && (
+            {kind === 'pdf' && (
                <iframe src={url} className="w-full h-full bg-white" title={resource.title} />
             )}
-            {resource.type === 'AUDIO' && (
+            {kind === 'audio' && (
                <div className="flex flex-col items-center gap-6">
                   <div className="w-24 h-24 rounded-full bg-purple-500/20 flex items-center justify-center">
                      <Music size={40} className="text-purple-300" />
@@ -97,14 +112,45 @@ const ResourceViewer: React.FC<{ resource: LessonResource; onClose: () => void }
                   <p className="text-white/70 text-sm">{resource.title}</p>
                </div>
             )}
-            {(resource.type === 'PPT' || resource.type === 'OTHER') && (
+            {kind === 'image' && (
+               <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+                  <img src={url} alt={resource.title} className="max-w-full max-h-full object-contain" />
+               </div>
+            )}
+            {kind === 'office' && (isLocalhost ? (
+               <div className="flex flex-col items-center gap-4 p-10 text-center max-w-md">
+                  <div className="w-20 h-20 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                     <FileText size={36} className="text-amber-300" />
+                  </div>
+                  <p className="text-white font-bold text-lg">Office 文档需下载后查看</p>
+                  <p className="text-white/60 text-sm leading-relaxed">
+                     Office 在线预览需要公网可访问的 URL，当前为本地开发地址，无法加载。
+                     请下载后使用 Word / PowerPoint / WPS 打开。
+                  </p>
+                  <a href={url} download={resource.file_name}
+                     className="flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl transition-all">
+                     <Download size={16} /> 下载 {resource.file_name}
+                  </a>
+               </div>
+            ) : (
+               <div className="w-full h-full bg-white flex flex-col">
+                  <iframe src={officeViewerUrl} className="w-full flex-1" title={resource.title} style={{ border: 'none' }} />
+                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
+                     预览由 Microsoft Office Online 提供 · 如无法显示请下载查看
+                  </div>
+               </div>
+            ))}
+            {kind === 'text' && (
+               <iframe src={url} className="w-full h-full bg-white" title={resource.title} />
+            )}
+            {kind === 'download' && (
                <div className="flex flex-col items-center gap-5 text-center p-10">
                   <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center"><cfg.icon size={36} className="text-white/60" /></div>
                   <p className="text-white font-bold text-lg">{resource.title}</p>
-                  <p className="text-white/50 text-sm">{resource.type === 'PPT' ? 'PPT 文件需要下载后使用 PowerPoint / WPS 打开' : '点击下方按钮下载此文件'}</p>
+                  <p className="text-white/50 text-sm">此类型文件暂不支持在线预览，请下载后查看</p>
                   <a href={url} download={resource.file_name}
                      className="flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl transition-all">
-                     <ElmIcon name="download" size={16} />下载 {resource.type}
+                     <Download size={16} />下载文件
                   </a>
                </div>
             )}
@@ -173,6 +219,11 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
    const [lessonHomeworks, setLessonHomeworks] = useState<any[]>([]);
    const [activeQuiz, setActiveQuiz] = useState<{ chapterId: string; chapterTitle: string; paperId: string } | null>(null);
    const [chapterPapers, setChapterPapers] = useState<Record<string, { id: string; title: string; questionCount: number }[]>>({});
+   const [sidebarTab, setSidebarTab] = useState<'chapters' | 'more'>('chapters');
+   const [classMaterials, setClassMaterials] = useState<{ id: string; title: string; type: string; url: string; file_name?: string; file_size?: number; createdAt?: string }[]>([]);
+   const [classInfo, setClassInfo] = useState<{ classId: string; className: string } | null>(null);
+   const [classMembers, setClassMembers] = useState<{ id: string; name: string; phone?: string }[]>([]);
+   const [moreActiveSection, setMoreActiveSection] = useState<'menu' | 'materials' | 'members'>('menu');
    const { addToast } = useStore();
 
    const load = useCallback(async () => {
@@ -193,6 +244,22 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
    }, [courseId]);
 
    useEffect(() => { load(); }, [load]);
+
+   // 拉取该课程对应的班级资料和班级成员
+   useEffect(() => {
+      api.get('/api/course-resource/my-class-materials')
+         .then(res => {
+            const groups = res.data || [];
+            // 优先匹配当前 courseId 的班级
+            const matched = groups.find((g: any) => g.courseId === courseId) || groups[0];
+            if (matched) {
+               setClassInfo({ classId: matched.classId, className: matched.className });
+               setClassMaterials(matched.materials || []);
+               setClassMembers(matched.members || []);
+            }
+         })
+         .catch(() => {});
+   }, [courseId]);
 
    // 拉取每个章节的真实试卷
    useEffect(() => {
@@ -334,8 +401,46 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
                </div>
             </div>
 
-            {/* Chapter List */}
+            {/* Tabs: 章节 / 更多 */}
+            <div className="flex border-b border-slate-100 flex-shrink-0">
+               {([
+                  { key: 'chapters' as const, label: '章节' },
+                  { key: 'more' as const, label: '更多' },
+               ]).map(tab => (
+                  <button key={tab.key} onClick={() => setSidebarTab(tab.key)}
+                     className={`flex-1 py-2.5 text-sm font-bold text-center transition-all relative ${sidebarTab === tab.key ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                     {tab.label}
+                     {sidebarTab === tab.key && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-indigo-500 rounded-full" />}
+                  </button>
+               ))}
+            </div>
+
+            {/* Tab Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {sidebarTab === 'more' ? (
+               /* ─── 更多 Tab ─── */
+               <div className="space-y-1">
+                  {[
+                     { icon: <FolderOpen size={18} className="text-blue-500" />, label: '资料', count: classMaterials.length, suffix: '份', id: 'materials' as const },
+                     { icon: <Users2 size={18} className="text-amber-500" />, label: '班级成员', count: classMembers.length, suffix: '人', id: 'members' as const },
+                  ].map(item => (
+                     <button key={item.id}
+                        onClick={() => { setActiveLessonId(null); setMoreActiveSection(item.id); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all text-left group ${moreActiveSection === item.id ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-slate-50 border border-transparent'}`}>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${moreActiveSection === item.id ? 'bg-white shadow-sm' : 'bg-slate-50 group-hover:bg-white group-hover:shadow-sm'}`}>
+                           {item.icon}
+                        </div>
+                        <span className="flex-1 text-sm font-bold text-slate-700">{item.label}</span>
+                        {item.count > 0 && (
+                           <span className="text-xs text-slate-400">{item.count}{item.suffix}</span>
+                        )}
+                        <ChevronRight size={14} className="text-slate-300" />
+                     </button>
+                  ))}
+               </div>
+            ) : (
+               /* ─── 章节 Tab ─── */
+               <>
                {allCompleted && (
                   <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
                      <Award size={18} className="text-emerald-500" />
@@ -408,6 +513,8 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
                      </div>
                   );
                })}
+               </>
+            )}
             </div>
          </div>
 
@@ -460,12 +567,10 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
                                           <p className="text-xs text-slate-400 mt-0.5">{cfg.label}{res.file_size ? ` · ${formatSize(res.file_size)}` : ''}</p>
                                        </div>
                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          {(res.type === 'VIDEO' || res.type === 'VIDEO_EMBED' || res.type === 'PDF' || res.type === 'AUDIO') && (
-                                             <button onClick={() => setActiveResource(res)}
-                                                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 text-slate-600 hover:text-indigo-600 font-bold text-sm rounded-xl transition-all shadow-sm">
-                                                <Play size={14} />在线学习
-                                             </button>
-                                          )}
+                                          <button onClick={() => setActiveResource(res)}
+                                             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 text-slate-600 hover:text-indigo-600 font-bold text-sm rounded-xl transition-all shadow-sm">
+                                             <Play size={14} />在线学习
+                                          </button>
                                           <a href={url} download={res.file_name}
                                              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-sm rounded-xl transition-all shadow-sm">
                                              <ElmIcon name="download" size={16} />下载
@@ -519,6 +624,81 @@ export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
                      )}
                   </div>
                </>
+            ) : sidebarTab === 'more' && moreActiveSection === 'materials' ? (
+               /* ─── 更多: 班级资料列表 ─── */
+               <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                     <FolderOpen size={18} className="text-blue-500" />
+                     <h2 className="text-lg font-extrabold text-slate-800">资料</h2>
+                     <span className="text-xs text-slate-400">{classMaterials.length} 份</span>
+                  </div>
+                  {classMaterials.length === 0 ? (
+                     <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-16">
+                        <FolderOpen size={32} className="text-slate-200" />
+                        <p className="font-bold text-slate-400">老师还没有上传资料</p>
+                     </div>
+                  ) : (
+                     <div className="space-y-3">
+                        {classMaterials.map(res => {
+                           const cfg = TYPE_MAP[res.type] || TYPE_MAP.OTHER;
+                           const Icon = cfg.icon;
+                           const url = res.url.startsWith('/') ? `${BASE}${res.url}` : res.url;
+                           return (
+                              <div key={res.id} className={`group flex items-center gap-4 p-4 rounded-2xl border ${cfg.bg} transition-all hover:shadow-sm`} style={{ borderColor: 'transparent' }}>
+                                 <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm flex-shrink-0">
+                                    <Icon size={22} className={cfg.color} />
+                                 </div>
+                                 <div className="flex-1 min-w-0">
+                                    <p className="font-extrabold text-slate-800 truncate">{res.title}</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                       {cfg.label}{res.file_size ? ` · ${formatSize(res.file_size)}` : ''}
+                                       {res.createdAt ? ` · ${new Date(res.createdAt).toLocaleDateString('zh-CN')}` : ''}
+                                    </p>
+                                 </div>
+                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setActiveResource(res as any)}
+                                       className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 text-slate-600 hover:text-indigo-600 font-bold text-sm rounded-xl transition-all shadow-sm">
+                                       <Play size={14} />查看
+                                    </button>
+                                    <a href={url} download={res.file_name}
+                                       className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-sm rounded-xl transition-all shadow-sm">
+                                       <Download size={14} />下载
+                                    </a>
+                                 </div>
+                              </div>
+                           );
+                        })}
+                     </div>
+                  )}
+               </div>
+            ) : sidebarTab === 'more' && moreActiveSection === 'members' ? (
+               /* ─── 更多: 班级成员 ─── */
+               <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                     <Users2 size={18} className="text-amber-500" />
+                     <h2 className="text-lg font-extrabold text-slate-800">班级成员</h2>
+                     <span className="text-xs text-slate-400">{classMembers.length} 人</span>
+                  </div>
+                  {classMembers.length === 0 ? (
+                     <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-16">
+                        <Users2 size={32} className="text-slate-200" />
+                        <p className="font-bold text-slate-400">暂无成员信息</p>
+                     </div>
+                  ) : (
+                     <div className="space-y-2">
+                        {classMembers.map((m, i) => (
+                           <div key={m.id} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all">
+                              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name}`} className="w-10 h-10 rounded-xl" alt="" />
+                              <div className="flex-1 min-w-0">
+                                 <p className="text-sm font-bold text-slate-800">{m.name}</p>
+                                 {m.phone && <p className="text-xs text-slate-400">{m.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</p>}
+                              </div>
+                              <span className="text-xs text-slate-300">#{i + 1}</span>
+                           </div>
+                        ))}
+                     </div>
+                  )}
+               </div>
             ) : (
                <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm gap-4 py-20">
                   <ElmIcon name="reading" size={16} />

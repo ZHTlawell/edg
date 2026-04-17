@@ -224,11 +224,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <h3 className="text-3xl font-bold text-emerald-700 font-mono">{totalBalance} <span className="text-xs">H</span></h3>
                </div>
                <div className="h-12 w-px bg-slate-100 hidden md:block"></div>
-               <div className="text-center px-8 py-4 bg-amber-50 rounded-3xl border border-amber-100">
-                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">钱包余额</p>
-                  <h3 className="text-3xl font-bold text-amber-700 font-mono">¥ {(currentStudent as any)?.balance?.toFixed(2) || '0.00'}</h3>
-               </div>
-               <div className="h-12 w-px bg-slate-100 hidden md:block"></div>
                <button
                   onClick={onRenew}
                   className="flex flex-col items-center gap-2 group"

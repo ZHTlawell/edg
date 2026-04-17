@@ -1,14 +1,16 @@
 import axios from 'axios';
+import { getActiveToken, clearActiveSession } from './session';
+import { API_BASE } from './config';
 
 const api = axios.create({
-    baseURL: 'http://localhost:3001', // NestJS 默认端口升级
-    timeout: 10000,
+    baseURL: API_BASE,
+    timeout: 300000, // 5 分钟，兼容大文件上传（Cloudflare Tunnel 下延迟较高）
 });
 
-// 请求拦截器：注入 JWT Token
+// 请求拦截器：注入当前活跃角色的 JWT Token
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
+        const token = getActiveToken();
         if (token) {
             config.headers = config.headers || {};
             if (typeof (config.headers as any).set === 'function') {
@@ -28,15 +30,12 @@ api.interceptors.response.use(
     (error) => {
         const message = error.response?.data?.message || '网络请求故障，请稍后重试';
 
-        // 如果是 401 身份过期，自动清理并跳转
-        // 只有当本地确实有 token 但失效了才清理并跳转，避免循环或误伤
         if (error.response?.status === 401) {
-            if (localStorage.getItem('token')) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
-                }
+            const msg = error.response?.data?.message || '';
+            const isAuthFailure = !msg || msg.includes('Unauthorized') || msg.includes('expired') || msg.includes('invalid') || msg.includes('token');
+            const isMereRoleBlock = msg.includes('仅') || msg.includes('无权限') || msg.includes('only');
+            if (!isMereRoleBlock && isAuthFailure && getActiveToken()) {
+                clearActiveSession();
             }
         }
 

@@ -13,7 +13,18 @@ export class AcademicController {
     @Get('courses')
     async getCourses(@Request() req: any, @Query('campusId') campusId?: string, @Query('page') page?: string, @Query('pageSize') pageSize?: string) {
         const userRole = req.user.role.toUpperCase();
-        const filterCampusId = userRole === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
+        // 校区管理员没有 campus_id 时不返回任何数据（防止数据泄漏）
+        if (userRole === 'CAMPUS_ADMIN' && !req.user.campusId) return { data: [], total: 0 };
+        // 学员和教师只能看自己所在校区的课程（课程市场也受限）
+        let filterCampusId: string | undefined;
+        if (userRole === 'CAMPUS_ADMIN') {
+            filterCampusId = req.user.campusId;
+        } else if (userRole === 'STUDENT' || userRole === 'TEACHER') {
+            if (!req.user.campusId) return { data: [], total: 0 };
+            filterCampusId = req.user.campusId;
+        } else {
+            filterCampusId = campusId;
+        }
         return this.academicService.getAllCourses(
             filterCampusId,
             page ? parseInt(page) : undefined,
@@ -27,6 +38,7 @@ export class AcademicController {
         const userRole = req.user.role.toUpperCase();
         console.log(`[Academic] Fetching teachers for user: ${req.user.username}, role: ${userRole}, targetCampus: ${campusId}`);
 
+        if (userRole === 'CAMPUS_ADMIN' && !req.user.campusId) return [];
         // 核心：校区管理员强制只能看本校区老师，即使前端传了别的 campusId
         const filterCampusId = userRole === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
         return this.academicService.getAllTeachers(filterCampusId);
@@ -114,6 +126,7 @@ export class AcademicController {
             return await this.academicService.getClassesByStudent(req.user.studentId);
         }
 
+        if (req.user.role === 'CAMPUS_ADMIN' && !req.user.campusId) return { data: [], total: 0 };
         const targetCampus = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
         return await this.academicService.getClassesByCampus(
             targetCampus,
@@ -189,7 +202,11 @@ export class AcademicController {
     async getCampusClassrooms(@Request() req: any, @Query('campusId') campusId?: string) {
         const userRole = req.user.role.toUpperCase();
         const filterCampusId = userRole === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
-        if (!filterCampusId) throw new BadRequestException('未指定校区');
+        // ADMIN 未传校区时返回全量；CAMPUS_ADMIN 强制用自己校区；其他角色无校区返回空数组
+        if (!filterCampusId) {
+            if (userRole === 'ADMIN') return this.academicService.getClassrooms(undefined);
+            return [];
+        }
         return this.academicService.getClassrooms(filterCampusId);
     }
 

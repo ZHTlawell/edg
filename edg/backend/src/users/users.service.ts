@@ -306,12 +306,20 @@ export class UsersService {
         if (!user) throw new NotFoundException('用户不存在');
 
         return this.prisma.$transaction(async (tx: any) => {
+            // 如果是校区管理员，且没有绑定 campus_id，则为其生成一个全新的独立校区ID
+            // 防止多个新注册的校区管理员共享同一个 campus 上下文，导致看到彼此数据
+            let updateData: any = { status: 'ACTIVE' };
+            if (user.role === 'CAMPUS_ADMIN' && !user.campus_id) {
+                const { randomUUID } = await import('crypto');
+                updateData.campus_id = randomUUID();
+            }
+
             const updatedUser = await tx.sysUser.update({
                 where: { id },
-                data: { status: 'ACTIVE' },
+                data: updateData,
             });
 
-            // 如果是校区管理员被核准，且有关联校区ID，则自动初始化20个教室
+            // 如果是校区管理员被核准，自动初始化20个教室
             if (updatedUser.role === 'CAMPUS_ADMIN' && updatedUser.campus_id) {
                 const roomCount = await tx.eduClassroom.count({
                     where: { campus_id: updatedUser.campus_id }
@@ -334,6 +342,32 @@ export class UsersService {
 
             return updatedUser;
         });
+    }
+
+    // 为已存在的用户补充 campus_id（用于修复存量数据）
+    async updateCampusId(userId: string, campusId: string) {
+        return this.prisma.sysUser.update({
+            where: { id: userId },
+            data: { campus_id: campusId },
+        });
+    }
+
+    // 为指定校区初始化20个教室（如果尚未初始化）
+    async initClassroomsForCampus(campusId: string) {
+        const roomCount = await (this.prisma as any).eduClassroom.count({
+            where: { campus_id: campusId }
+        });
+        if (roomCount === 0) {
+            const rooms: any[] = [];
+            for (let i = 1; i <= 20; i++) {
+                rooms.push({
+                    name: `研讨室 ${100 + i}`,
+                    campus_id: campusId,
+                    status: 'AVAILABLE'
+                });
+            }
+            await (this.prisma as any).eduClassroom.createMany({ data: rooms });
+        }
     }
 
     // 审核拒绝

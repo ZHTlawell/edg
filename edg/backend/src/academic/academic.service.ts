@@ -284,7 +284,10 @@ export class AcademicService {
                         include: {
                             course: true,
                             teacher: true,
-                            schedules: { orderBy: { start_time: 'asc' } }
+                            schedules: {
+                                orderBy: { start_time: 'asc' },
+                                include: { _count: { select: { attendances: true } } }
+                            }
                         }
                     },
                     students: {
@@ -311,7 +314,8 @@ export class AcademicService {
                                 teacher: true,
                                 schedules: {
                                     where: { status: { in: ['PUBLISHED', 'COMPLETED'] } },
-                                    orderBy: { start_time: 'asc' }
+                                    orderBy: { start_time: 'asc' },
+                                    include: { _count: { select: { attendances: true } } }
                                 }
                             }
                         }
@@ -333,7 +337,8 @@ export class AcademicService {
                 course: true,
                 teacher: true,
                 schedules: {
-                    orderBy: { start_time: 'asc' }
+                    orderBy: { start_time: 'asc' },
+                    include: { _count: { select: { attendances: true } } }
                 }
             }
         });
@@ -638,9 +643,9 @@ export class AcademicService {
         return (this.prisma as any).edCourse.delete({ where: { id } });
     }
 
-    async getClassrooms(campusId: string) {
+    async getClassrooms(campusId?: string) {
         return (this.prisma as any).eduClassroom.findMany({
-            where: { campus_id: campusId },
+            where: campusId ? { campus_id: campusId } : {},
             orderBy: { name: 'asc' }
         });
     }

@@ -76,6 +76,7 @@ export class AdminUsersController {
     @UseGuards(AuthGuard('jwt'))
     @Get('teachers')
     async getTeachers(@Request() req: any, @Query('campusId') campusId: string) {
+        if (req.user.role === 'CAMPUS_ADMIN' && !req.user.campusId) return [];
         const targetCampus = req.user.role === 'CAMPUS_ADMIN' ? req.user.campusId : campusId;
         return (this.authService as any).usersService.findAllTeachers(targetCampus);
     }

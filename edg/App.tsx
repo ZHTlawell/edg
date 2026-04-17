@@ -7,6 +7,7 @@ import { CourseManagement } from './components/CourseManagement';
 import { StudentManagement } from './components/StudentManagement';
 import { StudentDetailView } from './components/StudentDetailView';
 import { ClassManagement } from './components/ClassManagement';
+import { TeacherClassView } from './components/TeacherClassView';
 import { OrderCreation } from './components/OrderCreation';
 import { OrderDetailView } from './components/OrderDetailView';
 import { ScheduleManagement } from './components/ScheduleManagement';
@@ -32,7 +33,9 @@ import { StudentNotifications } from './components/StudentNotifications';
 import { CourseMarketplace } from './components/CourseMarketplace';
 import { CoursePreviewPage } from './components/CoursePreviewPage';
 import { TeacherHomeworkMgmt } from './components/TeacherHomeworkMgmt';
+import { LeaveApproval } from './components/LeaveApproval';
 import { StudentHomework } from './components/StudentHomework';
+import { StudentClassMaterials } from './components/StudentClassMaterials';
 import { TeacherApproval } from './components/TeacherApproval';
 import { StudentApproval } from './components/StudentApproval';
 import { TeacherRegistration } from './components/TeacherRegistration';
@@ -48,13 +51,15 @@ import { ToastContainer } from './components/ToastContainer';
 import { Student, Announcement } from './types';
 import { ClipboardList } from 'lucide-react';
 import { useStore } from './store';
+import { setActiveRole, getActiveRole, getTokenForRole } from './utils/session';
 
 const App: React.FC = () => {
-  const { currentUser, logout, fetchAnnouncementsActive, announcements } = useStore();
+  const { currentUser, logout, fetchAnnouncementsActive, fetchUnreadAnnouncements, markAnnouncementRead, announcements, initData } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [orderDetailReturnView, setOrderDetailReturnView] = useState('payments-orders');
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -71,12 +76,14 @@ const App: React.FC = () => {
     else if (role === 'campus_admin') setActiveView('teaching');
     else setActiveView('dashboard');
 
-    // Show announcement popup for campus_admin on first login
-    if (role === 'campus_admin') {
+    // Show unread announcement popup on login (all roles except student)
+    if (role !== 'student') {
       try {
-        await fetchAnnouncementsActive();
-        // We'll pick up from the store state after fetch, via useEffect
-        setShowAnnouncementPopup(true);
+        const unread = await fetchUnreadAnnouncements();
+        if (unread.length > 0) {
+          setPopupAnnouncements(unread);
+          setShowAnnouncementPopup(true);
+        }
       } catch (err) {
         console.warn('Failed to load announcements for popup', err);
       }
@@ -110,23 +117,25 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // If we have a currentUser in store (from persistence), set authenticated
-    if (currentUser) {
+    // If we have a currentUser in store (from persistence / page refresh), restore full session
+    if (currentUser && !isAuthenticated) {
+      // 确保 active role 与当前恢复的用户一致
+      setActiveRole(currentUser.role);
+      // 验证该角色的 token 仍然存在
+      if (!getTokenForRole(currentUser.role)) return; // token 已过期/清除，不恢复
+
       setIsAuthenticated(true);
       if (currentUser.role === 'student' && activeView === 'dashboard') {
         setActiveView('student-dashboard');
-      } else if (currentUser.role === 'campus_admin' && activeView === 'dashboard') {
+      } else if ((currentUser.role === 'campus_admin' || currentUser.role === 'teacher') && activeView === 'dashboard') {
         setActiveView('teaching');
       }
+      // Re-fetch all data that was loaded during login (store data is lost on refresh)
+      initData();
     }
   }, [currentUser]);
 
-  // Sync popup announcements once fetched
-  useEffect(() => {
-    if (showAnnouncementPopup && announcements.length > 0) {
-      setPopupAnnouncements(announcements);
-    }
-  }, [showAnnouncementPopup, announcements]);
+  // (popup announcements set directly from fetchUnreadAnnouncements in handleLogin)
 
   if (!isAuthenticated || !currentUser) {
     return (
@@ -144,7 +153,11 @@ const App: React.FC = () => {
       {showAnnouncementPopup && popupAnnouncements.length > 0 && (
         <AnnouncementPopup
           announcements={popupAnnouncements}
-          onClose={() => setShowAnnouncementPopup(false)}
+          onClose={() => {
+            // 标记所有弹出的公告为已读
+            popupAnnouncements.forEach(a => markAnnouncementRead(a.id));
+            setShowAnnouncementPopup(false);
+          }}
         />
       )}
       <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -187,7 +200,7 @@ const App: React.FC = () => {
                       onRenew={() => setActiveView('student-orders')}
                       onLeave={() => setActiveView('student-notifications')}
                       onHomework={() => setActiveView('student-homework')}
-                      onMaterials={() => setActiveView('student-learning')}
+                      onMaterials={() => setActiveView('student-materials')}
                       onContact={() => window.alert('客服热线: 400-123-4567')}
                       onEnterLearning={() => setActiveView('student-learning')}
                     />
@@ -225,7 +238,8 @@ const App: React.FC = () => {
               {activeView === 'logs' && <AuditLogs />}
               {activeView === 'help-center' && <HelpCenter />}
               {activeView === 'courses' && <CourseManagement />}
-              {activeView === 'classes' && <ClassManagement />}
+              {activeView === 'classes' && userRole === 'teacher' && <TeacherClassView />}
+              {activeView === 'classes' && userRole !== 'teacher' && <ClassManagement />}
               {activeView === 'teaching' && (userRole === 'admin' || userRole === 'campus_admin') && (
                 <ScheduleManagement onEnterAttendance={handleEnterAttendance} onEnterConsumption={handleEnterConsumption} />
               )}
@@ -233,7 +247,7 @@ const App: React.FC = () => {
                 <ScheduleManagement onEnterAttendance={handleEnterAttendance} />
               )}
               {activeView === 'stats' && <StatisticsOverview />}
-              {activeView === 'report-details' && <ReportDetails />}
+              {activeView === 'report-details' && <ReportDetails onViewOrder={(id) => { setSelectedOrderId(id); setActiveView('order-detail'); }} />}
               {activeView === 'attendance-module' && <AttendanceDashboard onRegister={handleEnterAttendance} onNavigate={setActiveView} />}
               {activeView === 'resources' && <ResourceLibrary />}
               {activeView === 'my-stats' && <TeacherStats />}
@@ -249,7 +263,9 @@ const App: React.FC = () => {
                 />
               )}
               {activeView === 'teacher-homework' && userRole === 'teacher' && <TeacherHomeworkMgmt />}
+              {activeView === 'leave-approval' && (userRole === 'teacher' || userRole === 'campus_admin') && <LeaveApproval />}
               {activeView === 'student-homework' && userRole === 'student' && <StudentHomework />}
+              {activeView === 'student-materials' && userRole === 'student' && <StudentClassMaterials />}
               {activeView === 'teacher-registration' && userRole === 'campus_admin' && (
                 <TeacherRegistration onNavigate={(id) => setActiveView(id)} />
               )}
@@ -260,9 +276,9 @@ const App: React.FC = () => {
                 <StudentApproval onBack={() => setActiveView('students')} />
               )}
               {activeView === 'refund-management' && <RefundManagement />}
-              {activeView === 'finance-report' && <FinanceReport onNavigate={setActiveView} onViewOrder={(id) => { setSelectedOrderId(id); setActiveView('order-detail'); }} />}
+              {activeView === 'finance-report' && <FinanceReport onNavigate={setActiveView} onViewOrder={(id) => { setSelectedOrderId(id); setOrderDetailReturnView('finance-report'); setActiveView('order-detail'); }} />}
               {activeView === 'announcemnt-mgmt' && (userRole === 'admin' || userRole === 'campus_admin') && <AnnouncementMgmt />}
-              {activeView === 'announcement-view' && (userRole === 'admin' || userRole === 'campus_admin') && <AnnouncementView />}
+              {activeView === 'announcement-view' && (userRole === 'admin' || userRole === 'campus_admin' || userRole === 'teacher') && <AnnouncementView />}
               {activeView === 'course-standard' && userRole === 'admin' && <CourseStandardMgmt />}
               {activeView === 'course-resource' && (userRole === 'admin' || userRole === 'campus_admin') && <CourseResourceMgmt />}
 
@@ -276,13 +292,14 @@ const App: React.FC = () => {
               {activeView === 'lesson-consumption' && (
                 <LessonConsumption lessonId={selectedLessonId || 'L101'} onBack={() => setActiveView('teaching')} />
               )}
-              {activeView === 'payments' && (userRole === 'admin' || userRole === 'campus_admin') && <Payments />}
-              {activeView === 'order-detail' && <OrderDetailView orderId={selectedOrderId || 'ORD-001'} onBack={() => setActiveView('payments')} />}
+              {activeView === 'payments' && (userRole === 'admin' || userRole === 'campus_admin') && <Payments onViewOrder={(id) => { setSelectedOrderId(id); setOrderDetailReturnView('payments'); setActiveView('order-detail'); }} />}
+              {activeView === 'payments-orders' && (userRole === 'admin' || userRole === 'campus_admin') && <Payments initialTab="orders" onViewOrder={(id) => { setSelectedOrderId(id); setOrderDetailReturnView('payments-orders'); setActiveView('order-detail'); }} />}
+              {activeView === 'order-detail' && <OrderDetailView orderId={selectedOrderId || 'ORD-001'} onBack={() => setActiveView(orderDetailReturnView)} onViewStudent={(s) => { setSelectedStudent(s); setActiveView('student-detail'); }} />}
               {activeView === 'students' && <StudentManagement onShowDetail={handleShowDetail} />}
               {activeView === 'student-detail' && selectedStudent && <StudentDetailView student={selectedStudent} onBack={handleBackToList} />}
 
               {/* Fallback */}
-              {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market', 'teacher-homework', 'student-homework', 'teacher-registration', 'teacher-approval', 'refund-management', 'finance-report', 'announcemnt-mgmt', 'announcement-view', 'course-standard', 'course-resource', 'course-preview'].includes(activeView) && (
+              {!['dashboard', 'courses', 'students', 'student-detail', 'attendance-module', 'classes', 'payments', 'order-detail', 'teaching', 'attendance-registration', 'lesson-consumption', 'stats', 'report-details', 'student-learning', 'student-dashboard', 'course-study', 'online-quiz', 'campus-list', 'roles', 'logs', 'help-center', 'schedule', 'resources', 'my-stats', 'student-schedule', 'student-orders', 'student-notifications', 'student-market', 'teacher-homework', 'student-homework', 'teacher-registration', 'teacher-approval', 'refund-management', 'finance-report', 'announcemnt-mgmt', 'announcement-view', 'course-standard', 'course-resource', 'course-preview', 'payments-orders', 'student-approval', 'leave-approval', 'student-materials'].includes(activeView) && (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-white rounded-2xl border border-slate-100">
                   <ClipboardList size={48} className="opacity-10 mb-4" />
                   <p className="text-xl font-bold text-slate-600">模块开发中</p>

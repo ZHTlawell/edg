@@ -34,22 +34,43 @@ export const StatisticsOverview: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(true);
 
   useEffect(() => {
-    fetchWorkbenchOverview();
-  }, [fetchWorkbenchOverview]);
+    if (!isCampusAdmin) {
+      fetchWorkbenchOverview();
+    }
+  }, [fetchWorkbenchOverview, isCampusAdmin]);
 
-  // 优先使用后端真实统计数据（workbenchOverview），否则从 store 本地聚合
+  // 按角色过滤数据：校区管理员只看本校区
+  const myCampusId = currentUser?.campus_id || '';
+  const scopedOrders = useMemo(() => {
+    if (!isCampusAdmin) return orders;
+    return orders.filter((o: any) => {
+      const oCampus = o.course?.campus_id || o.campusId || o.campus_id;
+      return oCampus === myCampusId;
+    });
+  }, [orders, isCampusAdmin, myCampusId]);
+
+  const scopedStudents = useMemo(() => {
+    if (!isCampusAdmin) return students;
+    return students.filter(s => s.campus_id === myCampusId || s.campus === myCampusId);
+  }, [students, isCampusAdmin, myCampusId]);
+
+  const scopedLedgers = useMemo(() => {
+    if (!isCampusAdmin) return assetLedgers;
+    const studentIds = new Set(scopedStudents.map(s => s.id));
+    return assetLedgers.filter((l: any) => studentIds.has(l.student_id));
+  }, [assetLedgers, isCampusAdmin, scopedStudents]);
+
   const stats = useMemo(() => {
-    const kpis = workbenchOverview?.kpis;
+    const kpis = !isCampusAdmin ? workbenchOverview?.kpis : null; // 校区端不用总部 kpis
 
-    // 后端有真实数据时使用
-    const totalEnrollment = kpis?.newEnrollments ?? new Set(orders.map((o: any) => o.studentId)).size;
-    const totalOrders = kpis?.totalStudents != null ? orders.length : orders.length;
-    const totalRevenue = kpis?.annualRevenue ?? orders.reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
-    const totalConsumption = assetLedgers.filter((l: any) => l.businessType === 'CONSUME').reduce((sum: number, l: any) => sum + Math.abs(l.changeQty || 0), 0);
+    const totalEnrollment = kpis?.newEnrollments ?? new Set(scopedOrders.map((o: any) => o.studentId || o.student_id)).size;
+    const totalOrders = scopedOrders.length;
+    const totalRevenue = kpis?.annualRevenue ?? scopedOrders.filter((o: any) => o.status === 'PAID').reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
+    const totalConsumption = scopedLedgers.filter((l: any) => l.businessType === 'CONSUME').reduce((sum: number, l: any) => sum + Math.abs(l.changeQty || 0), 0);
     const presentCount = attendanceRecords.filter((r: any) => r.status === 'present').length;
     const totalAttendance = attendanceRecords.length;
     const attendanceRate = totalAttendance > 0 ? (presentCount / totalAttendance * 100).toFixed(1) : (kpis?.avgFillRate?.toFixed(1) ?? '0');
-    const pendingRefundAmt = kpis?.pendingRefunds ? `${kpis.pendingRefunds} 笔待审` : '¥0';
+    const pendingRefundAmt = kpis?.pendingRefunds ? `${kpis.pendingRefunds} 笔待审` : '—';
 
     return [
       { label: '累计报名人数', value: totalEnrollment, trend: '--', isUp: true, icon: <ElmIcon name="user" size={16} />, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -59,7 +80,7 @@ export const StatisticsOverview: React.FC = () => {
       { label: '平均满班率', value: `${attendanceRate}%`, trend: '--', isUp: true, icon: <BarChart3 />, color: 'text-amber-600', bg: 'bg-amber-50' },
       { label: '累计课消课时', value: `${totalConsumption}H`, trend: '--', isUp: true, icon: <ElmIcon name="reading" size={16} />, color: 'text-purple-600', bg: 'bg-purple-50' },
     ];
-  }, [orders, attendanceRecords, assetLedgers, workbenchOverview, isCampusAdmin, myCampus]);
+  }, [scopedOrders, attendanceRecords, scopedLedgers, workbenchOverview, isCampusAdmin]);
 
   const handleExportStats = () => {
     const kpis = workbenchOverview?.kpis;
@@ -145,7 +166,7 @@ export const StatisticsOverview: React.FC = () => {
               months = workbenchOverview.revenueTrend.map((d: any) => d.month);
               values = workbenchOverview.revenueTrend.map((d: any) => d.amount); // already in 万元
             } else {
-              const paidOrders = orders.filter((o: any) => o.status === 'PAID' && o.createdAt);
+              const paidOrders = scopedOrders.filter((o: any) => o.status === 'PAID' && o.createdAt);
               const monthMap: Record<string, number> = {};
               paidOrders.forEach((o: any) => {
                 const month = (o.createdAt || '').slice(0, 7);
@@ -251,8 +272,8 @@ export const StatisticsOverview: React.FC = () => {
           <h4 className="font-bold text-slate-900 mb-8">营收占比 (按项目)</h4>
           <div className="space-y-6">
             {courses.slice(0, 5).map((course) => {
-              const courseRevenue = orders.filter((o: any) => (o.courseId || o.course_id) === course.id && o.status === 'PAID').reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
-              const allRevenue = orders.filter((o: any) => o.status === 'PAID').reduce((sum: number, o: any) => sum + (o.amount || 0), 0) || 1;
+              const courseRevenue = scopedOrders.filter((o: any) => (o.courseId || o.course_id) === course.id && o.status === 'PAID').reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
+              const allRevenue = scopedOrders.filter((o: any) => o.status === 'PAID').reduce((sum: number, o: any) => sum + (o.amount || 0), 0) || 1;
               const percent = (courseRevenue / allRevenue * 100).toFixed(0);
               return (
                 <div key={course.id} className="space-y-2">

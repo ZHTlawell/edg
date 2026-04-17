@@ -7,6 +7,8 @@ import {
     AlertTriangle, Shield, History, Folder
 } from 'lucide-react';
 import api from '../utils/api';
+import { API_BASE } from '../utils/config';
+import { getActiveToken } from '../utils/session';
 import { useStore } from '../store';
 import { CourseChapterTree } from './CourseResourcePanel';
 import { QuizPaperManager } from './QuizPaperManager';
@@ -68,7 +70,7 @@ const CoverUploader: React.FC<{
             fd.append('file', file);
             fd.append('title', 'cover-' + file.name);
             fd.append('type', 'OTHER');
-            const token = localStorage.getItem('token');
+            const token = getActiveToken();
             const res = await api.post('/api/course-resource/upload', fd, {
                 headers: {
                     Authorization: token ? `Bearer ${token}` : ''
@@ -90,7 +92,7 @@ const CoverUploader: React.FC<{
                 onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
             {value ? (
                 <>
-                    <img src={`http://localhost:3001${value}`} alt="封面" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <img src={`${API_BASE}${value}`} alt="封面" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <div className="flex items-center gap-2 text-white font-bold text-sm"><Image size={16} />更换封面</div>
                     </div>
@@ -135,7 +137,7 @@ const CategoryManager: React.FC<{ categories: Category[]; onRefresh: () => void 
     const save = async () => {
         if (!form.name.trim()) return;
         try {
-            const token = localStorage.getItem('token');
+            const token = getActiveToken();
             const headers = { Authorization: token ? `Bearer ${token}` : '' };
             if (editing) {
                 await api.put(`/api/course-standards/categories/${editing.id}`, form, { headers });
@@ -149,7 +151,7 @@ const CategoryManager: React.FC<{ categories: Category[]; onRefresh: () => void 
     };
 
     const seedDefaults = async () => {
-        const token = localStorage.getItem('token');
+        const token = getActiveToken();
         const headers = { Authorization: token ? `Bearer ${token}` : '' };
         for (let i = 0; i < DEFAULT_CATS.length; i++) {
             try { await api.post('/api/course-standards/categories', { ...DEFAULT_CATS[i], sort_order: i }, { headers }); } catch { /**/ }
@@ -437,7 +439,7 @@ const StandardDetail: React.FC<{
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className={`relative h-32 bg-gradient-to-br ${gradient}`}>
                     {standard.cover_url && (
-                        <img src={`http://localhost:3001${standard.cover_url}`} alt={standard.name}
+                        <img src={`${API_BASE}${standard.cover_url}`} alt={standard.name}
                             className="absolute inset-0 w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
@@ -709,7 +711,7 @@ export const CourseStandardMgmt: React.FC = () => {
                             onClick={() => { setSelected(std); setView('detail'); }}>
                             <div className={`relative h-28 bg-gradient-to-br ${grad}`}>
                                 {std.cover_url && (
-                                    <img src={`http://localhost:3001${std.cover_url}`} alt={std.name}
+                                    <img src={`${API_BASE}${std.cover_url}`} alt={std.name}
                                         className="absolute inset-0 w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />

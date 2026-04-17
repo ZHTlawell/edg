@@ -40,7 +40,11 @@ interface ReportItem {
 
 // Removed MOCK_DATA in favor of useStore
 
-export const ReportDetails: React.FC = () => {
+interface ReportDetailsProps {
+  onViewOrder?: (orderId: string) => void;
+}
+
+export const ReportDetails: React.FC<ReportDetailsProps> = ({ onViewOrder }) => {
   const { currentUser, orders, students, courses, getExportData, addToast, campuses, fetchCampuses } = useStore();
 
   React.useEffect(() => {
@@ -106,7 +110,7 @@ export const ReportDetails: React.FC = () => {
         courseClass: course?.name || `课程 ${String(getOrderCourseId(o) || '').slice(-6) || '-'}`,
         totalAmount: o.amount,
         receivedAmount: o.status === 'PAID' ? o.amount : 0,
-        paymentMethod: (o as any).paymentMethod || (o as any).payment_method || '-',
+        paymentMethod: (o as any).channel || (o as any).paymentMethod || (o as any).payment_method || '-',
         status: o.status === 'REFUNDED' ? 'refunded' : o.status === 'CANCELLED' ? 'canceled' : 'valid',
         payStatus: o.status === 'PAID' ? 'paid' : 'unpaid',
         createdAt: o.createdAt
@@ -375,7 +379,7 @@ export const ReportDetails: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {paginatedData.map((item, idx) => (
-                <tr key={idx} className="hover:bg-blue-50/5 transition-all group">
+                <tr key={idx} onClick={() => onViewOrder?.(item.orderId)} className="hover:bg-blue-50/5 transition-all group cursor-pointer">
                   <td className="px-8 py-6">
                     <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600" />
                   </td>

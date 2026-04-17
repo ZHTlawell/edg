@@ -13,6 +13,15 @@ import { CourseResourceService } from './course-resource.service';
 const UPLOAD_DIR = './uploads/resources';
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
 
+/** multer 默认按 latin1 编码 originalname，中文文件名需还原为 utf8 */
+function fixOriginalName(file: Express.Multer.File): string {
+    try {
+        return Buffer.from(file.originalname, 'latin1').toString('utf8');
+    } catch {
+        return file.originalname;
+    }
+}
+
 const ALLOWED_TYPES = [
     '.mp4', '.avi', '.mov', '.webm',          // video
     '.pptx', '.ppt',                           // ppt
@@ -50,29 +59,43 @@ export class CourseResourceController {
         }),
     )
     async uploadFile(@Request() req: any, @UploadedFile() file: Express.Multer.File, @Body() body: any) {
-        if (!['ADMIN', 'CAMPUS_ADMIN'].includes(req.user.role.toUpperCase())) throw new ForbiddenException('仅管理员可操作');
+        const role = req.user.role.toUpperCase();
+        if (!['ADMIN', 'CAMPUS_ADMIN', 'TEACHER'].includes(role)) throw new ForbiddenException('无权限上传资源');
         if (!file) throw new Error('未收到文件');
 
-        const ext = extname(file.originalname).toLowerCase();
+        const originalName = fixOriginalName(file);
+        const ext = extname(originalName).toLowerCase();
         const type = ['.mp4', '.avi', '.mov', '.webm'].includes(ext)
             ? 'VIDEO'
             : ['.pptx', '.ppt'].includes(ext)
                 ? 'PPT'
                 : ext === '.pdf'
                     ? 'PDF'
-                    : ['.mp3', '.ogg', '.wav'].includes(ext)
-                        ? 'AUDIO'
-                        : 'OTHER';
+                    : ['.doc', '.docx', '.xls', '.xlsx'].includes(ext)
+                        ? 'DOCUMENT'
+                        : ['.mp3', '.ogg', '.wav'].includes(ext)
+                            ? 'AUDIO'
+                            : ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].includes(ext)
+                                ? 'IMAGE'
+                                : 'OTHER';
+
+        // scope=CLASS → 班级资料，教师直传，免审批自动发布
+        // scope=STANDARD → 课程标准资源，教师提交需审批，管理员创建为草稿
+        const isClassMaterial = body.scope === 'CLASS' && body.class_id && role === 'TEACHER';
+        const status = isClassMaterial ? 'PUBLISHED' : (role === 'TEACHER' ? 'PENDING_REVIEW' : 'DRAFT');
 
         return this.svc.createResource({
-            title: body.title || file.originalname,
+            title: body.title || originalName,
             type,
             url: `/uploads/resources/${file.filename}`,
-            file_name: file.originalname,
+            file_name: originalName,
             file_size: file.size,
             description: body.description,
             standard_id: body.standard_id || undefined,
+            class_id: isClassMaterial ? body.class_id : undefined,
+            scope: isClassMaterial ? 'CLASS' : 'STANDARD',
             creator_id: req.user.userId,
+            status,
         });
     }
 
@@ -99,6 +122,25 @@ export class CourseResourceController {
             return this.svc.findAvailableForCampus(req.user.campusId || '');
         }
         return this.svc.findAllResources(query);
+    }
+
+    // ─── Class Materials (班级资料) ─────────────────────────────────────────────
+    @UseGuards(AuthGuard('jwt'))
+    @Get('my-class-materials')
+    async getMyClassMaterials(@Request() req: any) {
+        return this.svc.findMaterialsForStudent(req.user.userId);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('class-materials/:classId')
+    async getClassMaterials(@Param('classId') classId: string) {
+        return this.svc.findClassMaterials(classId);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Delete('class-materials/:id')
+    async deleteClassMaterial(@Request() req: any, @Param('id') id: string) {
+        return this.svc.deleteClassMaterial(id, req.user.userId);
     }
 
     @UseGuards(AuthGuard('jwt'))

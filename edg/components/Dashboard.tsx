@@ -190,7 +190,7 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ o
               <h2 className="font-bold text-slate-800 text-sm">最新报名订单动态</h2>
               <span className="bg-emerald-100 text-emerald-600 text-[10px] font-bold px-2 py-0.5 rounded-full">实时</span>
             </div>
-            <button className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1" onClick={() => onNavigate?.('payments')}>
+            <button className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1" onClick={() => onNavigate?.('payments-orders')}>
               查看全部 <ArrowRight size={12} />
             </button>
           </div>

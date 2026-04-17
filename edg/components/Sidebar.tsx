@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { ElmIcon } from './ElmIcon';
 import { School } from 'lucide-react';
+import { useStore } from '../store';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface MenuItem {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, userRole }) => {
+  const { currentUser } = useStore();
   const [openGroups, setOpenGroups] = useState<string[]>(['student-group', 'teaching-group']);
 
   const toggleGroup = (id: string) => {
@@ -46,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
       ]
     },
     {
-      id: 'finance-group', label: '学员报名/退费管理', icon: <ElmIcon name="credit-card" size={20} />, children: [
+      id: 'finance-group', label: '招生缴费', icon: <ElmIcon name="credit-card" size={20} />, children: [
         { id: 'payments', label: '报名缴费' },
         { id: 'refund-management', label: '退费管理' }
       ]
@@ -109,11 +111,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
 
   const teacherMenu: MenuItem[] = [
     { id: 'teaching', label: '今日教学', icon: <ElmIcon name="odometer" size={20} /> },
-    { id: 'schedule', label: '我的课表', icon: <ElmIcon name="calendar" size={20} /> },
+    { id: 'schedule', label: '课表与考勤', icon: <ElmIcon name="calendar" size={20} /> },
     { id: 'classes', label: '班级学员', icon: <ElmIcon name="user" size={20} /> },
     { id: 'teacher-homework', label: '作业分发', icon: <ElmIcon name="finished" size={20} /> },
     { id: 'leave-approval', label: '请假审批', icon: <ElmIcon name="chat-round" size={20} /> },
-    { id: 'resources', label: '学习资源', icon: <ElmIcon name="reading" size={20} /> },
+    { id: 'resources', label: '教学资源', icon: <ElmIcon name="reading" size={20} /> },
     { id: 'my-stats', label: '教学统计', icon: <ElmIcon name="histogram" size={20} /> },
     { id: 'announcement-view', label: '系统公告', icon: <ElmIcon name="notification" size={20} /> }
   ];
@@ -149,12 +151,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
           <School size={24} />
         </div>
         {isOpen && (
-          <div className="flex flex-col">
-            <span className="font-bold text-slate-800 text-lg leading-tight tracking-tight">EduAdmin</span>
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${userRole === 'admin' ? 'text-blue-500' : userRole === 'campus_admin' ? 'text-cyan-500' : userRole === 'teacher' ? 'text-indigo-500' : 'text-emerald-500'}`}>
-              {userRole === 'admin' ? '总部管理端' : userRole === 'campus_admin' ? '教务分校端' : userRole === 'teacher' ? '教师办公端' : '学员服务中心'}
-            </span>
-          </div>
+          <span className={`text-sm font-bold tracking-wide ${userRole === 'admin' ? 'text-blue-500' : userRole === 'campus_admin' ? 'text-cyan-500' : userRole === 'teacher' ? 'text-indigo-500' : 'text-emerald-500'}`}>
+            {userRole === 'admin' ? '总部管理端' : userRole === 'campus_admin' ? '教务分校端' : userRole === 'teacher' ? '教师办公端' : '学员服务中心'}
+          </span>
         )}
       </div>
 
@@ -207,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, 
           {isOpen && (
             <div className="flex-1 overflow-hidden">
               <p className="text-xs font-bold text-slate-800 truncate">
-                {userRole === 'admin' ? '王主管' : userRole === 'campus_admin' ? '赵校长' : userRole === 'teacher' ? '李建国老师' : '张美玲 (学员)'}
+                {currentUser?.name || currentUser?.username || '未知用户'}
               </p>
               <p className="text-[10px] text-slate-400 font-medium truncate">
                 {userRole === 'admin' ? '总部运营' : userRole === 'campus_admin' ? '校区负责人' : userRole === 'teacher' ? '授课教师' : '在读学员'}
