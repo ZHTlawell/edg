@@ -2,7 +2,7 @@
 import { ElmIcon } from './ElmIcon';
 import React, { useMemo } from 'react';
 import {
-    BarChart3,
+    TrendingUp,
     Star,
     CheckCircle2,
     Users,
@@ -144,24 +144,88 @@ export const TeacherStats: React.FC = () => {
                 {/* Attendance Trend */}
                 <div className="lg:col-span-2 bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm space-y-6">
                     <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                        <BarChart3 size={18} className="text-indigo-500" /> 近 4 周出勤走势
+                        <TrendingUp size={18} className="text-indigo-500" /> 近 4 周出勤走势
                     </h4>
-                    <div className="flex items-end gap-4" style={{ height: '160px' }}>
-                        {weeklyTrend.map((w, i) => (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                                <span className="text-xs font-bold text-slate-600">{w.rate}%</span>
-                                <div className="relative w-full bg-slate-100 rounded-xl overflow-hidden" style={{ height: '120px' }}>
+                    <div className="relative" style={{ height: '180px' }}>
+                        {/* 横向网格线 */}
+                        <div className="absolute left-4 right-4 top-6 bottom-10 flex flex-col justify-between pointer-events-none">
+                            {[0, 1, 2, 3, 4].map(i => (
+                                <div key={i} className="border-t border-dashed border-slate-100" />
+                            ))}
+                        </div>
+
+                        {/* 折线图区域 */}
+                        <div className="absolute left-4 right-4 top-6 bottom-10">
+                            <svg
+                                className="absolute inset-0 w-full h-full overflow-visible"
+                                preserveAspectRatio="none"
+                                viewBox="0 0 100 100"
+                            >
+                                <defs>
+                                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#818cf8" stopOpacity="0.28" />
+                                        <stop offset="100%" stopColor="#818cf8" stopOpacity="0" />
+                                    </linearGradient>
+                                </defs>
+                                {/* 渐变填充面积 */}
+                                <polyline
+                                    fill="url(#trendGrad)"
+                                    stroke="none"
+                                    points={`0,100 ${weeklyTrend
+                                        .map((w, i) => `${(i / Math.max(weeklyTrend.length - 1, 1)) * 100},${100 - w.rate}`)
+                                        .join(' ')} 100,100`}
+                                />
+                                {/* 折线 */}
+                                <polyline
+                                    fill="none"
+                                    stroke="#6366f1"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    vectorEffect="non-scaling-stroke"
+                                    points={weeklyTrend
+                                        .map((w, i) => `${(i / Math.max(weeklyTrend.length - 1, 1)) * 100},${100 - w.rate}`)
+                                        .join(' ')}
+                                />
+                            </svg>
+
+                            {/* 数据点 + 数值标签 + Hover 提示 */}
+                            {weeklyTrend.map((w, i) => {
+                                const left = `${(i / Math.max(weeklyTrend.length - 1, 1)) * 100}%`;
+                                const top = `${100 - w.rate}%`;
+                                return (
                                     <div
-                                        className="absolute bottom-0 w-full bg-indigo-400 group-hover:bg-indigo-500 rounded-xl transition-colors duration-200"
-                                        style={{ height: `${Math.max(w.rate, 5)}%` }}
-                                    />
-                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                        {w.total} 人次
+                                        key={i}
+                                        className="absolute group"
+                                        style={{ left, top, transform: 'translate(-50%, -50%)' }}
+                                    >
+                                        <span className="absolute left-1/2 -translate-x-1/2 -top-6 text-xs font-bold text-slate-600 whitespace-nowrap">
+                                            {w.rate}%
+                                        </span>
+                                        <div className="w-3 h-3 bg-white border-2 border-indigo-500 rounded-full shadow-sm group-hover:scale-150 transition-transform duration-200" />
+                                        <div className="absolute left-1/2 -translate-x-1/2 top-5 bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                            {w.total} 人次
+                                        </div>
                                     </div>
-                                </div>
-                                <p className="text-xs text-slate-400">{w.label}</p>
-                            </div>
-                        ))}
+                                );
+                            })}
+                        </div>
+
+                        {/* X 轴周标签 */}
+                        <div className="absolute left-4 right-4 bottom-0 h-6">
+                            {weeklyTrend.map((w, i) => {
+                                const left = `${(i / Math.max(weeklyTrend.length - 1, 1)) * 100}%`;
+                                return (
+                                    <p
+                                        key={i}
+                                        className="absolute text-xs text-slate-400 whitespace-nowrap"
+                                        style={{ left, transform: 'translateX(-50%)' }}
+                                    >
+                                        {w.label}
+                                    </p>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
