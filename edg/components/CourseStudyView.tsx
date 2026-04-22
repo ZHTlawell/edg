@@ -98,7 +98,9 @@ const ResourceViewer: React.FC<{ resource: LessonResource; onClose: () => void }
             {kind === 'video_embed' && (
                <iframe src={url} className="w-full h-full" style={{ minHeight: '60vh' }}
                   title={resource.title} allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
+                  scrolling="no" frameBorder="0"
+                  referrerPolicy="no-referrer"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" />
             )}
             {kind === 'pdf' && (
                <iframe src={url} className="w-full h-full bg-white" title={resource.title} />
