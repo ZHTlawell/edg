@@ -1,4 +1,13 @@
-
+/**
+ * TeacherStats.tsx - 教师端教学统计看板
+ *
+ * 所在模块：教师端 -> 个人中心 -> 教学统计
+ * 功能：
+ *   - KPI：带班学员、到课率、已批改作业数、负责班级数
+ *   - 近 4 周出勤折线图 + 授课课程分布条形图
+ *   - 无真实数据时以合理 mock 呈现趋势，避免空图表
+ * 使用方：教师端侧边栏"教学统计"入口
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useMemo } from 'react';
 import {
@@ -9,6 +18,11 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+/**
+ * TeacherStats 主组件
+ * - myClasses/myAttendance/homeworkStats 派生当前教师相关数据
+ * - weeklyTrend 聚合近 4 周到课率，courseDistribution 统计课程占比
+ */
 export const TeacherStats: React.FC = () => {
     const { currentUser, attendanceRecords, classes, homeworks, homeworkSubmissions } = useStore();
     const teacherId = (currentUser as any)?.teacherId;

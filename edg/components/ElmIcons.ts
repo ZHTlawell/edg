@@ -1,3 +1,11 @@
+/**
+ * ElmIcons.ts
+ * ---------------------------------------------------------------
+ * 自动生成的图标路径常量表（请勿手动编辑）。
+ * key 为图标名，value 为对应的 SVG path d 属性字符串，
+ * 供 ElmIcon.tsx 按名查找并渲染为矢量图标。
+ * ---------------------------------------------------------------
+ */
 // Generated file - do not edit manually
 export const ELM_ICON_PATHS: Record<string, string> = {
     "add-location": "M288 896h448q32 0 32 32t-32 32H288q-32 0-32-32t32-32",

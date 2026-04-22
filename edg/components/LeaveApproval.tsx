@@ -1,9 +1,18 @@
+/**
+ * LeaveApproval.tsx
+ * ---------------------------------------------------------------
+ * 学员请假审批页（教师/教务）。
+ * 列表展示待审批请假申请，点击「通过」或「驳回」并可填写备注。
+ * 使用位置：教师端「请假审批」菜单。
+ * ---------------------------------------------------------------
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { ElmIcon } from './ElmIcon';
 import { CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
 import { useStore } from '../store';
 import api from '../utils/api';
 
+// 请假记录结构（含学员/课次关联信息）
 interface LeaveRecord {
     id: string;
     student_id: string;
@@ -21,6 +30,11 @@ interface LeaveRecord {
     };
 }
 
+/**
+ * LeaveApproval —— 请假审批主组件
+ * 关键状态：pendingLeaves 待审批列表、loading 列表加载中、
+ *           actionLoading 单行操作中（记录 id，按钮防重复点击）
+ */
 export const LeaveApproval: React.FC = () => {
     const { addToast } = useStore();
     const [pendingLeaves, setPendingLeaves] = useState<LeaveRecord[]>([]);

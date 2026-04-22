@@ -1,6 +1,16 @@
+/**
+ * check-student.ts — 单个学员全链路数据体检（只读）
+ * 运行: npx ts-node scripts/check-student.ts
+ *
+ * 作用：以硬编码的手机号 PHONE 定位学员，打印档案/订单/资产/入班/课表/考勤，
+ *   并跑 5 项异常检测（订单数 vs 资产数、资产 vs 入班、课表缺失、课时对不上、时间冲突）。
+ * 产出：stdout 报告，不修改任何数据。
+ * 使用场景：排查某个学员"有订单但看不到课"之类的现场问题。
+ */
 import { PrismaClient } from '@prisma/client';
 const p = new PrismaClient();
 
+// 顶层 IIFE：查 student → 按 7 个维度打印 → 最后集中输出 issues[] 异常列表
 (async () => {
     const PHONE = '14718035679';
 

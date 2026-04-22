@@ -1,3 +1,13 @@
+/**
+ * StudentDashboard.tsx - 学员端首页工作台
+ *
+ * 所在模块：学员端主页
+ * 功能：
+ *   - 展示资产余额、待办（作业/测验）、最近课程、公告、请假入口等
+ *   - 提供快捷跳转到续费 / 作业 / 资料 / 联系老师 / 进入学习
+ *   - 内置请假弹窗
+ * 使用方：学员登录后的默认落地页
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -19,6 +29,15 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+/**
+ * 学员仪表盘 Props：均为可选的快捷回调
+ * - onRenew: 去续费
+ * - onLeave: 去请假
+ * - onHomework: 去作业
+ * - onMaterials: 去资料
+ * - onContact: 联系老师
+ * - onEnterLearning: 进入学习
+ */
 interface StudentDashboardProps {
    onRenew?: () => void;
    onLeave?: () => void;
@@ -28,6 +47,11 @@ interface StudentDashboardProps {
    onEnterLearning?: () => void;
 }
 
+/**
+ * StudentDashboard 主组件
+ * - 维护请假弹窗本地状态（原因、日期、提交后动画）
+ * - handleLeaveSubmit 简化版：提交后延时重置
+ */
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
    onRenew,
    onLeave,
@@ -41,6 +65,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
    const [leaveDate, setLeaveDate] = useState('');
    const [leaveSubmitted, setLeaveSubmitted] = useState(false);
 
+   /** 提交请假：展示 1.8s 成功态后关闭弹窗并清空表单 */
    const handleLeaveSubmit = () => {
       if (!leaveReason.trim() || !leaveDate) return;
       setLeaveSubmitted(true);

@@ -1,4 +1,12 @@
-
+/**
+ * CourseMarketplace.tsx
+ * ---------------------------------------------------------------
+ * 课程市场页（学员/家长视角）。
+ * 以卡片形式展示上架课程，支持搜索、分类筛选、下单购买。
+ * 点击卡片进入课程预览；点击「立即购买」弹出支付确认弹窗。
+ * 使用位置：学员端主导航「课程市场」。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
@@ -17,6 +25,7 @@ import {
 import { Course } from '../types';
 import { PurchaseConfirmationModal } from './PurchaseConfirmationModal';
 
+// 课程卡片主题配置：以课程名为 key，预设渐变背景、主色、emoji 和标签
 const COURSE_THEMES: Record<string, { gradient: string; accent: string; icon: string; tags: string[] }> = {
     '高级UI/UX设计实战': {
         gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
@@ -56,6 +65,7 @@ const COURSE_THEMES: Record<string, { gradient: string; accent: string; icon: st
     },
 };
 
+// 按课程分类的兜底主题，用于未在 COURSE_THEMES 中命中的课程
 const CATEGORY_THEMES: Record<string, { gradient: string; icon: string }> = {
     '设计': { gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', icon: '🎨' },
     '编程': { gradient: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)', icon: '💻' },
@@ -64,6 +74,7 @@ const CATEGORY_THEMES: Record<string, { gradient: string; icon: string }> = {
     '产品': { gradient: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)', icon: '🚀' },
 };
 
+// 根据课程名 / 分类返回卡片主题；都未命中时给一组灰色兜底
 function getCourseTheme(course: Course) {
     return (
         COURSE_THEMES[course.name] ||
@@ -73,10 +84,17 @@ function getCourseTheme(course: Course) {
     );
 }
 
+// props：onViewCourse 点击课程详情的回调（由父路由层决定是否跳转预览页）
 interface CourseMarketplaceProps {
     onViewCourse?: (courseId: string) => void;
 }
 
+/**
+ * CourseMarketplace —— 课程市场主组件
+ * 关键状态：searchQuery 搜索、selectedCategory 分类、
+ *           selectedCourse 当前下单目标课程；
+ * 购买流程：createOrder -> processPayment -> fetchMyAssets/fetchOrders 刷新
+ */
 export const CourseMarketplace: React.FC<CourseMarketplaceProps> = ({ onViewCourse }) => {
     const { courses, currentUser, createOrder, processPayment, fetchMyAssets, fetchOrders, students, assetAccounts, addToast } = useStore();
     const [searchQuery, setSearchQuery] = useState('');

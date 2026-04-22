@@ -1,3 +1,9 @@
+/**
+ * 教务服务
+ * 职责：封装课程、班级、课次排课、教室分配、学员入班等教务核心业务
+ * 所属模块：教务管理
+ * 被 AcademicController 依赖注入；也承担教室自动分配、排课草稿 / 发布、开班、数据修复等后台逻辑
+ */
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -48,6 +54,10 @@ export function buildScheduleDates(opts: {
     return results;
 }
 
+/**
+ * 教务业务服务
+ * 提供课程 CRUD、班级管理、排课生成/发布、教室分配、开班等全部教务逻辑
+ */
 @Injectable()
 export class AcademicService {
     constructor(private prisma: PrismaService) { }
@@ -55,6 +65,13 @@ export class AcademicService {
     // =====================================
     // 课程管理 (Courses)
     // =====================================
+    /**
+     * 基于课程标准创建一门课程（校区级课程实例）
+     * 规则：
+     *  - 必须传入有效且已启用的 standard_id
+     *  - total_lessons 需在标准课时数 ±20% 范围内
+     * @param data 课程字段（name / category / price / total_lessons / standard_id 等）
+     */
     async createCourse(data: any) {
         // standard_id 必填
         const standardId = data.standard_id;
@@ -98,6 +115,14 @@ export class AcademicService {
         });
     }
 
+    /**
+     * 分页获取课程列表
+     * 过滤条件：状态 ENABLED，且校区 = 指定校区或通用课程（campus_id 为 null）
+     * 会根据 campus_id 反查校区名用于展示
+     * @param campusId 校区过滤
+     * @param page 页码
+     * @param pageSize 每页条数（默认 50）
+     */
     async getAllCourses(campusId?: string, page?: number, pageSize?: number) {
         const take = pageSize || 50;
         const skip = page && page > 1 ? (page - 1) * take : 0;
@@ -149,6 +174,11 @@ export class AcademicService {
         return { data, total, page: page || 1, pageSize: take };
     }
 
+    /**
+     * 查询班级详情
+     * 同时返回 assignments（课程+老师+课次）和 students（已入班学员）
+     * @param classId 班级 ID
+     */
     async getClassDetail(classId: string) {
         const cls = await (this.prisma as any).edClass.findUnique({
             where: { id: classId },
@@ -174,6 +204,16 @@ export class AcademicService {
     // =====================================
     // 班级与排课管理 (Classes & Schedules)
     // =====================================
+    /**
+     * 创建班级 + 可选地建立课程-老师 assignment 并预生成课次（DRAFT 状态）
+     * 默认创建为 PENDING（招生中），满足 min_students 后再正式开班
+     * 未指定教室时，会尝试通过 autoAssignClassroom 自动分配
+     * @param data.name 班级名
+     * @param data.campus_id 所属校区
+     * @param data.capacity 班级容量
+     * @param data.min_students 开班最低人数（默认 5）
+     * @param data.assignment 可选：课程/老师/排课参数
+     */
     async createClass(data: {
         name: string;
         campus_id: string;
@@ -252,6 +292,12 @@ export class AcademicService {
         });
     }
 
+    /**
+     * 给已有班级追加一个课程-老师 assignment
+     * @param data.class_id 班级 ID
+     * @param data.course_id 课程 ID
+     * @param data.teacher_id 主讲老师 ID
+     */
     async assignCourseToClass(data: { class_id: string; course_id: string; teacher_id: string }) {
         const assignment = await (this.prisma as any).edClassAssignment.create({
             data: {
@@ -269,6 +315,13 @@ export class AcademicService {
         return assignment;
     }
 
+    /**
+     * 分页获取某校区的班级列表
+     * 返回时附带 assignments（课程+老师+课次计数）和 students
+     * @param campusId 校区 ID
+     * @param page 页码
+     * @param pageSize 每页条数
+     */
     async getClassesByCampus(campusId: string, page?: number, pageSize?: number) {
         const take = pageSize || 50;
         const skip = page && page > 1 ? (page - 1) * take : 0;
@@ -301,6 +354,11 @@ export class AcademicService {
         return { data, total, page: page || 1, pageSize: take };
     }
 
+    /**
+     * 学员端：查自己所在班级
+     * 课次只包含 PUBLISHED / COMPLETED，不暴露草稿
+     * @param studentId 学员 ID
+     */
     async getClassesByStudent(studentId: string) {
         // Find classes where student is enrolled
         const enrollments = await (this.prisma as any).eduStudentInClass.findMany({
@@ -327,6 +385,11 @@ export class AcademicService {
         return enrollments.map((e: any) => e.class);
     }
 
+    /**
+     * 教师端：查自己带的所有班级
+     * 返回经过整形的对象：class 信息 + course / teacher / schedules / students
+     * @param teacherId 教师 ID
+     */
     async getClassesByTeacher(teacherId: string) {
         const assignments = await (this.prisma as any).edClassAssignment.findMany({
             where: { teacher_id: teacherId, status: 'ACTIVE' },
@@ -354,6 +417,18 @@ export class AcademicService {
         }));
     }
 
+    /**
+     * 为某 assignment 生成草稿排课
+     * - 会先清理旧的 DRAFT 课次
+     * - 新课次的 lesson_no 从现有已发布课次的最大序号之后开始累加
+     * - 自动尝试分配教室
+     * @param assignmentId 课程-班级绑定 ID
+     * @param startDate 起始日期
+     * @param lessonsCount 课次数
+     * @param durationMinutes 每节时长
+     * @param opts.weekdays 每周上课星期
+     * @param opts.timeOfDay 上课时刻 HH:mm
+     */
     async generateDraftSchedules(assignmentId: string, startDate: Date, lessonsCount: number, durationMinutes: number, opts?: { weekdays?: number[]; timeOfDay?: string }) {
         const existingPublished = await (this.prisma as any).edLessonSchedule.findMany({
             where: { assignment_id: assignmentId, status: { not: 'DRAFT' } },
@@ -467,6 +542,13 @@ export class AcademicService {
         return { repaired };
     }
 
+    /**
+     * 批量发布课次（DRAFT → PUBLISHED）
+     * 发布前逐条检查教师 / 教室在该时段是否与其他 PUBLISHED 课次冲突
+     * 发现冲突则整个操作中止
+     * @param lessonIds 要发布的课次 ID 列表
+     * @param operatorId 操作人 ID（预留审计）
+     */
     async publishSchedules(lessonIds: string[], operatorId: string) {
         const lessons = await (this.prisma as any).edLessonSchedule.findMany({
             where: { id: { in: lessonIds } },
@@ -507,6 +589,11 @@ export class AcademicService {
         });
     }
 
+    /**
+     * 查询教师列表（ACTIVE 账号）
+     * @param campusId 可选校区过滤
+     * @returns 前端友好结构：id / name / department / phone / campus
+     */
     async getAllTeachers(campusId?: string) {
         const teachers = await this.prisma.eduTeacher.findMany({
             where: {
@@ -624,10 +711,20 @@ export class AcademicService {
         }));
     }
 
+    /**
+     * 更新课程字段（局部更新）
+     * @param id 课程 ID
+     * @param data 需更新的字段子集
+     */
     async updateCourse(id: string, data: Partial<{ status: string; name: string; price: number; total_lessons: number; category: string; campus_id: string }>) {
         return (this.prisma as any).edCourse.update({ where: { id }, data });
     }
 
+    /**
+     * 删除课程
+     * 先检查是否已有班级绑定或已支付订单，任一存在都禁止删除
+     * @param id 课程 ID
+     */
     async deleteCourse(id: string) {
         // 检查是否有依赖项
         const assignments = await (this.prisma as any).edClassAssignment.count({ where: { course_id: id } });
@@ -643,6 +740,10 @@ export class AcademicService {
         return (this.prisma as any).edCourse.delete({ where: { id } });
     }
 
+    /**
+     * 查询教室列表
+     * @param campusId 可选校区过滤，不传则返回所有教室
+     */
     async getClassrooms(campusId?: string) {
         return (this.prisma as any).eduClassroom.findMany({
             where: campusId ? { campus_id: campusId } : {},
@@ -650,6 +751,13 @@ export class AcademicService {
         });
     }
 
+    /**
+     * 找指定校区在给定时段内任意一间空闲教室
+     * 简化版：不区分班级人数，不排序
+     * @param campusId 校区 ID
+     * @param startTime 起始时间
+     * @param endTime 结束时间
+     */
     async findAvailableClassroom(campusId: string, startTime: Date, endTime: Date) {
         const classrooms = await (this.prisma as any).eduClassroom.findMany({
             where: { campus_id: campusId }

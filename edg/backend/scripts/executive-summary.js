@@ -1,6 +1,15 @@
+/**
+ * executive-summary.js — 学员四端联通性执行总结（只读）
+ * 运行: node scripts/executive-summary.js
+ *
+ * 作用：面向"给领导看"的高阶总结，对四端（登录 / 课程-班级 / 订单-支付 / 学习-考勤）
+ *   给出 PASS/PARTIAL 判定 + 数据规模 + 3 条样本订单链路验证 + 综合健康度 0~100 分。
+ * 产出：stdout 总结报告，不修改任何数据。
+ */
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// 顶层 IIFE：统计各表量 → 四端判定 → 3 条订单样本链路 → 问题清单分红黄绿 → 综合评分
 (async () => {
   console.log('\n');
   console.log('████████████████████████████████████████████████████████████');

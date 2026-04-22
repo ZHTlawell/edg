@@ -1,8 +1,22 @@
+/**
+ * TeacherClassView.tsx - 教师端"我的班级学员"
+ *
+ * 所在模块：教师端 -> 班级管理
+ * 功能：
+ *   - 聚合该教师所带的全部班级，展示容量/在读人数
+ *   - 支持搜索，展开后查看每位学员的姓名、电话、状态
+ * 使用方：教师端侧边栏"我的班级"入口
+ */
 import React, { useState, useMemo } from 'react';
 import { ElmIcon } from './ElmIcon';
 import { Search, ChevronDown, ChevronRight as ChevRight, Users } from 'lucide-react';
 import { useStore } from '../store';
 
+/**
+ * TeacherClassView 主组件
+ * - 同时兼容扁平结构(getClassesByTeacher)与嵌套 assignments 结构
+ * - expanded 记录已展开班级 id，toggle 切换
+ */
 export const TeacherClassView: React.FC = () => {
     const { classes, currentUser } = useStore();
     const teacherId = (currentUser as any)?.teacherId;
@@ -43,6 +57,7 @@ export const TeacherClassView: React.FC = () => {
         );
     }, [myClasses, searchTerm]);
 
+    /** 切换班级展开/收起 */
     const toggle = (id: string) => setExpanded(prev => {
         const n = new Set(prev);
         n.has(id) ? n.delete(id) : n.add(id);

@@ -1,7 +1,21 @@
+/**
+ * RolePermission.tsx - 角色权限配置页
+ *
+ * 所在模块：系统设置 -> 权限配置
+ * 功能：
+ *   - 左侧展示系统角色列表（总部管理员 / 校区长 / 前台教务 / 课程顾问 / 专职教师 / 财务出纳）
+ *   - 右侧按业务模块分组展示该角色的权限勾选项（档案 / 财务 / 排课 / 系统设置）
+ * 备注：此为原型页，实际勾选状态与保存逻辑为静态示例
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { Shield, Key, AlertCircle, Save, CheckCircle2, Copy } from 'lucide-react';
 
+/**
+ * RolePermission 主组件（无 props）
+ * - activeRole 状态控制当前右侧显示的角色权限清单
+ * - permissionModules 为静态权限模板
+ */
 export const RolePermission: React.FC = () => {
     const [activeRole, setActiveRole] = useState('总部管理员');
 
@@ -113,9 +127,11 @@ export const RolePermission: React.FC = () => {
         </div>
     );
 };
+/** 内联的 ChevronRight SVG 图标，避免额外 import */
 const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m9 18 6-6-6-6" /></svg>
 )
+/** 内联的 Plus SVG 图标（新增按钮用） */
 const PlusIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14" /><path d="M12 5v14" /></svg>
 )

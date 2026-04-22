@@ -1,4 +1,12 @@
-
+/**
+ * FinanceReport.tsx
+ * ---------------------------------------------------------------
+ * 财务报表 / 订单列表页。
+ * 上方为订单 Tab（全部/已支付/待支付/已作废…），支持关键字搜索、分页；
+ * 行内可点击查看订单详情、作废订单、补支付。
+ * 使用位置：总部/校区管理员「财务」菜单。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -11,11 +19,17 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+// props：onNavigate 跳转到其他视图；onViewOrder 跳转到订单详情
 interface FinanceReportProps {
     onNavigate?: (view: string) => void;
     onViewOrder?: (orderId: string) => void;
 }
 
+/**
+ * FinanceReport —— 财务报表主组件
+ * 关键状态：activeTab 订单类型切换、searchTerm 搜索、page 分页；
+ *           校区管理员自动按自身校区过滤
+ */
 export const FinanceReport: React.FC<FinanceReportProps> = ({ onNavigate, onViewOrder }) => {
     const { orders, fetchOrders, voidOrder, processPayment, currentUser, addToast } = useStore();
     const [activeTab, setActiveTab] = useState('all');

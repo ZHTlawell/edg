@@ -1,3 +1,12 @@
+/**
+ * CourseStudyView.tsx
+ * ---------------------------------------------------------------
+ * 课程学习页（学员视角）。
+ * 左侧为章节/课次目录，右侧为所选课次的资源播放/浏览 + 作业/测验入口。
+ * 支持进度记录（NOT_STARTED / IN_PROGRESS / COMPLETED）与解锁控制。
+ * 使用位置：学员端从「我的课程」或「课程市场」购买后进入。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -65,6 +74,10 @@ const detectKind = (res: LessonResource): 'video' | 'audio' | 'pdf' | 'image' | 
    return 'download';
 };
 
+/**
+ * ResourceViewer —— 课次资源查看弹窗
+ * 视频自动播放 + 进度统计；文档用 iframe 或下载；支持关闭回调
+ */
 const ResourceViewer: React.FC<{ resource: LessonResource; onClose: () => void }> = ({ resource, onClose }) => {
    const url = resource.url.startsWith('/') ? `${BASE}${resource.url}` : resource.url;
    const cfg = TYPE_MAP[resource.type] || TYPE_MAP.OTHER;
@@ -162,6 +175,10 @@ const ResourceViewer: React.FC<{ resource: LessonResource; onClose: () => void }
 };
 
 // ─── Lesson Row ───────────────────────────────────────────────────────────────
+/**
+ * LessonRow —— 目录中的单个课次行
+ * 展示标题、时长、进度图标、锁状态；点击触发学习/查看资源
+ */
 const LessonRow: React.FC<{
    lesson: Lesson;
    globalIndex: number;
@@ -210,6 +227,10 @@ interface Props {
    onBack: () => void;
 }
 
+/**
+ * CourseStudyView —— 课程学习主视图
+ * 根据 courseId 拉课程目录 + 学习进度；选中某课次后显示资源卡片
+ */
 export const CourseStudyView: React.FC<Props> = ({ courseId, onBack }) => {
    const [catalog, setCatalog] = useState<CatalogData | null>(null);
    const [loading, setLoading] = useState(true);

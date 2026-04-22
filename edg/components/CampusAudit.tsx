@@ -1,10 +1,20 @@
-
+/**
+ * CampusAudit.tsx
+ * ---------------------------------------------------------------
+ * 校区审批中心（总部管理员）。
+ * 包含两部分：
+ *  1) 注册审核 —— 处理用户注册待审批列表（来源真实接口）
+ *  2) 校区业务审批 —— 新校入驻/信息变更/注销等（当前为演示数据）
+ * 使用位置：总部后台「审批中心」入口。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, ArrowLeft, ChevronLeft, ChevronRight, Filter, ExternalLink, RefreshCw, Clock, UserCheck, CheckCircle, XCircle, Loader2, Building2, User, Phone } from 'lucide-react';
 import { CampusAuditDetail } from './CampusAuditDetail';
 import { useStore } from '../store';
 
+// 校区业务审批的演示记录结构
 interface AuditRecord {
     id: string;
     reqNo: string;
@@ -15,6 +25,7 @@ interface AuditRecord {
     status: '待审批' | '已驳回' | '已通过';
 }
 
+// 审批列表演示数据（后续接入后端后可移除）
 const auditData: AuditRecord[] = [
     { id: '1', reqNo: 'REQ-20240315-001', campusName: '上海浦东新区金桥中心', type: '新校入驻', submitter: '赵成刚', submitTime: '2024-03-15 10:24', status: '待审批' },
     { id: '2', reqNo: 'REQ-20240314-012', campusName: '广州天河中怡校区', type: '信息变更', submitter: '周小芳', submitTime: '2024-03-14 16:45', status: '待审批' },
@@ -26,6 +37,7 @@ const auditData: AuditRecord[] = [
     { id: '8', reqNo: 'REQ-20240309-007', campusName: '西安曲江新区校区', type: '注销申请', submitter: '王霞', submitTime: '2024-03-09 09:30', status: '待审批' },
 ];
 
+// 审批类型 -> tailwind 样式映射（用于彩色徽标）
 const TYPE_STYLE: Record<AuditRecord['type'], string> = {
     '注册申请': 'bg-indigo-50 text-indigo-600 border border-indigo-100',
     '新校入驻': 'bg-blue-50 text-blue-600 border border-blue-100',
@@ -41,10 +53,17 @@ const STATUS_STYLE: Record<AuditRecord['status'], string> = {
 
 const PAGE_SIZE = 5;
 
+// props：onBack 返回上级页面
 interface CampusAuditProps {
     onBack: () => void;
 }
 
+/**
+ * CampusAudit —— 校区审批中心主组件
+ * 关键状态：regList 注册申请列表、auditData 校区业务审批（演示）、
+ *           selectedAudit 点击行后打开详情子组件。
+ * 关键交互：通过/驳回注册申请；筛选、分页、查看详情
+ */
 export const CampusAudit: React.FC<CampusAuditProps> = ({ onBack }) => {
     const { fetchPendingUsers, approveUser, rejectUser } = useStore();
 

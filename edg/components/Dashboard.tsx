@@ -1,4 +1,12 @@
-
+/**
+ * Dashboard.tsx
+ * ---------------------------------------------------------------
+ * 管理员首页「数据看板」。
+ * 上半部分：四张 KPI 卡（学员数、班级数、本月营收等）；
+ * 下半部分：营收折线图（12 个月）+ 最近动态。
+ * 使用位置：总部/校区管理员登录后的默认主页。
+ * ---------------------------------------------------------------
+ */
 import React, { useMemo, useEffect } from 'react';
 import { ChevronRight, ArrowRight } from 'lucide-react';
 import { ElmIcon } from './ElmIcon';
@@ -9,6 +17,10 @@ interface LineChartProps {
   data: { month: string; amount: number }[];
 }
 
+/**
+ * LineChart —— 平滑折线图（纯 SVG 绘制）
+ * 固定展示 12 个月的数据，自动计算 Y 轴刻度，支持悬浮点提示
+ */
 const LineChart: React.FC<LineChartProps> = ({ data }) => {
   const MONTHS = data.map(d => {
     const parts = d.month.split('-');
@@ -83,6 +95,10 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 interface KpiProps { label: string; value: string; suffix?: string; change: string; up: boolean; icon: string; iconBg: string; iconColor: string; }
+/**
+ * KpiCard —— 单个 KPI 指标卡
+ * 展示标签、数值、变化幅度箭头、图标色块；change>0 用绿色向上，反之红色向下
+ */
 const KpiCard: React.FC<KpiProps> = ({ label, value, suffix, change, up, icon, iconBg, iconColor }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3">
     <div className="flex items-start justify-between">
@@ -101,6 +117,11 @@ const KpiCard: React.FC<KpiProps> = ({ label, value, suffix, change, up, icon, i
 );
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
+/**
+ * Dashboard —— 数据看板主组件
+ * props.onNavigate 用于卡片/动态点击后跳转到子视图
+ * useMemo 汇总 KPI；useEffect 加载时拉取所需数据
+ */
 export const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNavigate }) => {
   const { students, classes, currentUser, workbenchOverview, fetchWorkbenchOverview } = useStore();
   const isHQAdmin = currentUser?.role === 'admin';

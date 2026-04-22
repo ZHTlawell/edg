@@ -1,3 +1,13 @@
+/**
+ * CourseStandardMgmt.tsx
+ * ---------------------------------------------------------------
+ * 课程标准管理页（总部 / 校区管理员）。
+ * 课程标准 = 课程的「模板定义」，包含分类、年龄段、课时、封面、
+ * 下发校区、版本历史、章节树、试卷挂载等。
+ * 聚合子组件：CategoryManager / StandardForm / StandardDetail 等。
+ * 使用位置：后台「课程标准」菜单。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
@@ -36,6 +46,7 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
     ENABLED: { label: '已启用', cls: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
     DISABLED: { label: '已停用', cls: 'bg-red-50 text-red-400 border-red-200' },
 };
+// StatusBadge —— 课程标准状态徽标（草稿/启用/停用）
 const StatusBadge = ({ status }: { status: string }) => {
     const s = STATUS_MAP[status] || STATUS_MAP.DRAFT;
     return <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>;
@@ -54,6 +65,10 @@ const DEFAULT_FORM = {
 };
 
 // ─── Cover Image Uploader ─────────────────────────────────────────────────────
+/**
+ * CoverUploader —— 课程封面上传组件
+ * 支持选择本地图片上传到对象存储，回传 url 给父组件
+ */
 const CoverUploader: React.FC<{
     value: string;
     onChange: (url: string) => void;
@@ -119,6 +134,10 @@ const CoverUploader: React.FC<{
 };
 
 // ─── Category Manager ─────────────────────────────────────────────────────────
+/**
+ * CategoryManager —— 课程分类管理子组件
+ * 弹窗形态：新增/编辑/删除分类；编辑完通过 onRefresh 让父组件重拉
+ */
 const CategoryManager: React.FC<{ categories: Category[]; onRefresh: () => void }> = ({ categories, onRefresh }) => {
     const [form, setForm] = useState({ name: '', description: '' });
     const [editing, setEditing] = useState<Category | null>(null);
@@ -209,6 +228,10 @@ const CategoryManager: React.FC<{ categories: Category[]; onRefresh: () => void 
 };
 
 // ─── Standard Form ────────────────────────────────────────────────────────────
+/**
+ * StandardForm —— 课程标准新增/编辑表单弹窗
+ * 字段：名称、编号、分类、年龄段、课时、封面、下发校区、教学模板等
+ */
 const StandardForm: React.FC<{
     categories: Category[]; campuses: Campus[];
     editing: Standard | null;
@@ -401,6 +424,10 @@ const StandardForm: React.FC<{
 };
 
 // ─── Standard Detail ──────────────────────────────────────────────────────────
+/**
+ * StandardDetail —— 课程标准详情页
+ * 以 Tab 切换展示基础信息、章节树、试卷管理、版本历史、下发校区
+ */
 const StandardDetail: React.FC<{
     standard: Standard; categories: Category[];
     onBack: () => void; onEdit: () => void; onRefresh: () => void;
@@ -572,6 +599,10 @@ const StandardDetail: React.FC<{
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+/**
+ * CourseStandardMgmt —— 课程标准管理主组件
+ * 顶部分类 Tab + 列表（搜索/筛选/状态）+ 右侧详情抽屉/新建弹窗
+ */
 export const CourseStandardMgmt: React.FC = () => {
     const [view, setView] = useState<'list' | 'form' | 'detail'>('list');
     const [standards, setStandards] = useState<Standard[]>([]);

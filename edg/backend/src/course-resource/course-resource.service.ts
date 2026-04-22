@@ -1,3 +1,9 @@
+/**
+ * 课程资源服务
+ * 职责：资源与章节/课节的 CRUD、权限校验、课节-资源绑定关系
+ * 所属模块：课程体系
+ * 被 CourseResourceController 依赖注入
+ */
 import {
     Injectable, NotFoundException, ForbiddenException,
     BadRequestException,
@@ -6,12 +12,23 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * 课程资源业务服务
+ * 提供资源持久化、审批流、课节挂载等能力
+ */
 @Injectable()
 export class CourseResourceService {
     constructor(private prisma: PrismaService) { }
 
     // ─── Resources ────────────────────────────────────────────────────────────────
 
+    /**
+     * 按过滤条件查询资源列表
+     * @param filters.type 类型（VIDEO/PPT/…）
+     * @param filters.status 状态
+     * @param filters.standard_id 所属课程标准
+     * @param filters.keyword 标题关键字模糊匹配
+     */
     async findAllResources(filters?: {
         type?: string;
         status?: string;
@@ -31,6 +48,10 @@ export class CourseResourceService {
         });
     }
 
+    /**
+     * 查询单个资源（含所属标准、课节绑定信息）
+     * @param id 资源 ID
+     */
     async findOneResource(id: string) {
         const res = await this.prisma.stdResource.findUnique({
             where: { id },
@@ -45,6 +66,10 @@ export class CourseResourceService {
         return res;
     }
 
+    /**
+     * 创建资源记录（由 controller 上传完成后调用）
+     * @param data 资源完整字段
+     */
     async createResource(data: {
         title: string;
         type: string;
@@ -61,6 +86,10 @@ export class CourseResourceService {
         return this.prisma.stdResource.create({ data });
     }
 
+    /**
+     * 查询指定班级已发布的班级资料
+     * @param classId 班级 ID
+     */
     async findClassMaterials(classId: string) {
         return this.prisma.stdResource.findMany({
             where: { class_id: classId, scope: 'CLASS', status: 'PUBLISHED' },
@@ -68,6 +97,11 @@ export class CourseResourceService {
         });
     }
 
+    /**
+     * 查询学员所有班级的资料
+     * 通过 user_id → EduStudent → EduStudentInClass → class → 资料 的链路
+     * @param userId 登录用户 ID（SysUser.id）
+     */
     async findMaterialsForStudent(userId: string) {
         // userId 是 SysUser.id，先找到 EduStudent.id
         const student = await this.prisma.eduStudent.findUnique({ where: { user_id: userId } });
@@ -103,6 +137,12 @@ export class CourseResourceService {
         }));
     }
 
+    /**
+     * 删除班级资料
+     * 权限：仅上传者 user 可删除
+     * @param id 资源 ID
+     * @param userId 当前操作用户 ID
+     */
     async deleteClassMaterial(id: string, userId: string) {
         const res = await this.prisma.stdResource.findUnique({ where: { id } });
         if (!res) throw new NotFoundException('资源不存在');
@@ -111,12 +151,21 @@ export class CourseResourceService {
         return this.prisma.stdResource.delete({ where: { id } });
     }
 
+    /**
+     * 权限校验：断言该资源由指定用户创建（CAMPUS_ADMIN 操作前置校验）
+     * 不是所有者则抛 Forbidden
+     */
     async assertResourceOwner(id: string, userId: string) {
         const res = await this.prisma.stdResource.findUnique({ where: { id }, select: { creator_id: true } });
         if (!res) throw new NotFoundException('资源不存在');
         if (res.creator_id !== userId) throw new ForbiddenException('您无权操作其他校区创建的资源');
     }
 
+    /**
+     * 更新资源字段
+     * @param id 资源 ID
+     * @param data 允许更新的子集（标题、类型、URL、描述、排序、标准、状态）
+     */
     async updateResource(id: string, data: Partial<{
         title: string;
         description: string;
@@ -128,6 +177,9 @@ export class CourseResourceService {
         return this.prisma.stdResource.update({ where: { id }, data });
     }
 
+    /**
+     * 发布资源（置为 PUBLISHED）
+     */
     async publishResource(id: string) {
         const res = await this.prisma.stdResource.findUnique({ where: { id } });
         if (!res) throw new NotFoundException();
@@ -135,10 +187,16 @@ export class CourseResourceService {
         return this.prisma.stdResource.update({ where: { id }, data: { status: 'PUBLISHED' } });
     }
 
+    /**
+     * 撤回资源（回到 DRAFT）
+     */
     async withdrawResource(id: string) {
         return this.prisma.stdResource.update({ where: { id }, data: { status: 'WITHDRAWN' } });
     }
 
+    /**
+     * 删除资源（数据库记录 + 尝试删除磁盘文件）
+     */
     async deleteResource(id: string) {
         const res = await this.prisma.stdResource.findUnique({ where: { id } });
         if (!res) throw new NotFoundException();
@@ -155,6 +213,10 @@ export class CourseResourceService {
     }
 
     // Campus-available resources
+    /**
+     * 查询某校区可用的资源（关联该校区启用的课程标准下、已发布的资源）
+     * @param campus_id 校区 ID
+     */
     async findAvailableForCampus(campus_id: string) {
         const authorizedStandards = await this.prisma.stdCourseStandard.findMany({
             where: {
@@ -183,6 +245,10 @@ export class CourseResourceService {
 
     // ─── Chapters ─────────────────────────────────────────────────────────────────
 
+    /**
+     * 获取某标准下的章节列表（含课节与已绑定的资源）
+     * @param standard_id 课程标准 ID
+     */
     async findChapters(standard_id: string) {
         return this.prisma.stdCourseChapter.findMany({
             where: { standard_id },
@@ -201,14 +267,17 @@ export class CourseResourceService {
         });
     }
 
+    /** 创建章节 */
     async createChapter(data: { standard_id: string; title: string; sort_order?: number }) {
         return this.prisma.stdCourseChapter.create({ data });
     }
 
+    /** 更新章节（标题、排序） */
     async updateChapter(id: string, data: { title?: string; sort_order?: number }) {
         return this.prisma.stdCourseChapter.update({ where: { id }, data });
     }
 
+    /** 删除章节（含级联课节） */
     async deleteChapter(id: string) {
         // Cascade: delete lessons and their resource links
         const lessons = await this.prisma.stdCourseLesson.findMany({ where: { chapter_id: id } });
@@ -221,14 +290,17 @@ export class CourseResourceService {
 
     // ─── Lessons ──────────────────────────────────────────────────────────────────
 
+    /** 新建课节 */
     async createLesson(data: { chapter_id: string; title: string; sort_order?: number; duration?: number }) {
         return this.prisma.stdCourseLesson.create({ data });
     }
 
+    /** 更新课节 */
     async updateLesson(id: string, data: { title?: string; sort_order?: number; duration?: number }) {
         return this.prisma.stdCourseLesson.update({ where: { id }, data });
     }
 
+    /** 删除课节（含绑定的资源关联） */
     async deleteLesson(id: string) {
         await this.prisma.stdLessonResource.deleteMany({ where: { lesson_id: id } });
         return this.prisma.stdCourseLesson.delete({ where: { id } });
@@ -236,6 +308,12 @@ export class CourseResourceService {
 
     // ─── Lesson Resources ─────────────────────────────────────────────────────────
 
+    /**
+     * 给课节追加一个资源绑定
+     * @param lesson_id 课节 ID
+     * @param resource_id 资源 ID
+     * @param sort_order 排序（默认 0）
+     */
     async addResourceToLesson(lesson_id: string, resource_id: string, sort_order = 0) {
         return this.prisma.stdLessonResource.upsert({
             where: { lesson_id_resource_id: { lesson_id, resource_id } },
@@ -244,12 +322,18 @@ export class CourseResourceService {
         });
     }
 
+    /** 从课节解绑一个资源 */
     async removeResourceFromLesson(lesson_id: string, resource_id: string) {
         return this.prisma.stdLessonResource.deleteMany({
             where: { lesson_id, resource_id },
         });
     }
 
+    /**
+     * 按给定顺序重排课节绑定的资源
+     * @param lesson_id 课节 ID
+     * @param ordered_resource_ids 目标顺序的资源 ID 数组
+     */
     async reorderLessonResources(lesson_id: string, ordered_resource_ids: string[]) {
         const updates = ordered_resource_ids.map((rid, i) =>
             this.prisma.stdLessonResource.updateMany({

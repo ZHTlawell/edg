@@ -1,12 +1,24 @@
+/**
+ * StudentApproval.tsx - 学员注册审核页
+ *
+ * 所在模块：学员管理 -> 学员注册审核
+ * 功能：
+ *   - 展示待审核的学员注册申请列表
+ *   - 管理员点击通过 / 拒绝完成审批
+ *   - 校区管理员仅能审核本校区的申请
+ * 使用方：admin / campus_admin 的学员管理模块
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, XCircle, Phone, Loader2 } from 'lucide-react';
 import { useStore } from '../store';
 
+/** 学员审核页 Props：onBack 返回上一页 */
 interface StudentApprovalProps {
     onBack: () => void;
 }
 
+/** 待审核学员记录结构 */
 interface PendingStudent {
     id: string;
     username: string;
@@ -17,12 +29,18 @@ interface PendingStudent {
     studentProfile?: { name: string; phone?: string; gender?: string } | null;
 }
 
+/**
+ * StudentApproval 主组件
+ * - load: 拉取待审核列表（校区管理员自动带 campus_id 过滤）
+ * - handleApprove / handleReject: 审批通过/拒绝，成功后本地移除该条
+ */
 export const StudentApproval: React.FC<StudentApprovalProps> = ({ onBack }) => {
     const { fetchPendingUsers, approveUser, rejectUser, currentUser } = useStore();
     const [pendingList, setPendingList] = useState<PendingStudent[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+    /** 加载待审核学员列表（校区管理员会自动按 campus_id 过滤） */
     const load = useCallback(async () => {
         setLoading(true);
         const campusId = currentUser?.role === 'campus_admin' ? (currentUser as any).campus_id : undefined;
@@ -33,6 +51,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ onBack }) => {
 
     useEffect(() => { load(); }, [load]);
 
+    /** 通过审批：调用 approveUser 并从列表移除 */
     const handleApprove = async (id: string) => {
         setActionLoading(id + '-approve');
         try {
@@ -42,6 +61,7 @@ export const StudentApproval: React.FC<StudentApprovalProps> = ({ onBack }) => {
         setActionLoading(null);
     };
 
+    /** 拒绝审批：调用 rejectUser 并从列表移除 */
     const handleReject = async (id: string) => {
         setActionLoading(id + '-reject');
         try {

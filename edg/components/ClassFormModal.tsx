@@ -1,16 +1,29 @@
-
+/**
+ * ClassFormModal.tsx
+ * ---------------------------------------------------------------
+ * 新建班级的表单弹窗。
+ * 一键创建班级 + 可选课程/教师分配 + 可选课次排期。
+ * 使用位置：ClassManagement 中点击「新建班级」按钮。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect } from 'react';
 import { X, Save, Users, BookOpen, User as UserIcon, Calendar, Clock, AlertCircle, ChevronDown, Layers } from 'lucide-react';
 import { useStore } from '../store';
 import api from '../utils/api';
 
+// props：isOpen 显隐；onClose 关闭；onSuccess 创建成功后的回调（父级通常拉新列表）
 interface ClassFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }
 
+/**
+ * ClassFormModal —— 班级新建弹窗主组件
+ * 表单字段：班级名、容量、绑定课程/教师、首课日期、课次数、时长、教室
+ * 关键交互：showAdvanced 切换高级项；提交时调用 api 创建班级并触发 onSuccess
+ */
 export const ClassFormModal: React.FC<ClassFormModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const { currentUser, addToast, courses, teachers, fetchCourses, fetchTeachers } = useStore();
     

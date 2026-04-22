@@ -1,3 +1,11 @@
+/**
+ * 应用根组件 App
+ * 作用：
+ *   1. 按登录状态切换 Login 页 / 主应用布局
+ *   2. 基于 activeView + userRole 做总路由分发，渲染对应业务模块
+ *   3. 管理选中学员、订单、课次、课程等跨模块状态
+ *   4. 登录后恢复会话、拉取未读公告弹窗
+ */
 
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
@@ -53,6 +61,7 @@ import { ClipboardList } from 'lucide-react';
 import { useStore } from './store';
 import { setActiveRole, getActiveRole, getTokenForRole } from './utils/session';
 
+// 根组件：整合全局状态、路由分发、公告弹窗等顶层逻辑
 const App: React.FC = () => {
   const { currentUser, logout, fetchAnnouncementsActive, fetchUnreadAnnouncements, markAnnouncementRead, announcements, initData } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -69,6 +78,7 @@ const App: React.FC = () => {
   // Derive role from store
   const userRole = currentUser?.role || 'admin';
 
+  // 登录成功回调：根据角色跳转初始视图，并拉取未读公告弹窗（学员除外）
   const handleLogin = async (role: string) => {
     setIsAuthenticated(true);
     if (role === 'student') setActiveView('student-dashboard');
@@ -90,32 +100,38 @@ const App: React.FC = () => {
     }
   };
 
+  // 退出登录：清空 store 会话、重置视图至 dashboard
   const handleLogout = () => {
     logout();
     setIsAuthenticated(false);
     setActiveView('dashboard');
   };
 
+  // 打开学员详情页
   const handleShowDetail = (student: Student) => {
     setSelectedStudent(student);
     setActiveView('student-detail');
   };
 
+  // 从学员详情返回学员列表
   const handleBackToList = () => {
     setSelectedStudent(null);
     setActiveView('students');
   };
 
+  // 进入考勤登记页（教师端从课程卡点击进入）
   const handleEnterAttendance = (lessonId: string) => {
     setSelectedLessonId(lessonId);
     setActiveView('attendance-registration');
   };
 
+  // 进入课消确认页（管理员确认课时扣减）
   const handleEnterConsumption = (lessonId: string) => {
     setSelectedLessonId(lessonId);
     setActiveView('lesson-consumption');
   };
 
+  // 页面刷新后的会话恢复：根据持久化的 currentUser + token 自动登录并重新拉取数据
   useEffect(() => {
     // If we have a currentUser in store (from persistence / page refresh), restore full session
     if (currentUser && !isAuthenticated) {

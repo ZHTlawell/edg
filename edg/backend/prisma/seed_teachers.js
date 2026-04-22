@@ -1,9 +1,21 @@
-
+/**
+ * seed_teachers.js — 教师账号（多校区）+ 示例班级 种子脚本
+ * 运行: node prisma/seed_teachers.js
+ *
+ * 用途：补齐总校 / 浦东 / 静安 三个校区的教师账号；若库中已有课程，再补建一个示范班级与一节课表。
+ * 清理范围：不清理任何数据，全部使用 upsert，可安全重复运行。
+ * 插入内容：
+ *   - 3 个教师（teacher1 王晓明 / teacher2 李丽华 / teacher3 张建国），对应 SysUser + EduTeacher
+ *   - 如有课程存在：新增 1 个"前端进阶实战班" + 1 节 lesson_no=1 的示例课表
+ * 前置依赖：schema 已迁移；课程数据可有可无。
+ * 登录凭证：统一密码 123456
+ */
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
+// 主流程：upsert 三个教师用户 + 档案；若库中已有课程则追加一个示例班级与排课
 async function main() {
     console.log('Starting seed...');
 

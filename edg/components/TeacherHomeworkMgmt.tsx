@@ -1,3 +1,13 @@
+/**
+ * TeacherHomeworkMgmt.tsx - 教师端作业分发与批改
+ *
+ * 所在模块：教师端 -> 作业管理
+ * 功能：
+ *   - 发布作业到指定班级（含附件上传、截止时间）
+ *   - 列出作业已交/已批进度，支持编辑、删除作业
+ *   - 批改抽屉：按学员逐条评分/退回，带附件在线预览
+ * 使用方：教师端侧边栏"作业分发与批改"入口
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
@@ -5,7 +15,9 @@ import { API_BASE } from '../utils/config';
 import { PlusCircle, Search, Calendar, FileText, CheckCircle2, Clock, Users, UploadCloud, X, Download, Eye } from 'lucide-react';
 
 /* ─── 文件预览工具 ─── */
+/** 预览文件类型枚举 */
 type PreviewKind = 'video' | 'audio' | 'pdf' | 'image' | 'office' | 'other';
+/** 根据文件扩展名判断预览类型 */
 const detectKind = (filename: string): PreviewKind => {
     const ext = (filename.split('.').pop() || '').toLowerCase();
     if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'video';
@@ -15,11 +27,14 @@ const detectKind = (filename: string): PreviewKind => {
     if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) return 'office';
     return 'other';
 };
+/** 判断 URL 是否为内网地址（Office 在线预览需要公网） */
 const isLocalhostUrl = (url: string) =>
     /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01]))/i.test(url);
 
+/** 预览文件描述 */
 interface PreviewFile { url: string; name: string; }
 
+/** FilePreviewModal - 通用附件预览弹窗（video/audio/pdf/image/office/其它） */
 const FilePreviewModal: React.FC<{ file: PreviewFile; onClose: () => void }> = ({ file, onClose }) => {
     const kind = detectKind(file.name);
     const absUrl = file.url.startsWith('http') ? file.url : `${API_BASE}${file.url}`;
@@ -68,6 +83,12 @@ const FilePreviewModal: React.FC<{ file: PreviewFile; onClose: () => void }> = (
     );
 };
 
+/**
+ * TeacherHomeworkMgmt 主组件
+ * - myClasses/myHomeworks：筛选当前教师的班级与作业
+ * - handlePublish 发布新作业，startEditHw/handleEditHw 编辑
+ * - 批改抽屉内 handleGrade 评分，handleReturn 退回
+ */
 export const TeacherHomeworkMgmt: React.FC = () => {
     const { currentUser, homeworks, homeworkSubmissions, classes, publishHomework, editHomework, deleteHomework, students, gradeHomework, returnSubmission, addToast, fetchTeacherHomeworks } = useStore();
     const [showModal, setShowModal] = useState(false);
@@ -97,10 +118,12 @@ export const TeacherHomeworkMgmt: React.FC = () => {
         [homeworkSubmissions, gradingHomeworkId]
     );
 
+    /** 更新某份提交的评分表单值 */
     const setSubValue = (subId: string, key: 'score' | 'feedback', val: string) => {
         setGradingScores(prev => ({ ...prev, [subId]: { ...(prev[subId] || { score: '', feedback: '' }), [key]: val } }));
     };
 
+    /** 提交评分：校验 0-100 后调用 store.gradeHomework */
     const handleGrade = async (subId: string) => {
         const state = gradingScores[subId];
         const score = parseFloat(state?.score || '0');
@@ -111,6 +134,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
         await gradeHomework(subId, score, state?.feedback || '', (currentUser as any)?.teacherId || currentUser?.id || '');
     };
 
+    /** 退回修改：必须填写反馈意见 */
     const handleReturn = async (subId: string) => {
         const state = gradingScores[subId];
         if (!state?.feedback) {
@@ -138,6 +162,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [homeworks, teacherId]);
 
+    /** 进入编辑作业：回填现有表单字段 */
     const startEditHw = (hw: any) => {
         setEditingHw(hw);
         setEditForm({
@@ -148,6 +173,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
         setEditFile(null);
     };
 
+    /** 保存作业编辑（含可选的新附件） */
     const handleEditHw = async () => {
         if (!editingHw) return;
         try {
@@ -160,6 +186,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
         } catch { /* handled by toast */ }
     };
 
+    /** 删除作业（含所有提交记录），二次确认 */
     const handleDeleteHw = async (hwId: string, title: string) => {
         if (!confirm(`确定删除作业「${title}」？所有学员的提交记录也会被删除，此操作不可撤销。`)) return;
         try {
@@ -167,6 +194,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
         } catch { /* handled */ }
     };
 
+    /** 发布新作业：校验必填后调用 store.publishHomework */
     const handlePublish = async () => {
         if (!newHomework.title || !newHomework.classId || !newHomework.deadline) {
             addToast?.('请填写完整信息', 'warning');

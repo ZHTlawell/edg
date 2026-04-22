@@ -1,4 +1,11 @@
-
+/**
+ * CampusManagement.tsx
+ * ---------------------------------------------------------------
+ * 校区管理列表页（总部管理员）。
+ * 汇总展示真实校区（来自 store）+ 演示校区（mock），支持搜索、分页、查看详情、进入审批。
+ * 使用位置：总部后台「校区管理」主菜单。
+ * ---------------------------------------------------------------
+ */
 import React, { useState, useMemo } from 'react';
 import { Search, MapPin, ChevronLeft, ChevronRight, MoreHorizontal, SlidersHorizontal, ChevronDown, UserCheck } from 'lucide-react';
 import { ElmIcon } from './ElmIcon';
@@ -41,6 +48,7 @@ const mockCampusData: Campus[] = [
 
 const PAGE_SIZE = 5;
 
+// StatusBadge —— 根据校区运营状态渲染不同颜色的小徽标
 const StatusBadge: React.FC<{ status: Campus['status'] }> = ({ status }) => {
     const map: Record<Campus['status'], { cls: string; label: string }> = {
         '正常运营': { cls: 'bg-emerald-50 text-emerald-600 border border-emerald-100', label: '正常运营' },
@@ -56,6 +64,11 @@ const StatusBadge: React.FC<{ status: Campus['status'] }> = ({ status }) => {
     );
 };
 
+/**
+ * CampusManagement —— 校区管理主组件
+ * 关键状态：selectedCampus 进入详情、showAudit 进入审批中心、
+ *           searchTerm / currentPage / filterRegion / filterStatus 用于列表筛选与分页
+ */
 export const CampusManagement: React.FC = () => {
     const { students, classes: storeClasses, orders, campuses, fetchCampuses, fetchStudents, fetchOrders } = useStore();
 

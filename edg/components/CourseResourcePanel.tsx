@@ -1,3 +1,12 @@
+/**
+ * CourseResourcePanel.tsx
+ * ---------------------------------------------------------------
+ * 课程资源面板「组件库」。
+ * 导出若干可复用组件与工具：TYPE_CONFIG、formatSize、PreviewModal、
+ * ResourceUploadModal、CourseChapterTree 等；
+ * 供 CourseResourceMgmt、CourseStandardMgmt 等页面组合使用。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -31,6 +40,7 @@ interface Lesson { id: string; title: string; sort_order: number; duration?: num
 interface Chapter { id: string; title: string; sort_order: number; lessons: Lesson[]; }
 
 // 仅保留两大类：文档资源（PDF/PPT）与 视频资源（VIDEO/AUDIO/其他）
+// 资源类型配置：图标、标签文案、背景色等，供列表/卡片统一渲染
 export const TYPE_CONFIG = {
     DOCUMENT: { label: '文档资源', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
     VIDEO: { label: '视频资源', icon: Video, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
@@ -43,11 +53,13 @@ export const TYPE_CONFIG = {
 };
 
 // 将后端 type 映射到两大宏分类
+// 将资源类型归入两大类（用于表单分步/展示分区）
 export const macroType = (t: string): 'DOCUMENT' | 'VIDEO' => {
     if (t === 'PDF' || t === 'PPT' || t === 'DOC' || t === 'DOCX' || t === 'DOCUMENT') return 'DOCUMENT';
     return 'VIDEO';
 };
 
+// formatSize —— 字节数 -> 人类可读字符串（KB/MB/GB）
 export const formatSize = (bytes?: number) => {
     if (!bytes) return '—';
     return bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
@@ -68,6 +80,10 @@ const detectPreviewKind = (res: Resource): 'video' | 'audio' | 'pdf' | 'image' |
     return 'download';
 };
 
+/**
+ * PreviewModal —— 资源预览弹窗（公共版本）
+ * 根据资源类型渲染视频播放/iframe/下载链接
+ */
 export const PreviewModal: React.FC<{ resource: Resource; onClose: () => void }> = ({ resource, onClose }) => {
     const base = API_BASE;
     const url = resource.url.startsWith('/') ? `${base}${resource.url}` : resource.url;
@@ -165,6 +181,10 @@ export const PreviewModal: React.FC<{ resource: Resource; onClose: () => void }>
 };
 
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
+/**
+ * ResourceUploadModal —— 资源上传弹窗（公共版本）
+ * 负责文件上传、外链录入、基础元数据编辑，提交后触发 onSaved 回调
+ */
 export const ResourceUploadModal: React.FC<{
     standardId: string;
     onClose: () => void;
@@ -371,6 +391,11 @@ export const ResourceUploadModal: React.FC<{
 };
 
 // ─── Chapter Tree ─────────────────────────────────────────────────────────────
+/**
+ * CourseChapterTree —— 课程章节树（含资源挂载）
+ * props.standardId：所属课程标准/课程 id；
+ * 内部负责拉章节、拉章节下的资源、增删改章节、拖动排序等
+ */
 export const CourseChapterTree: React.FC<{ standardId: string }> = ({ standardId }) => {
     const [chapters, setChapters] = useState<Chapter[]>([]);
     const [resources, setResources] = useState<Resource[]>([]);
@@ -644,6 +669,10 @@ export const CourseChapterTree: React.FC<{ standardId: string }> = ({ standardId
 };
 
 // ─── Chapter Import Modal ─────────────────────────────────────────────────────
+/**
+ * ChapterImportModal —— 章节批量导入弹窗
+ * 下载模板 -> 填写 Excel/CSV -> 上传解析 -> 预览 -> 确认入库
+ */
 const ChapterImportModal: React.FC<{
     standardId: string;
     onClose: () => void;

@@ -1,3 +1,13 @@
+/**
+ * QuizView.tsx - 学生端章节测验答题页
+ *
+ * 所在模块：学员学习中心 -> 章节测验
+ * 功能：
+ *   - 支持两种模式：通过 paperId 从后端拉真题 + 提交评分；或直接传入本地题目作兜底
+ *   - 全屏答题界面：进度条、倒计时、单/多选作答、标记疑问、快速跳题
+ *   - 提交前二次确认，提交后展示分数与逐题回顾
+ * 使用方：StudentClassMaterials / StudentLearningHome 等学生课程学习页
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect } from 'react';
@@ -14,6 +24,7 @@ import {
 } from 'lucide-react';
 import api from '../utils/api';
 
+/** 测验题目结构（前端通用） */
 interface Question {
   id: number | string;
   type: 'single' | 'multiple';
@@ -22,6 +33,7 @@ interface Question {
   answer?: string[];
 }
 
+/** 兜底题库：当未传 paperId 且未传 questions 时使用的示例题目 */
 const FALLBACK_QUESTIONS: Question[] = [
   {
     id: 1, type: 'single',
@@ -60,6 +72,12 @@ interface QuizViewProps {
   onSubmit: () => void;
 }
 
+/**
+ * QuizView 主组件
+ * - 拉取真题（若传 paperId），否则使用 props.questions 或 FALLBACK_QUESTIONS
+ * - 维护：当前题号 / 答案 map / 标记疑问 map / 倒计时 / 确认弹窗 / 结果弹窗
+ * - 提交时若为真题模式会调用 /api/quiz/submit 获取后端权威评分
+ */
 export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, courseId, questions, onBack, onSubmit }) => {
   const [apiQuestions, setApiQuestions] = useState<Question[] | null>(null);
   const [paperMeta, setPaperMeta] = useState<{ time_limit: number; pass_score: number } | null>(null);
@@ -112,7 +130,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, cours
     return () => clearInterval(timer);
   }, []);
 
-  // 真题模式：提交到 API
+  /** 真题模式：将答案提交到后端进行评分，后端返回得分/总分/是否通过 */
   const submitToApi = async () => {
     if (!paperId || !courseId) return;
     try {
@@ -133,12 +151,14 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, cours
     }
   };
 
+  /** 秒数格式化成 mm:ss */
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  /** 选择选项：单选自动跳下一题，多选则在集合中切换 */
   const handleSelect = (optionId: string) => {
     const currentAnswers = answers[currentQuestion.id] || [];
     if (currentQuestion.type === 'single') {

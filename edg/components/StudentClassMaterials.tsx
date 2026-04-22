@@ -1,12 +1,28 @@
+/**
+ * StudentClassMaterials.tsx - 学员班级资料页
+ *
+ * 所在模块：学员端 -> 我的班级资料
+ * 功能：
+ *   - 从 /api/course-resource/my-class-materials 拉取所属各班级的资料
+ *   - 按班级分组展示，可折叠展开，支持文件预览
+ * 使用方：学员登录后从侧边栏或学习主页进入
+ */
 import React, { useState, useEffect } from 'react';
 import { ElmIcon } from './ElmIcon';
 import { Eye, ChevronDown, ChevronRight, FolderOpen, Inbox } from 'lucide-react';
 import api from '../utils/api';
 import { macroType, TYPE_CONFIG, formatSize, PreviewModal } from './CourseResourcePanel';
 
+/** 资源文件结构 */
 interface Resource { id: string; title: string; type: string; url: string; file_name?: string; file_size?: number; createdAt?: string; }
+/** 按班级分组的资料集合 */
 interface ClassGroup { classId: string; className: string; courseName: string; materials: Resource[]; }
 
+/**
+ * StudentClassMaterials 主组件（无 props）
+ * - 进入时自动展开首个有资料的班级
+ * - toggle() 控制折叠/展开
+ */
 export const StudentClassMaterials: React.FC = () => {
     const [groups, setGroups] = useState<ClassGroup[]>([]);
     const [loading, setLoading] = useState(true);
@@ -26,6 +42,7 @@ export const StudentClassMaterials: React.FC = () => {
             .finally(() => setLoading(false));
     }, []);
 
+    /** 切换某班级的展开/收起 */
     const toggle = (id: string) => setExpanded(prev => {
         const n = new Set(prev);
         n.has(id) ? n.delete(id) : n.add(id);

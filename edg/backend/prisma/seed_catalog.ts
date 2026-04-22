@@ -305,6 +305,9 @@ const COURSE_DATA: Record<string, {
     },
 };
 
+// 主流程：为 COURSE_DATA 中定义的每门课建立「标准课程 → 章节 → 课时 → 资源」四层目录
+// 清理范围：不清理，仅追加；已有 standard_id 的 EdCourse 会被跳过
+// 前置依赖：必须先运行 seed_full.ts（需要 ADMIN 用户 + 已存在同名的 EdCourse 记录）
 async function main() {
     console.log('📚 开始创建课程目录结构...\n');
 

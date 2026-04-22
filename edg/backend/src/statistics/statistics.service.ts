@@ -1,10 +1,25 @@
+/**
+ * 统计服务
+ * 职责：聚合多张表数据，为管理端 Dashboard 输出核心 KPI、出勤、消耗、退费、订单导出
+ * 所属模块：数据分析
+ * 被 StatisticsController 依赖注入
+ */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * 统计业务服务
+ * 对外提供总部工作台概览、出勤、课时消耗、退费、订单导出等数据接口
+ */
 @Injectable()
 export class StatisticsService {
     constructor(private prisma: PrismaService) { }
 
+    /**
+     * 总部工作台概览
+     * 包含：今日新增、本月营收、学员/教师总数、按月营收趋势、各校区数据等
+     * 使用过去 12 个月的时间窗口绘制趋势图
+     */
     async getWorkbenchOverview() {
         const now = new Date();
         const twelveMonthsAgo = new Date();
@@ -126,6 +141,13 @@ export class StatisticsService {
     }
 
     // ─── 到课率统计 ──────────────────────────────────────────────
+    /**
+     * 出勤统计
+     * 按日期区间、校区筛选，返回到课率 / 请假率 / 缺勤率等维度
+     * @param filters.campusId 校区过滤
+     * @param filters.startDate 起始日期
+     * @param filters.endDate 截止日期
+     */
     async getAttendanceStats(filters?: { campusId?: string; startDate?: string; endDate?: string }) {
         const where: any = {};
         if (filters?.startDate || filters?.endDate) {
@@ -158,6 +180,10 @@ export class StatisticsService {
     }
 
     // ─── 课消率统计 ──────────────────────────────────────────────
+    /**
+     * 课时消耗统计（按时间范围）
+     * 返回期间每日已消耗课时数，用于绘制消耗趋势图
+     */
     async getConsumptionStats(filters?: { startDate?: string; endDate?: string }) {
         const where: any = {};
         if (filters?.startDate || filters?.endDate) {
@@ -188,6 +214,10 @@ export class StatisticsService {
     }
 
     // ─── 退费统计 ──────────────────────────────────────────────
+    /**
+     * 退费统计
+     * 聚合退费次数、金额、按校区/原因拆分
+     */
     async getRefundStats() {
         const refunds = await this.prisma.finRefundRecord.findMany({
             select: { amount: true, status: true, createdAt: true },
@@ -205,6 +235,10 @@ export class StatisticsService {
     }
 
     // ─── 导出统计数据为 CSV ──────────────────────────────────────
+    /**
+     * 导出所有订单为 CSV 文本
+     * 返回字符串由 controller 加 BOM 后下载
+     */
     async exportOrdersCsv() {
         const orders = await this.prisma.finOrder.findMany({
             include: {

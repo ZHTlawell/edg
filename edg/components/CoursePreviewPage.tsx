@@ -1,3 +1,12 @@
+/**
+ * CoursePreviewPage.tsx
+ * ---------------------------------------------------------------
+ * 课程预览页（未购买学员视角）。
+ * 展示课程封面、介绍、章节/课次大纲，未解锁课次显示锁状态。
+ * 右上按钮可购买课程；购买后会跳 onStartStudy 进入学习。
+ * 使用位置：CourseMarketplace 点击课程卡片进入。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -8,6 +17,7 @@ import api from '../utils/api';
 import { useStore } from '../store';
 import { PurchaseConfirmationModal } from './PurchaseConfirmationModal';
 
+// 课次 / 章节 / 预览数据结构（接口响应模型）
 interface PreviewLesson {
     id: string;
     title: string;
@@ -29,12 +39,14 @@ interface PreviewData {
     chapters: PreviewChapter[];
 }
 
+// props：courseId 当前课程；onBack 返回；onStartStudy 开始学习（已购买后进入）
 interface Props {
     courseId: string;
     onBack: () => void;
     onStartStudy: (courseId: string) => void;
 }
 
+// 课程名 -> 卡片主题（与 CourseMarketplace 保持视觉一致）
 const COURSE_THEMES: Record<string, { gradient: string; icon: string }> = {
     '高级UI/UX设计实战': { gradient: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)', icon: '🎨' },
     '全栈开发：React+Node': { gradient: 'linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #6366f1 100%)', icon: '⚛️' },
@@ -44,6 +56,11 @@ const COURSE_THEMES: Record<string, { gradient: string; icon: string }> = {
     '产品经理实战训练营': { gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%)', icon: '🚀' },
 };
 
+/**
+ * CoursePreviewPage —— 课程预览主组件
+ * 挂载时调用 api.getCoursePreview 拉取章节 + 课次，
+ * 首个章节默认展开、其它折叠；已购买则按钮切换为「开始学习」
+ */
 export const CoursePreviewPage: React.FC<Props> = ({ courseId, onBack, onStartStudy }) => {
     const { currentUser, students, courses, assetAccounts, createOrder, processPayment, fetchMyAssets, fetchOrders, addToast } = useStore();
     const [data, setData] = useState<PreviewData | null>(null);

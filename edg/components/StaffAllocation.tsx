@@ -1,8 +1,22 @@
+/**
+ * StaffAllocation.tsx - 人员分配/档案页
+ *
+ * 所在模块：
+ *   - 总部管理员：跨校区人员分配
+ *   - 校区管理员：本校人员档案
+ * 功能：按校区/姓名/手机号筛选员工列表，展示岗位、校区、状态
+ * 备注：当前使用静态示例数据，仅为原型
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { Users, Search, Plus, Filter, UserCog, MoreVertical, Edit2, ShieldAlert } from 'lucide-react';
 import { useStore } from '../store';
 
+/**
+ * StaffAllocation 组件（无 props）
+ * - 校区管理员仅看本校人员；总部管理员看全部
+ * - 本地 allStaff 静态数据源，实际后续应替换为 API
+ */
 export const StaffAllocation: React.FC = () => {
     const { currentUser } = useStore();
     const isCampusAdmin = currentUser?.role === 'campus_admin';

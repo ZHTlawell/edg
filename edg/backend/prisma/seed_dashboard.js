@@ -1,9 +1,28 @@
-
+/**
+ * seed_dashboard.js — 仪表盘演示数据种子
+ * 运行: node prisma/seed_dashboard.js
+ *
+ * 用途：为总部/校区管理端 Dashboard 提供"有血有肉"的统计数据（过去 12 个月分布）。
+ * 清理范围（执行即删除）：
+ *   考勤 / 课次 / 作业提交 / 作业 / 学员入班 / 班级分配 / 班级 /
+ *   支付记录 / 订单 / 资产流水 / 资产账户 / 退费记录
+ *   ※ 不清理 SysUser / EduStudent / EduTeacher / EdCourse，这些用 upsert/findFirst 保留
+ * 插入内容：
+ *   - 1 个总部管理员 + 3 个校区管理员（海淀 / 朝阳 / 东城）
+ *   - 3 个教师
+ *   - 4 门课程
+ *   - 50 个学员，每人 1-2 笔历史订单（跨过去 12 个月），附支付记录 & 资产账户
+ *   - 4 个班级（每校区一个）+ 对应教学分配
+ *   - 3 个 PENDING_APPROVAL 的用户审批申请
+ * 前置依赖：数据库 schema 已迁移即可；无其他强依赖。
+ * 登录凭证：统一密码 123456
+ */
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
+// 主流程：清理相关聚合表 → 建用户/教师/课程 → 批量造学员与历史订单 → 建班级 → 写待审批申请
 async function main() {
     console.log('--- Starting Dashboard Seeding ---');
 

@@ -1,3 +1,12 @@
+/**
+ * ResourceLibrary.tsx - 教师资源库
+ *
+ * 所在模块：教师端 -> 资源管理
+ * 功能：
+ *   - 展示教师所教班级的"班级专属资料"与"课程标准资源"两个 Tab
+ *   - 支持按班级 / 课程标准分组折叠，文件预览、搜索、上传班级资料、删除资料
+ * 使用方：教师端主页面之一
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -22,11 +31,20 @@ import { useStore } from '../store';
 import api from '../utils/api';
 import { macroType, TYPE_CONFIG, formatSize, PreviewModal } from './CourseResourcePanel';
 
+/** 单个资源（文件）结构 */
 interface Resource { id: string; title: string; type: string; url: string; file_name?: string; file_size?: number; status: string; scope?: string; class_id?: string; creator_id?: string; createdAt?: string; }
+/** 课程 + 对应课程标准的组合（用于分组展示） */
 interface CourseWithStandard { courseId: string; courseName: string; standardId: string; standardName: string; }
 
+/** Tab 标识：班级资料 / 标准资源 */
 type TabKey = 'class-materials' | 'standard-resources';
 
+/**
+ * ResourceLibrary 主组件（无 props）
+ * - 根据 currentUser.teacherId 推导出"我的班级"及其关联课程与课程标准
+ * - 维护两个资源 map（按 classId / 按 standardId 分组）
+ * - 上传模态窗：选择班级、文件、填写标题与描述
+ */
 export const ResourceLibrary: React.FC = () => {
     const { currentUser, classes, addToast } = useStore();
     const teacherId = (currentUser as any)?.teacherId;

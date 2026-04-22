@@ -1,10 +1,18 @@
-
+/**
+ * CourseAssignmentModal.tsx
+ * ---------------------------------------------------------------
+ * 为已有班级分配课程 + 教师 + 排课的弹窗。
+ * 相当于 ClassFormModal 的「补齐」版本，针对尚未绑定课程的班级。
+ * 使用位置：ClassManagement 中对某班点击「分配课程」。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect } from 'react';
 import { X, Save, BookOpen, User as UserIcon, Calendar, Clock, MapPin, Search } from 'lucide-react';
 import { useStore } from '../store';
 import api from '../utils/api';
 
+// props：isOpen/onClose/onSuccess 常规弹窗三件套；classId/className 定位目标班级
 interface CourseAssignmentModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -13,6 +21,11 @@ interface CourseAssignmentModalProps {
     className?: string;
 }
 
+/**
+ * CourseAssignmentModal —— 班级课程分配弹窗
+ * 表单：课程、教师、首课日期、课次数、每节时长
+ * 提交后调用后端接口将课程绑定到班级并生成课次
+ */
 export const CourseAssignmentModal: React.FC<CourseAssignmentModalProps> = ({ isOpen, onClose, onSuccess, classId, className }) => {
     const { courses, teachers, fetchCourses, fetchTeachers, currentUser, addToast } = useStore();
 

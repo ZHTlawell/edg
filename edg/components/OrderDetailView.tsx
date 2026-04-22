@@ -1,3 +1,14 @@
+/**
+ * OrderDetailView.tsx - 订单详情页
+ *
+ * 所在模块：报名缴费 -> 订单记录 -> 订单详情
+ * 功能：
+ *   - 展示单个订单的完整信息（订单元数据、学员、课程、课时、金额）
+ *   - 支持 4 个 Tab：订单明细 / 收款记录 / 课时余额消耗 / 变更记录
+ *   - 提供收款登记、退款、打印、跳转学员详情等操作
+ *   - 根据状态显示欠费预警卡
+ * 使用方：Payments、OrderCreation 成功后、学员/订单列表点击详情时进入
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
@@ -28,15 +39,33 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+/**
+ * 订单详情组件 Props
+ * - orderId: 要查看的订单 ID
+ * - onBack: 返回订单列表的回调
+ * - onViewStudent: 可选，跳转到学员详情的回调
+ */
 interface OrderDetailViewProps {
   orderId: string;
   onBack: () => void;
   onViewStudent?: (student: any) => void;
 }
 
+/** 订单派生状态（前端视图枚举），对应后端 status 字段做归一化 */
 type OrderStatus = 'pending' | 'partial' | 'completed' | 'refunded' | 'partial_refunded' | 'canceled';
+/** 订单详情页内的 Tab 类型 */
 type TabType = 'items' | 'payments' | 'lessons' | 'history';
 
+/**
+ * OrderDetailView 主组件
+ * - 顶部：订单号 + 状态徽章 + 收款/退款/打印操作
+ * - 中部：订单概览 4 列网格（元数据 / 学员班级 / 课程课时 / 财务汇总）
+ * - 下部：Tab 内容区 + 右侧学员入口卡 + 欠费预警卡
+ * 关键交互：
+ *   - 收款登记调用 store.processPayment
+ *   - 根据 status 动态显示"收款登记""退款""欠费预警"等模块
+ *   - 订单不存在时展示占位缺省态
+ */
 export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBack, onViewStudent }) => {
   const { orders, students, courses, processPayment, addToast } = useStore();
   const [activeTab, setActiveTab] = useState<TabType>('items');
@@ -56,6 +85,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ orderId, onBac
 
   const status = derivedStatus;
 
+  /** 根据订单状态映射出徽章文案与样式类 */
   const getStatusConfig = (s: OrderStatus) => {
     switch (s) {
       case 'pending': return { label: '待支付', style: 'bg-amber-50 text-amber-600 border-amber-100' };

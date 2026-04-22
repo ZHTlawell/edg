@@ -1,3 +1,12 @@
+/**
+ * StudentRegistration.tsx - 学员自助注册页
+ *
+ * 所在模块：登录页 -> 学员注册
+ * 功能：
+ *   - 表单收集学员用户名/密码/姓名/手机号/性别/校区
+ *   - 提交后等待校区管理员审核
+ * 使用方：LoginPage 中学员身份切换到注册
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
@@ -14,10 +23,16 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+/** 学员注册页 Props：onBack 返回登录页 */
 interface StudentRegistrationProps {
     onBack: () => void;
 }
 
+/**
+ * StudentRegistration 主组件
+ * - 维护 formData 的表单状态
+ * - handleSubmit 提交：校验密码一致后调用 store.register，返回登录页
+ */
 export const StudentRegistration: React.FC<StudentRegistrationProps> = ({ onBack }) => {
     const { register, addToast, campuses } = useStore();
     const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +46,7 @@ export const StudentRegistration: React.FC<StudentRegistrationProps> = ({ onBack
         campus: ''
     });
 
+    /** 提交注册：二次校验密码后调用 register，成功后返回 */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {

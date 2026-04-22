@@ -1,12 +1,25 @@
+/**
+ * 课程标准服务
+ * 职责：课程分类 / 课程标准 / 模板 / 版本历史的维护
+ * 所属模块：课程体系
+ * 被 CourseStandardController 依赖注入
+ */
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * 课程标准业务服务
+ * 提供标准全生命周期（创建 / 更新 / 启用 / 禁用 / 版本）管理
+ */
 @Injectable()
 export class CourseStandardService {
     constructor(private prisma: PrismaService) { }
 
     // ─── 课程分类 ─────────────────────────────────────────
 
+    /**
+     * 查询所有分类（附标准数量统计）
+     */
     async findAllCategories() {
         return this.prisma.stdCourseCategory.findMany({
             orderBy: [{ sort_order: 'asc' }, { createdAt: 'asc' }],
@@ -14,16 +27,24 @@ export class CourseStandardService {
         });
     }
 
+    /** 新建分类 */
     async createCategory(data: { name: string; description?: string; sort_order?: number }) {
         return this.prisma.stdCourseCategory.create({ data });
     }
 
+    /** 更新分类 */
     async updateCategory(id: string, data: { name?: string; description?: string; sort_order?: number; status?: string }) {
         return this.prisma.stdCourseCategory.update({ where: { id }, data });
     }
 
     // ─── 课程标准 ─────────────────────────────────────────
 
+    /**
+     * 按条件查询课程标准列表
+     * @param filters.status 状态
+     * @param filters.category_id 分类
+     * @param filters.keyword 名称/编码关键字
+     */
     async findAllStandards(filters?: { status?: string; category_id?: string; keyword?: string }) {
         const where: any = {};
         if (filters?.status) where.status = filters.status;
@@ -47,6 +68,10 @@ export class CourseStandardService {
         });
     }
 
+    /**
+     * 查询单个课程标准详情（含章节、课节、模板）
+     * @param id 标准 ID
+     */
     async findOneStandard(id: string) {
         const std = await this.prisma.stdCourseStandard.findUnique({
             where: { id },
@@ -61,6 +86,11 @@ export class CourseStandardService {
         return std;
     }
 
+    /**
+     * 创建课程标准
+     * 写入初始版本，状态默认 DRAFT
+     * @param data 标准字段（name、code、category_id、章节、课节等）
+     */
     async createStandard(data: {
         code: string;
         name: string;
@@ -119,6 +149,12 @@ export class CourseStandardService {
         });
     }
 
+    /**
+     * 更新课程标准（同时追加一条版本历史记录）
+     * @param id 标准 ID
+     * @param data 新字段
+     * @param operator_id 操作人 ID（写入版本记录）
+     */
     async updateStandard(id: string, data: any, operator_id: string) {
         const existing = await this.prisma.stdCourseStandard.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException('课程标准不存在');
@@ -168,6 +204,11 @@ export class CourseStandardService {
         });
     }
 
+    /**
+     * 启用标准（置为 ENABLED，校区可引用）
+     * @param id 标准 ID
+     * @param operator_id 操作人
+     */
     async enableStandard(id: string, operator_id: string) {
         const std = await this.prisma.stdCourseStandard.findUnique({
             where: { id },
@@ -182,6 +223,9 @@ export class CourseStandardService {
         });
     }
 
+    /**
+     * 禁用标准（置为 DISABLED）
+     */
     async disableStandard(id: string) {
         return this.prisma.stdCourseStandard.update({
             where: { id },
@@ -191,6 +235,11 @@ export class CourseStandardService {
 
     // ─── 课程模板 ─────────────────────────────────────────
 
+    /**
+     * 新增或更新标准的教学模板（幂等 upsert）
+     * @param standard_id 标准 ID
+     * @param data 模板内容
+     */
     async upsertTemplate(standard_id: string, data: {
         teaching_goal?: string;
         stage_desc?: string;
@@ -206,6 +255,10 @@ export class CourseStandardService {
 
     // ─── 版本历史 ─────────────────────────────────────────
 
+    /**
+     * 获取某课程标准的版本变更历史
+     * @param standard_id 标准 ID
+     */
     async getVersionHistory(standard_id: string) {
         return this.prisma.stdCourseVersion.findMany({
             where: { standard_id },
@@ -215,6 +268,11 @@ export class CourseStandardService {
 
     // ─── 校区端查询可用标准 ────────────────────────────────
 
+    /**
+     * 查询某校区可用的课程标准
+     * 规则：启用状态 + 未被校区禁用
+     * @param campus_id 校区 ID
+     */
     async findAvailableForCampus(campus_id: string) {
         return this.prisma.stdCourseStandard.findMany({
             where: {

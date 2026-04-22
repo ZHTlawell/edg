@@ -1,9 +1,19 @@
+/**
+ * CampusDetail.tsx
+ * ---------------------------------------------------------------
+ * 校区详情页（总部/管理员视角）。
+ * 以 Tab 形式展示：基本资料、教职员工、班级学员。
+ * 支持导出员工/学员 CSV、查看证照图片等。
+ * 使用位置：CampusManagement 列表点击校区后进入。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, MapPin, Calendar, User, Phone, Download, Image as ImageIcon, BarChart2, Target, UserCog, GraduationCap, Building2, Search, Filter } from 'lucide-react';
 import { useStore } from '../store';
 import { exportCSV } from '../../utils/exportCSV';
 
+// 校区卡片数据结构（展示用，真正实体在 types.ts 中定义）
 interface Campus {
     id: string;
     name: string;
@@ -16,11 +26,13 @@ interface Campus {
     status: '正常运营' | '维护中' | '已停业';
 }
 
+// props：campus 当前校区；onBack 返回列表
 interface CampusDetailProps {
     campus: Campus;
     onBack: () => void;
 }
 
+// DocCard —— 证照/附件缩略卡（占位图标 + 文案），展示用
 const DocCard: React.FC<{ label: string }> = ({ label }) => (
     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center gap-2 aspect-square justify-center hover:border-blue-200 hover:bg-blue-50/40 transition-all cursor-pointer group">
         <div className="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center group-hover:border-blue-200 transition-all">
@@ -68,6 +80,10 @@ const campusCerts: Record<string, { name: string; no: string; expiry: string; st
     ],
 };
 
+/**
+ * CampusDetail —— 校区详情主组件
+ * Tab 切换展示三大信息区；导出按钮按当前 Tab 导出对应维度 CSV
+ */
 export const CampusDetail: React.FC<CampusDetailProps> = ({ campus, onBack }) => {
     const [activeTab, setActiveTab] = useState('基本资料');
     const [searchTerm, setSearchTerm] = useState('');

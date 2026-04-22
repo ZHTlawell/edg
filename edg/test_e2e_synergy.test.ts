@@ -1,7 +1,12 @@
+/**
+ * 端到端业务联动 Vitest 测试
+ * 作用：校验校区发布课程 → 学员购课 → 管理员/教师/学员多端数据联动一致性
+ */
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useStore } from './store';
 
+// 端到端联动测试套件：覆盖订单生成 + 资产账户 + 教师课程可见性
 describe('End-to-End Business Synergy', () => {
     beforeEach(() => {
         // Reset store or specific states if needed, but persist might keep data. 

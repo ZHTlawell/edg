@@ -1,10 +1,22 @@
-
+/**
+ * AnnouncementView.tsx
+ * ---------------------------------------------------------------
+ * 公告查看页（普通用户视角）。
+ * 左侧为公告分组（全部 / 总部 / 校区），右侧展示选中公告正文。
+ * 使用位置：侧边栏「系统通知」入口，面向校区管理员/教师/学生等。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useEffect, useState } from 'react';
 import { Megaphone, Calendar, Send, ChevronRight, Inbox, Eye, Clock } from 'lucide-react';
 import { useStore } from '../store';
 import { Announcement } from '../types';
 
+/**
+ * AnnouncementView —— 公告查看主组件
+ * 无 props；加载时自动拉取「当前活跃」公告列表。
+ * 关键状态：selectedAnn 选中详情、activeGroup 分组筛选
+ */
 export const AnnouncementView: React.FC = () => {
     const { announcements, fetchAnnouncementsActive } = useStore();
     const [selectedAnn, setSelectedAnn] = useState<Announcement | null>(null);

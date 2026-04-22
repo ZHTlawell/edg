@@ -1,3 +1,12 @@
+/**
+ * StudentManagement.tsx - 学员档案管理页
+ *
+ * 所在模块：学员管理 -> 学员档案
+ * 功能：
+ *   - 管理员/校区管理员端的学员档案列表，支持筛选、搜索、分页、导入、新增、详情
+ *   - 校区管理员仅看本校区学员
+ * 使用方：admin / campus_admin 主要工作页之一
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
@@ -27,12 +36,20 @@ import {
 import { Student, StudentStatus } from '../types';
 import { useStore } from '../store';
 
+/** 学员管理 Props：onShowDetail 点击行跳转学员详情 */
 interface StudentManagementProps {
   onShowDetail?: (student: Student) => void;
 }
 
 /**
  * EduAdmin 全系统统一日期选择组件 - 深度修复版
+ */
+/**
+ * EduDatePicker - 全系统统一使用的日期选择器（深度修复版）
+ * Props:
+ *   - value / onChange: 受控日期字符串
+ *   - placeholder / className: 视觉相关
+ * 通过 showPicker 强制触发原生 date picker，兼容性兜底走 focus
  */
 const EduDatePicker: React.FC<{
   value: string;
@@ -42,6 +59,7 @@ const EduDatePicker: React.FC<{
 }> = ({ value, onChange, placeholder = "年 / 月 / 日", className = "" }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /** 日期选择器容器点击：强制触发原生 date picker，兼容不支持 showPicker 的浏览器 */
   const handleContainerClick = () => {
     // 强制触发原生选择器
     if (inputRef.current && 'showPicker' in inputRef.current) {
@@ -95,6 +113,12 @@ const EduDatePicker: React.FC<{
   );
 };
 
+/**
+ * StudentManagement 主组件
+ * - 维护筛选条件（关键词、校区、状态、日期）、分页、选中、弹窗
+ * - 校区管理员自动按 campus_id 收窄数据范围
+ * - 提供导出、下载模板、批量导入、新增/编辑/删除等完整 CRUD 能力
+ */
 export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDetail }) => {
   const { students, currentUser, addStudent, updateStudent, deleteStudent, addToast, fetchStudents } = useStore();
 
@@ -201,6 +225,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     setEndDate('');
   };
 
+  /** 导出当前筛选结果为 Excel/CSV */
   const handleExportStudents = () => {
     if (!filteredStudents || filteredStudents.length === 0) {
       addToast('暂无学员数据可导出', 'warning');
@@ -228,6 +253,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     addToast(`已导出 ${filteredStudents.length} 条学员数据`, 'success');
   };
 
+  /** 下载批量导入学员的 Excel 模板 */
   const handleDownloadTemplate = () => {
     const headers = ['姓名', '性别', '手机号', '校区', '备注'];
     const csvContent = headers.join(',') + '\n';
@@ -242,6 +268,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     addToast('导入模板已下载', 'success');
   };
 
+  /** 打开新增/编辑学员表单（传 student 表示编辑，不传表示新增） */
   const handleOpenForm = (student?: Student) => {
     if (student) {
       setEditingStudent({ ...student });
@@ -259,6 +286,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     setViewMode('form');
   };
 
+  /** 保存表单：根据有无 id 分发到新增/更新 */
   const handleSave = () => {
     const errors: Record<string, string> = {};
     if (!editingStudent?.name) errors.name = '姓名不能为空';
@@ -282,6 +310,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     }, 1200);
   };
 
+  /** 确认删除选中学员（批量或单个） */
   const handleDeleteConfirm = () => {
     if (deletingStudent) {
       deleteStudent(deletingStudent.id);

@@ -12,6 +12,7 @@ const prisma = new PrismaClient();
 
 const LEGACY_CATEGORY_NAME = '历史课程（迁移）';
 
+// 确保存在"历史课程（迁移）"这个 ARCHIVED 分类，返回其 ID；若不存在则新建
 async function ensureLegacyCategory(): Promise<string> {
     const existing = await prisma.stdCourseCategory.findUnique({
         where: { name: LEGACY_CATEGORY_NAME },
@@ -30,6 +31,8 @@ async function ensureLegacyCategory(): Promise<string> {
     return created.id;
 }
 
+// 为所有 standard_id=null 的 EdCourse 创建一个 code=LEGACY-{courseId} 的 ARCHIVED 标准，并回写绑定
+// 幂等：同 code 已存在时复用，不会重复创建
 async function migrateOrphanCourses(categoryId: string) {
     const orphanCourses = await prisma.edCourse.findMany({
         where: ({ standard_id: null } as any),
@@ -80,6 +83,7 @@ async function migrateOrphanCourses(categoryId: string) {
     console.log(`  ✓ 已迁移 ${migrated} 个课程到独立 LEGACY 占位标准`);
 }
 
+// 校验：全库不应再有 standard_id=null 的 EdCourse，否则抛错
 async function verifyAllBound() {
     const remaining = await prisma.edCourse.count({
         where: ({ standard_id: null } as any),
@@ -90,6 +94,7 @@ async function verifyAllBound() {
     console.log('  ✓ 所有课程均已绑定标准');
 }
 
+// 主流程：准备 LEGACY 分类 → 迁移 orphan 课程 → 校验
 async function main() {
     console.log('===== 课程库 → 课程标准 迁移开始 =====\n');
 

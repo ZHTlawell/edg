@@ -39,6 +39,8 @@ const LESSON_BY_COURSE = {
     '产品经理实战训练营': ['产品经理职责解析','用户需求挖掘','竞品分析方法','原型设计(Axure)','A/B测试','数据指标体系'],
 };
 
+// 根据课时标题反查它所属的课程，并返回该课程分配到的演示视频配置
+// 课时标题不在白名单时返回 null（表示不注入）
 function resolveVideoFor(lessonTitle) {
     for (const [courseName, lessons] of Object.entries(LESSON_BY_COURSE)) {
         if (lessons.includes(lessonTitle)) {
@@ -49,6 +51,10 @@ function resolveVideoFor(lessonTitle) {
     return null;
 }
 
+// 主流程：遍历 StdCourseLesson，按课时标题匹配视频；
+//   - 若课时已有 YouTube/bilibili iframe 资源，会删除并替换为本地 MP4
+//   - 若课时已有其他非 iframe 资源，则跳过（防止误删）
+// 前置依赖：ADMIN 用户 + 已有课时目录
 async function main() {
     console.log('🎬 开始注入课时视频资源（公共 MP4 演示源）...\n');
 

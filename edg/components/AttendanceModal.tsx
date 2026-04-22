@@ -1,3 +1,12 @@
+/**
+ * AttendanceModal.tsx
+ * ---------------------------------------------------------------
+ * 考勤登记弹窗（单个课次）。
+ * 加载班级成员 + 已批准请假列表，逐人勾选出勤/迟到/缺席/请假，
+ * 并设置扣课时，提交后写入考勤记录。
+ * 使用位置：AttendanceDashboard、ScheduleManagement 等点击「登记」后弹出。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, CheckCircle2, UserCheck, UserX, Clock, Save, Info, Users, Search } from 'lucide-react';
@@ -5,6 +14,7 @@ import { useStore } from '../store';
 import { AttendStatus } from '../types';
 import api from '../utils/api';
 
+// props：isOpen 控制显隐；onClose 关闭回调；lesson 传入当前课次基本信息
 interface AttendanceModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -19,6 +29,7 @@ interface AttendanceModalProps {
     };
 }
 
+// 班级成员渲染用的最简结构（含余量课时，用于界面显示）
 interface ClassMember {
     id: string;
     name: string;
@@ -26,6 +37,14 @@ interface ClassMember {
     balanceLessons?: number;
 }
 
+/**
+ * AttendanceModal —— 考勤登记弹窗
+ * 关键状态：
+ *  - classStudents 班级学员列表（含余量课时）
+ *  - attendanceMap 学员 id -> {出勤状态, 扣课时}
+ *  - searchTerm 学员名字搜索
+ * 打开时拉取班级成员与已批准的请假单；提交通过 submitAttendance 写库。
+ */
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, lesson }) => {
     const { submitAttendance, currentUser } = useStore();
     const [searchTerm, setSearchTerm] = useState('');

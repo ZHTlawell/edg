@@ -1,3 +1,12 @@
+/**
+ * AnnouncementMgmt.tsx
+ * ---------------------------------------------------------------
+ * 公告管理页面（管理员端）。
+ * 提供公告的搜索、新增、编辑、发布、撤回、删除能力。
+ * 超管可选「全平台」或「指定校区」范围；校区管理员仅能对本校区发布。
+ * 使用位置：后台管理侧边栏「公告管理」菜单。
+ * ---------------------------------------------------------------
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -23,6 +32,14 @@ import {
 import { useStore } from '../store';
 import { Announcement, AnnouncementStatus } from '../types';
 
+/**
+ * AnnouncementMgmt —— 公告管理主组件
+ * 无 props；从全局 store 读取 announcements / campuses / currentUser。
+ * 关键交互：
+ *  - 顶部搜索 + 状态过滤（草稿/已发布/已撤回）
+ *  - 新增/编辑弹窗：标题、正文、范围、校区多选
+ *  - 列表行操作：发布、撤回、编辑、删除
+ */
 export const AnnouncementMgmt: React.FC = () => {
     const { announcements, campuses, currentUser, fetchCampuses, fetchAnnouncementsAdmin, createAnnouncement, updateAnnouncement, publishAnnouncement, withdrawAnnouncement, deleteAnnouncement } = useStore();
     const isCampusAdmin = currentUser?.role === 'campus_admin';

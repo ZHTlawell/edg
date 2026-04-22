@@ -1,9 +1,30 @@
-
+/**
+ * seed_demo.ts — 小型完整演示数据（单校区）
+ * 运行: npx ts-node prisma/seed_demo.ts
+ *
+ * 用途：为本地快速演示"端到端业务闭环"提供最小化数据集（1 个浦东校区）。
+ * 清理范围（执行即全量删除以下表）：
+ *   考勤 / 课次 / 作业提交 / 作业 / 资产流水 / 资产账户 / 支付 / 订单 /
+ *   学员入班 / 班级分配 / 班级 / 学员档案 / 教师档案 / 课程 / 所有 SysUser
+ *   ⚠️ 破坏性：会清空所有用户，请勿在带真实数据的库上跑
+ * 插入内容：
+ *   - 1 个总部管理员 admin
+ *   - 1 个浦东校区管理员 admin_c1
+ *   - 2 位教师 teacher_t1 / teacher_t2
+ *   - 3 门课程（UI/全栈/Python）
+ *   - 2 个班级 + 分配关系
+ *   - 3 名学生（均入 UI班，前 2 人额外入全栈班）+ 资产账户
+ *   - 本周+下周的课表（UI每周3节，全栈每周2节）
+ *   - 1 份 UI 作业
+ * 前置依赖：仅需 schema 已迁移。
+ * 登录凭证：统一密码 123456
+ */
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// 主流程：清理旧数据 → 建用户/教师/课程/班级/分配 → 建学生与资产 → 批量生成 2 周课表 → 建作业
 async function main() {
     console.log('--- 正在清理旧演示数据 ---');
     // 注意：清理顺序（从叶子到根）

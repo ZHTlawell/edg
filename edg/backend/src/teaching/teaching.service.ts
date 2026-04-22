@@ -1,6 +1,16 @@
+/**
+ * 教学服务
+ * 职责：作业全生命周期、考勤登记与撤销、请假申请与审批、课消核算
+ * 所属模块：教学运营
+ * 被 TeachingController 依赖注入，内部大量 $transaction 保证数据一致性
+ */
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * 教学业务服务
+ * 提供教师作业发布、学员提交、考勤、课消、请假等核心流程
+ */
 @Injectable()
 export class TeachingService {
     constructor(private prisma: PrismaService) { }
@@ -8,6 +18,11 @@ export class TeachingService {
     // =====================================
     // 作业分发与提交 (Homeworks)
     // =====================================
+    /**
+     * 教师发布作业
+     * @param teacherId 教师 ID（来自 JWT）
+     * @param data 作业字段（含 classId/lessonId/title/content/附件等）
+     */
     async publishHomework(teacherId: string, data: {
         title: string; content: string;
         classId?: string; class_id?: string;       // 兼容驼峰与下划线
@@ -45,6 +60,7 @@ export class TeachingService {
         });
     }
 
+    /** 查询某课节关联的作业（含提交统计） */
     async getHomeworkByLesson(lessonId: string) {
         return this.prisma.teachHomework.findMany({
             where: { lesson_id: lessonId },
@@ -56,6 +72,10 @@ export class TeachingService {
         });
     }
 
+    /**
+     * 学员提交作业（文本或文件）
+     * 幂等：同一作业重复提交更新记录
+     */
     async submitHomework(studentId: string, data: { homeworkId: string; content: string; attachmentName?: string; attachmentUrl?: string }) {
         const hw = await this.prisma.teachHomework.findUnique({ where: { id: data.homeworkId } });
         if (!hw) throw new NotFoundException('找不到指定作业');
@@ -112,6 +132,10 @@ export class TeachingService {
     }
 
     // 学生编辑已提交作业（仅 SUBMITTED/LATE 状态可编辑，GRADED 不可）
+    /**
+     * 学员编辑已提交但未批改的作业
+     * 权限：只允许提交者本人修改
+     */
     async editSubmission(studentId: string, data: { submissionId: string; content: string; attachmentName?: string; attachmentUrl?: string }) {
         const sub = await this.prisma.teachHomeworkSubmission.findUnique({ where: { id: data.submissionId } });
         if (!sub) throw new NotFoundException('找不到该提交记录');
@@ -129,6 +153,10 @@ export class TeachingService {
     }
 
     // 教师编辑已发布作业
+    /**
+     * 教师编辑已发布作业（标题/内容/截止日期/附件）
+     * 权限：仅原发布教师可编辑
+     */
     async editHomework(teacherId: string, data: { homeworkId: string; title?: string; content?: string; deadline?: string; attachmentName?: string; attachmentUrl?: string }) {
         const hw = await this.prisma.teachHomework.findUnique({ where: { id: data.homeworkId } });
         if (!hw) throw new NotFoundException('找不到该作业');
@@ -143,6 +171,10 @@ export class TeachingService {
     }
 
     // 教师删除作业（级联删除所有提交）
+    /**
+     * 删除作业（级联删除提交记录）
+     * 权限：仅原发布教师可删除
+     */
     async deleteHomework(teacherId: string, homeworkId: string) {
         const hw = await this.prisma.teachHomework.findUnique({ where: { id: homeworkId } });
         if (!hw) throw new NotFoundException('找不到该作业');
@@ -153,6 +185,10 @@ export class TeachingService {
         return { success: true, message: '作业已删除' };
     }
 
+    /**
+     * 批改作业（给分 + 评语）
+     * @param teacherId JWT 权威教师 ID（不信任前端）
+     */
     async gradeHomework(teacherId: string, data: { submissionId: string; score: number; feedback: string }) {
         const sub = await this.prisma.teachHomeworkSubmission.findUnique({
             where: { id: data.submissionId },
@@ -180,6 +216,7 @@ export class TeachingService {
     /**
      * 教师退回作业，要求学员重新提交
      */
+    /** 教师退回作业，要求学员重新提交 */
     async returnSubmission(teacherId: string, data: { submissionId: string; feedback: string }) {
         const sub = await this.prisma.teachHomeworkSubmission.findUnique({
             where: { id: data.submissionId },
@@ -201,6 +238,7 @@ export class TeachingService {
     // =====================================
     // 学员作业查询
     // =====================================
+    /** 获取学员全部作业（含提交状态、批改结果） */
     async getStudentHomeworks(studentId: string) {
         // 1. Find classes the student is enrolled in
         const enrollments = await this.prisma.eduStudentInClass.findMany({
@@ -235,6 +273,7 @@ export class TeachingService {
         });
     }
 
+    /** 获取教师发布的全部作业（含提交统计） */
     async getTeacherHomeworks(teacherId: string) {
         return this.prisma.teachHomework.findMany({
             where: { teacher_id: teacherId },
@@ -257,6 +296,7 @@ export class TeachingService {
     // =====================================
     // 作业种子数据（开发用）
     // =====================================
+    /** 种子作业数据（演示/调试用） */
     async seedHomeworks() {
         // Find an assignment + teacher to attach homeworks to
         const assignment = await this.prisma.edClassAssignment.findFirst({
@@ -305,6 +345,7 @@ export class TeachingService {
     // =====================================
     // 班级成员查询（考勤用）
     // =====================================
+    /** 查询班级成员（含学员基础信息） */
     async getClassMembers(classId: string) {
         const members = await this.prisma.eduStudentInClass.findMany({
             where: { class_id: classId },
@@ -325,6 +366,10 @@ export class TeachingService {
     // =====================================
     // 考勤数据查询
     // =====================================
+    /**
+     * 查询考勤记录
+     * 根据 scope 中的 campusId / classId / studentId / teacherId / 时间范围过滤
+     */
     async getAttendanceRecords(scope: { campusId?: string; classId?: string; studentId?: string; teacherId?: string; from?: string; to?: string } = {}) {
         const where: any = {};
         // 学员维度过滤
@@ -376,6 +421,10 @@ export class TeachingService {
     // =====================================
     // 考勤登记与核减资产 (Attendance & Deductions)
     // =====================================
+    /**
+     * 提交考勤并触发课消
+     * 事务内：写 TeachAttendance、扣减资产课时、更新课次状态
+     */
     async submitAttendance(data: { lessonId: string; operatorId?: string; operatorRole?: string; operatorTeacherId?: string; operatorCampusId?: string; attendances: { studentId: string; status: string; deductAmount?: number }[] }) {
         const lesson = await this.prisma.edLessonSchedule.findUnique({
             where: { id: data.lessonId },
@@ -481,6 +530,10 @@ export class TeachingService {
     /**
      * 课消撤销（T+3 天内允许 CAMPUS_ADMIN/ADMIN 撤销）
      */
+    /**
+     * 撤销课消：回滚已扣课时，课次状态回到未消状态
+     * 权限：仅教师本人或本校区管理员
+     */
     async revokeConsumption(lessonId: string, operatorId: string, operatorRole: string, operatorCampusId?: string) {
         if (operatorRole !== 'ADMIN' && operatorRole !== 'CAMPUS_ADMIN') {
             throw new ForbiddenException('仅 ADMIN/CAMPUS_ADMIN 可撤销课消');
@@ -558,6 +611,7 @@ export class TeachingService {
     // 请假流程 (Leave Requests)
     // =====================================
 
+    /** 学员发起请假申请 */
     async applyLeave(studentId: string, data: { lessonId: string; reason: string; campusId?: string }) {
         const lesson = await this.prisma.edLessonSchedule.findUnique({
             where: { id: data.lessonId },
@@ -584,6 +638,7 @@ export class TeachingService {
         });
     }
 
+    /** 教师/管理员审批请假（通过/拒绝） */
     async reviewLeave(data: { leaveRequestId: string; approverId: string; isApproved: boolean; reviewNote?: string }) {
         return this.prisma.$transaction(async (prisma) => {
             const leave = await prisma.leaveRequest.findUnique({
@@ -620,6 +675,7 @@ export class TeachingService {
         });
     }
 
+    /** 学员撤回自己未审批的请假 */
     async cancelLeave(leaveRequestId: string, studentId: string) {
         const leave = await this.prisma.leaveRequest.findUnique({ where: { id: leaveRequestId } });
         if (!leave) throw new NotFoundException('请假记录不存在');
@@ -632,6 +688,7 @@ export class TeachingService {
         });
     }
 
+    /** 查询学员本人的所有请假记录 */
     async getMyLeaves(studentId: string) {
         return this.prisma.leaveRequest.findMany({
             where: { student_id: studentId },
@@ -644,6 +701,7 @@ export class TeachingService {
         });
     }
 
+    /** 查询某课次已通过的请假记录（考勤登记时使用） */
     async getApprovedLeavesByLesson(lessonId: string) {
         return this.prisma.leaveRequest.findMany({
             where: { lesson_id: lessonId, status: 'APPROVED' },
@@ -651,6 +709,7 @@ export class TeachingService {
         });
     }
 
+    /** 查询待审批请假（按教师或校区过滤） */
     async getPendingLeaves(campusId?: string, teacherId?: string) {
         const where: any = { status: 'PENDING' };
         if (campusId) where.campus_id = campusId;
@@ -669,6 +728,10 @@ export class TeachingService {
     }
 
     // TC-01, TC-08: 校区端确认课消 (Confirm Consumption)
+    /**
+     * 教务主管确认课消
+     * 将课次置为最终已课消状态（结转至财务），不可再撤销
+     */
     async confirmLessonConsumption(lessonId: string, operatorId: string) {
         const lesson = await this.prisma.edLessonSchedule.findUnique({
             where: { id: lessonId },

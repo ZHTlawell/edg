@@ -1,3 +1,12 @@
+/**
+ * StudentDetailView.tsx - 学员档案详情页
+ *
+ * 所在模块：学员管理 -> 学员档案 -> 查看详情
+ * 功能：
+ *   - 展示学员完整档案，Tab 包括：基础信息 / 报名记录 / 缴费记录 / 成绩 / 考勤 / 作业
+ *   - 支持编辑、归档、分享、联系等顶部操作
+ * 使用方：管理员端 StudentManagement / OrderDetailView 等处跳转进入
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import api from '../utils/api';
@@ -30,14 +39,21 @@ import { Student, AssetLedger, Order, AttendanceRecord } from '../types';
 import { useStore } from '../store';
 import { ConfirmModal, PromptModal } from './ActionModals';
 
+/**
+ * 学员详情 Props
+ * - student: 初始学员对象（组件内会从 store 取最新）
+ * - onBack: 返回列表回调
+ */
 interface StudentDetailViewProps {
   student: Student;
   onBack: () => void;
 }
 
+/** 详情页 Tab 类型 */
 type TabType = 'basic' | 'enrollment' | 'payment' | 'grades' | 'attendance' | 'homework';
 
 // Reusable Empty State Component
+/** 通用空状态：图标 + 标题 + 描述 + CTA，供各 Tab 复用 */
 const EmptyState: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (
   <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white rounded-3xl border border-slate-100 border-dashed">
     <div className="p-5 bg-slate-50 rounded-full text-slate-300 mb-5">
@@ -51,6 +67,11 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; description: 
   </div>
 );
 
+/**
+ * StudentDetailView 主组件
+ * - 始终从 store 订阅最新学员数据，避免外部传入的对象过期
+ * - 六个 Tab 分别渲染不同维度的档案信息
+ */
 export const StudentDetailView: React.FC<StudentDetailViewProps> = ({ student: initialStudent, onBack }) => {
   const { orders, attendanceRecords, assetAccounts, assetLedgers, courses, classes } = useStore();
   const [activeTab, setActiveTab] = useState<TabType>('basic');

@@ -293,6 +293,9 @@ const CONTENT = {
 };
 
 // ── PDF 生成函数 ──────────────────────────────────────────────────────────────
+// 生成单个课时讲义 PDF 文件
+// 布局：深色标题栏（课程/章节面包屑 + 课时标题）→ 学习目标 → 核心知识点（编号） → 本节小结（灰卡） → 课后练习
+// 超过一页会自动分页
 function generatePDF(filePath, courseName, chapterName, lessonTitle, data) {
     return new Promise((resolve, reject) => {
         const doc = new PDFDocument({ size: 'A4', margin: 60 });
@@ -380,6 +383,11 @@ function generatePDF(filePath, courseName, chapterName, lessonTitle, data) {
 }
 
 // ── 主流程 ─────────────────────────────────────────────────────────────────────
+// 前置依赖：ADMIN 用户 + StdCourseLesson（含 chapter→standard→courses）已有数据
+// 副作用：
+//   1) 清理：删除所有 url 以 http 开头且 type=PDF 的 StdResource 及其关联 StdLessonResource（旧外链 PDF）
+//   2) 插入：为 CONTENT 中有配置的课时生成本地 PDF（uploads/resources/lecture_*.pdf），
+//      并新建 StdResource + StdLessonResource 绑定到课时
 async function main() {
     console.log('📄 开始生成教学讲义 PDF...\n');
 

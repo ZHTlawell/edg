@@ -13,6 +13,8 @@ const CLASSROOMS_PD = ['A301教室', 'A302教室', 'B101教室'];
 const CLASSROOMS_XH = ['C201教室', 'C202教室'];
 
 // ─── Phase 1: 清除脏数据 ──────────────────────────────────────────
+// 删除 campus_id 属于 DIRTY_CAMPUSES 或以 __TEST__ 开头的班级，及其级联（考勤/课次/分配/入班关系）；
+// 同时清理 name 以 __TEST__ 开头的课程及其资产/订单关联。
 async function phase1_cleanDirtyData() {
     console.log('\n══════ Phase 1: 清除脏数据 ══════');
 
@@ -66,6 +68,9 @@ async function phase1_cleanDirtyData() {
 }
 
 // ─── Phase 2: 补全章节+课时 ──────────────────────────────────────
+// 对所有已发布/启用的 StdCourseStandard：
+//   - 若无任何章节，自动创建"基础入门 / 核心技能 / 综合实践"三章并均分课时
+//   - 若已有章节但课时数不足 total_lessons，则在最后一个章节下补齐
 async function phase2_completeChaptersLessons() {
     console.log('\n══════ Phase 2: 补全章节+课时 ══════');
 
@@ -122,6 +127,8 @@ async function phase2_completeChaptersLessons() {
 }
 
 // ─── Phase 3: 补全学习进度 ──────────────────────────────────────
+// 把 PRESENT/LATE 的考勤记录映射为 StudentLessonProgress（COMPLETED 状态），
+// 按"同一学员同一课程"的出勤顺序依次匹配到标准课时表第 1、2、3... 节。
 async function phase3_fillLearningProgress() {
     console.log('\n══════ Phase 3: 补全学习进度 ══════');
 
@@ -174,6 +181,8 @@ async function phase3_fillLearningProgress() {
 }
 
 // ─── Phase 4: 今日排课 + 教室 ──────────────────────────────────
+// 保证今日至少有 4 节课用于演示：若不足则为每个 ACTIVE 的 assignment 追加今日课次（10:00 / 14:00 轮换）；
+// 所有 classroom 为空的课次会被分配到对应校区的教室池（CLASSROOMS_PD / CLASSROOMS_XH）。
 async function phase4_todaySchedulesAndClassrooms() {
     console.log('\n══════ Phase 4: 今日排课 + 教室 ══════');
 
@@ -262,6 +271,10 @@ async function phase4_todaySchedulesAndClassrooms() {
 }
 
 // ─── Phase 5: 测验 + 请假 + 作业 ──────────────────────────────
+// 5a 为每个尚无测验的章节创建一张 QuizPaper + 3 道题（单选/单选/多选模板）
+// 5b 为前 5 个学员各生成一条 QuizSubmission（模拟分数 60~94）
+// 5c 为最近 3 节未来课次创建 LeaveRequest（前 2 条 PENDING，第 3 条 APPROVED）
+// 5d 为所有 TeachHomework 补齐最多 5 条 SUBMITTED 的 TeachHomeworkSubmission
 async function phase5_quizLeaveHomework() {
     console.log('\n══════ Phase 5: 测验 + 请假 + 作业提交 ══════');
 
@@ -403,6 +416,8 @@ async function phase5_quizLeaveHomework() {
 }
 
 // ─── Phase 6: 验证 ──────────────────────────────────────────────
+// 跑 9 条健康度断言（脏数据 / 学员覆盖率 / 进度 / 今日课次 / 测验 / 请假 / 教室 / 作业 / 测验提交）
+// 输出 ✓ / ⚠ 标记，不修改数据
 async function phase6_verify() {
     console.log('\n══════ Phase 6: 数据完整性验证 ══════');
 
@@ -448,6 +463,7 @@ async function phase6_verify() {
 }
 
 // ─── Main ──────────────────────────────────────────────────────
+// 顺序执行 6 个 phase；任一阶段抛错则整体退出码=1
 async function main() {
     console.log('═══════════════════════════════════════════════════');
     console.log('  全链路演示数据清洗 + 补全');

@@ -1,9 +1,27 @@
+/**
+ * PurchaseConfirmationModal.tsx - 学生端课程购买确认弹窗
+ *
+ * 所在模块：精品课程市场（学生端）
+ * 功能：
+ *   - 学生在课程市场点击"购买"后弹出的二次确认对话框
+ *   - 展示学员信息、课程摘要（课时/时长/教师），并选择支付方式
+ *   - 底部操作区确认支付或关闭
+ * 使用方：CourseMarket / StudentLearningHome 等学生端课程列表组件
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import { X, CreditCard, Clock, CheckCircle2, AlertCircle, ShoppingCart } from 'lucide-react';
 import { Course } from '../types';
 
+/**
+ * 购买确认弹窗 Props
+ * - isOpen: 是否显示弹窗
+ * - onClose: 关闭回调（点击背景或关闭按钮）
+ * - onConfirm: 确认购买回调，参数为所选支付方式
+ * - course: 要购买的课程对象
+ * - studentName: 当前学员姓名，用于展示头像与账号信息
+ */
 interface PurchaseConfirmationModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -12,6 +30,12 @@ interface PurchaseConfirmationModalProps {
     studentName: string;
 }
 
+/**
+ * PurchaseConfirmationModal 组件
+ * - 全屏遮罩 + 居中卡片布局
+ * - 内部维护 paymentMethod 状态（默认 wechat）
+ * - 关键交互：点击支付方式切换高亮；确认按钮回传所选方式
+ */
 export const PurchaseConfirmationModal: React.FC<PurchaseConfirmationModalProps> = ({
     isOpen,
     onClose,

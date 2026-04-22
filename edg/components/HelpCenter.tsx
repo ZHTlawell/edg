@@ -1,7 +1,19 @@
+/**
+ * HelpCenter.tsx
+ * ---------------------------------------------------------------
+ * 帮助中心页面。
+ * 展示快速入口（新手指南、视频教程、联系客服）+ FAQ 常见问题。
+ * 使用位置：Header 中「帮助中心」链接进入。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { HelpCircle, Search, BookOpen, MessageCircle, FileText, ChevronRight, PlayCircle, Lightbulb } from 'lucide-react';
 
+/**
+ * HelpCenter —— 帮助中心主组件
+ * 无 props；本地维护 searchQuery 供后续扩展搜索；内置 FAQ 数组
+ */
 export const HelpCenter: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
 

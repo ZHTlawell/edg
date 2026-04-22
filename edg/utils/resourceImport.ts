@@ -1,6 +1,11 @@
+/**
+ * 课程资源批量导入工具
+ * 作用：解析 Excel/CSV 为资源草稿（视频/文档/音频/图片），并提供模板下载
+ */
 import * as XLSX from 'xlsx';
 
 // ─── 资源数据结构 ──────────────────────────────────────────────────
+// 资源草稿：导入后入库前的单条资源
 export interface ResourceDraft {
     title: string;
     description?: string;
@@ -26,6 +31,7 @@ const TYPE_MAP: Record<string, ResourceDraft['type']> = {
     '其他': 'OTHER', 'other': 'OTHER', 'OTHER': 'OTHER',
 };
 
+// Excel 表头中英文模糊匹配
 function resolveColumn(header: string): string | null {
     const h = String(header || '').trim();
     for (const [key, aliases] of Object.entries(COL_MAP)) {
@@ -35,6 +41,7 @@ function resolveColumn(header: string): string | null {
 }
 
 // ─── 核心解析函数 ──────────────────────────────────────────────────
+// 解析资源导入文件：校验类型 / URL 格式，返回资源列表 + 错误信息
 export async function parseResourceFile(file: File): Promise<{ resources: ResourceDraft[]; errors: string[] }> {
     const errors: string[] = [];
     const resources: ResourceDraft[] = [];
@@ -107,6 +114,7 @@ export async function parseResourceFile(file: File): Promise<{ resources: Resour
 }
 
 // ─── 下载模板 ──────────────────────────────────────────────────────
+// 生成并下载资源 Excel 导入模板（含示例 + 使用说明工作表）
 export function downloadResourceTemplate() {
     const data = [
         ['资源标题', '资源说明', '资源类型', '资源链接', '课程标准代码'],

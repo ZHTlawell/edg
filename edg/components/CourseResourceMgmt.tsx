@@ -1,3 +1,12 @@
+/**
+ * CourseResourceMgmt.tsx
+ * ---------------------------------------------------------------
+ * 课程资源管理页（教师/总部/校区管理员）。
+ * 包含：章节树、资源上传（视频/PPT/PDF/音频）、资源预览、
+ * 发布/撤回/删除、批量导入模板下载等功能。
+ * 使用位置：后台「课程资源」菜单。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -66,6 +75,7 @@ const TYPE_CONFIG = {
     OTHER: { label: '其他', icon: File, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-100' },
 };
 
+// StatusBadge —— 资源状态徽标（草稿/已发布/已撤回 等）
 const StatusBadge = ({ status }: { status: string }) => {
     const map: Record<string, { label: string; cls: string }> = {
         DRAFT: { label: '草稿', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
@@ -83,6 +93,10 @@ const formatSize = (bytes?: number) => {
 };
 
 // ─── Resource Preview Modal ───────────────────────────────────────────────────
+/**
+ * PreviewModal —— 资源预览弹窗
+ * 根据资源类型渲染 video / iframe / 下载链接；onClose 关闭
+ */
 const PreviewModal: React.FC<{ resource: Resource; onClose: () => void }> = ({ resource, onClose }) => {
     const backendBase = API_BASE;
     const fullUrl = resource.url.startsWith('/') ? `${backendBase}${resource.url}` : resource.url;
@@ -144,6 +158,11 @@ const PreviewModal: React.FC<{ resource: Resource; onClose: () => void }> = ({ r
 };
 
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
+/**
+ * UploadModal —— 资源上传 / 编辑弹窗
+ * 支持单文件上传到对象存储，填写标题/描述/绑定章节，
+ * 也支持通过外链导入资源；提交后刷新列表
+ */
 const UploadModal: React.FC<{
     standards: Standard[];
     onClose: () => void;
@@ -419,6 +438,10 @@ const UploadModal: React.FC<{
 };
 
 // ─── Chapter Tree ─────────────────────────────────────────────────────────────
+/**
+ * ChapterTree —— 章节树组件
+ * 递归渲染章节 + 子章节 + 课次，支持拖拽/新增/编辑/删除/展开折叠
+ */
 const ChapterTree: React.FC<{
     standardId: string;
     allResources: Resource[];
@@ -649,6 +672,10 @@ const ChapterTree: React.FC<{
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+/**
+ * CourseResourceMgmt —— 资源管理主组件
+ * 左侧章节树 + 右侧资源列表；顶部支持搜索、类型过滤、批量导入、导出
+ */
 export const CourseResourceMgmt: React.FC = () => {
     const { addToast } = useStore();
     const [resources, setResources] = useState<Resource[]>([]);

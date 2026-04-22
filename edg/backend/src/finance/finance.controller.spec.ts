@@ -1,3 +1,9 @@
+/**
+ * FinanceController 单元测试
+ * 测试对象：财务控制器
+ * 所属模块：财务管理
+ * 仅验证控制器能正确实例化
+ */
 import { Test, TestingModule } from '@nestjs/testing';
 import { FinanceController } from './finance.controller';
 

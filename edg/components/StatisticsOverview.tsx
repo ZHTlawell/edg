@@ -1,3 +1,13 @@
+/**
+ * StatisticsOverview.tsx - 统计看板 / 财务报表概览
+ *
+ * 所在模块：统计报表 -> 统计看板
+ * 功能：
+ *   - 按时间范围展示学员、订单、出勤、课消等关键指标
+ *   - 校区管理员仅看本校数据；总部管理员看全局
+ *   - 支持筛选、导出、穿透到明细
+ * 使用方：admin / campus_admin 的报表模块
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
@@ -25,6 +35,12 @@ import {
   BookOpen
 } from 'lucide-react';
 
+/**
+ * StatisticsOverview 主组件（无 props）
+ * - scopedOrders / scopedStudents / scopedLedgers：按角色过滤后的数据切片
+ * - 校区管理员进入时按 campus_id 收窄范围
+ * - 非校区管理员则从 fetchWorkbenchOverview 拉取全局概览数据
+ */
 export const StatisticsOverview: React.FC = () => {
   const { students, orders, attendanceRecords, assetLedgers, currentUser, courses, workbenchOverview, fetchWorkbenchOverview, addToast } = useStore();
   const isCampusAdmin = currentUser?.role === 'campus_admin';

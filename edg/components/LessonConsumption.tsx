@@ -1,4 +1,11 @@
-
+/**
+ * LessonConsumption.tsx
+ * ---------------------------------------------------------------
+ * 课次消课 / 扣费登记页。
+ * 针对单个课次逐学员登记出勤与扣课时，支持余额预警、保存草稿/正式提交。
+ * 使用位置：教师端或教务「课次详情 -> 消课」。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
@@ -23,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+// props：lessonId 目标课次 id；onBack 返回上级
 interface LessonConsumptionProps {
   lessonId: string;
   onBack: () => void;
@@ -40,6 +48,11 @@ interface StudentConsumption {
   remarks: string;
 }
 
+/**
+ * LessonConsumption —— 消课登记主组件
+ * 按 lessonId 查询课次与参与学员，展示每人余额；
+ * 关键状态：consumptionMap 记录每位学员的扣课时数；提交时一并落库
+ */
 export const LessonConsumption: React.FC<LessonConsumptionProps> = ({ lessonId, onBack }) => {
   const { classes, students, courses, assetAccounts, addToast, submitAttendance } = useStore();
 

@@ -85,7 +85,7 @@ function getEnrollmentPlan(index: number): number[] {
   return [1];                           // 43-47: 仅全栈
 }
 
-// 生成过去 6 个月内的随机日期
+// 生成过去 6 个月内的随机日期（时间随机落在 8:00~17:59 之间），用于模拟订单下单时刻
 function randomDateInPast6Months(): Date {
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
@@ -98,6 +98,9 @@ function randomDateInPast6Months(): Date {
 // ═══════════════════════════════════════
 // TASK 1 + 2: 创建学员 + 订单全链路
 // ═══════════════════════════════════════
+// 幂等地为 47 名学员创建 SysUser+EduStudent，并按 enrollment plan 为每人购课：
+// 订单 → 支付记录 → 订单置 PAID → 课时资产账户 → 资产流水(BUY) → 分班（复用或新建）→ 班级自动排课 → 入班
+// 前置依赖：CAMPUS_PUDONG 校区下已存在对应课程（通过 edCourse.campus_id 过滤）
 async function seedStudentsAndOrders() {
   console.log('═══════════════════════════════════════');
   console.log('  Task 1 + 2: 学员创建 + 订单全链路');
@@ -350,6 +353,9 @@ async function seedStudentsAndOrders() {
 // ═══════════════════════════════════════
 // TASK 3: 考勤数据 + 课消扣减
 // ═══════════════════════════════════════
+// 对所有浦东校区已过期的课次生成考勤（85% PRESENT / 8% LATE / 5% ABSENT / 2% LEAVE），
+// 并批量更新学员的 FinAssetAccount 剩余课时，创建 CONSUME 类型的资产流水。
+// 已有考勤的课次会被跳过（幂等）。
 async function seedAttendance() {
   console.log('\n═══════════════════════════════════════');
   console.log('  Task 3: 考勤数据 + 课消扣减');
@@ -476,6 +482,7 @@ async function seedAttendance() {
 // ═══════════════════════════════════════
 // 主流程 + 汇总
 // ═══════════════════════════════════════
+// 顺序执行 Task 1+2 → Task 3，末尾输出浦东校区学员/订单/班级/课表/考勤/营收统计
 async function main() {
   console.log('🚀 浦东校区 47 名学员端到端数据种子\n');
 

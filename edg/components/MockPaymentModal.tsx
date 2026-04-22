@@ -1,7 +1,22 @@
+/**
+ * MockPaymentModal.tsx
+ * ---------------------------------------------------------------
+ * 模拟支付弹窗（演示用）。
+ * 选择支付渠道 -> 展示二维码 -> 轮询支付状态 -> 成功/超时。
+ * 使用位置：OrderCreation、CourseMarketplace 等需要下单付款的入口。
+ * ---------------------------------------------------------------
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { X, QrCode, CheckCircle2, XCircle, Loader2, CreditCard } from 'lucide-react';
 import { useStore } from '../store';
 
+// props：
+//   orderId     后端创建的订单号
+//   amount      支付金额（元）
+//   campusId    所属校区（用于资金归属）
+//   classId     可选，绑定班级（如购买班级课时包）
+//   onClose     关闭弹窗
+//   onSuccess   支付成功回调（父组件通常会刷新订单）
 interface MockPaymentModalProps {
     orderId: string | null;
     amount: number;
@@ -11,6 +26,7 @@ interface MockPaymentModalProps {
     onSuccess: () => void;
 }
 
+// 支付渠道列表 + Tailwind 配色（现金走简化流程）
 const CHANNELS = [
     { id: 'Wechat', label: '微信支付', color: 'bg-emerald-500' },
     { id: 'Alipay', label: '支付宝', color: 'bg-sky-500' },
@@ -18,6 +34,14 @@ const CHANNELS = [
     { id: 'Cash', label: '现金', color: 'bg-slate-500' },
 ];
 
+/**
+ * MockPaymentModal —— 模拟收银台弹窗
+ * 关键状态：
+ *  - stage 当前阶段：choose 选渠道 / qrcode 展示二维码 / processing 出款中 / done 完成
+ *  - channel 选中渠道
+ *  - countdown 二维码有效倒计时
+ *  - pollingRef / countdownRef 两个计时器，卸载时统一清除避免内存泄漏
+ */
 export const MockPaymentModal: React.FC<MockPaymentModalProps> = ({ orderId, amount, campusId, classId, onClose, onSuccess }) => {
     const { processPayment, getPaymentStatus, addToast } = useStore();
     const [channel, setChannel] = useState<string>('Wechat');

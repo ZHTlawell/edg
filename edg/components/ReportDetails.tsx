@@ -1,3 +1,12 @@
+/**
+ * ReportDetails.tsx - 报名订单报表明细
+ *
+ * 所在模块：数据报表 / 财务报表 -> 订单明细
+ * 功能：
+ *   - 按关键词、日期、校区、支付状态筛选订单
+ *   - 分页表格展示订单列表，支持批量选择、导出、跳转订单详情
+ * 使用方：总部/校区管理员的报表页面
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -24,6 +33,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 
+/** 订单报表行数据结构（前端视图用） */
 interface ReportItem {
   orderId: string;
   studentName: string;
@@ -40,10 +50,20 @@ interface ReportItem {
 
 // Removed MOCK_DATA in favor of useStore
 
+/**
+ * 报表明细 Props
+ * - onViewOrder: 点击行时跳转到订单详情的回调
+ */
 interface ReportDetailsProps {
   onViewOrder?: (orderId: string) => void;
 }
 
+/**
+ * ReportDetails 主组件
+ * - 维护筛选条件（关键词/日期/校区/状态）、分页、选中行
+ * - getOrderStudentId 等 helper 用于兼容 snake_case 与 camelCase
+ * - 根据用户角色（校区管理员）限制 campus 过滤器
+ */
 export const ReportDetails: React.FC<ReportDetailsProps> = ({ onViewOrder }) => {
   const { currentUser, orders, students, courses, getExportData, addToast, campuses, fetchCampuses } = useStore();
 
@@ -69,9 +89,13 @@ export const ReportDetails: React.FC<ReportDetailsProps> = ({ onViewOrder }) => 
   const pageSize = 10;
 
   // Helpers: resolve both snake_case and camelCase field variants
+  /** 兼容获取订单学员 ID */
   const getOrderStudentId = (o: any) => o.studentId || o.student_id;
+  /** 兼容获取订单课程 ID */
   const getOrderCourseId = (o: any) => o.courseId || o.course_id;
+  /** 兼容获取订单校区 ID */
   const getOrderCampusId = (o: any) => o.campusId || o.campus_id;
+  /** 根据 campus id 解析出可读名称 */
   const resolveCampusName = (id: string | undefined) => {
     if (!id) return '未分配校区';
     const c = (campuses || []).find((x: any) => x.id === id || x.name === id);

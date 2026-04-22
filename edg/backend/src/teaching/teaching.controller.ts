@@ -1,3 +1,9 @@
+/**
+ * 教学控制器
+ * 职责：暴露 /teaching 路由，管理作业发布 / 提交 / 批改、考勤、请假、课消确认
+ * 所属模块：教学运营
+ * 关键原则：教师身份与校区过滤由 JWT 权威提供，不信任前端传参
+ */
 import { Controller, Post, Get, Body, Query, Param, UseGuards, Request, UnauthorizedException, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -19,11 +25,19 @@ function fixOriginalName(file: Express.Multer.File): string {
 import { TeachingService } from './teaching.service';
 import { AuthGuard } from '@nestjs/passport';
 
+/**
+ * 教学 HTTP 控制器
+ * 所有接口强制 JWT；细粒度权限按角色分支处理
+ */
 @Controller('teaching')
 @UseGuards(AuthGuard('jwt'))
 export class TeachingController {
     constructor(private readonly teachingService: TeachingService) { }
 
+    /**
+     * 教师发布作业（支持附件上传）
+     * 附件走 /uploads/homework 目录；限 50MB
+     */
     @Post('homeworks')
     @UseInterceptors(FileInterceptor('file', {
         storage: diskStorage({
@@ -47,6 +61,7 @@ export class TeachingController {
         return this.teachingService.publishHomework(teacherId, body);
     }
 
+    /** 教师删除自己发布的作业 */
     @Post('homeworks/delete')
     async deleteHomework(@Request() req: any, @Body() body: { homeworkId: string }) {
         if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
@@ -56,6 +71,7 @@ export class TeachingController {
         return this.teachingService.deleteHomework(teacherId, body.homeworkId);
     }
 
+    /** 学员以文本方式提交作业解答 */
     @Post('homeworks/submit')
     async submitHomework(@Request() req: any, @Body() body: any) {
         if (req.user.role !== 'STUDENT') {
@@ -65,6 +81,7 @@ export class TeachingController {
         return this.teachingService.submitHomework(studentId, body);
     }
 
+    /** 学员以文件方式提交作业解答（走 multer 上传） */
     @Post('homeworks/submit-file')
     @UseInterceptors(FileInterceptor('file', {
         storage: diskStorage({
@@ -88,6 +105,7 @@ export class TeachingController {
         });
     }
 
+    /** 学员编辑已提交但未批改的作业 */
     @Post('homeworks/submission/:id/edit')
     @UseInterceptors(FileInterceptor('file', {
         storage: diskStorage({
@@ -110,6 +128,7 @@ export class TeachingController {
         return this.teachingService.editSubmission(studentId, data);
     }
 
+    /** 教师批改作业，给分与评语 */
     @Post('homeworks/grade')
     async gradeHomework(@Request() req: any, @Body() body: any) {
         // Always use the JWT's teacherId — never trust client-supplied value
@@ -129,6 +148,7 @@ export class TeachingController {
         return this.teachingService.returnSubmission(teacherId, { submissionId, feedback: body.feedback });
     }
 
+    /** 教师查看自己发布的作业列表 */
     @Get('teacher-homeworks')
     async getTeacherHomeworks(@Request() req: any) {
         if (req.user.role !== 'TEACHER' && req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
@@ -138,6 +158,7 @@ export class TeachingController {
         return this.teachingService.getTeacherHomeworks(teacherId);
     }
 
+    /** 学员查看自己所有作业 */
     @Get('my-homeworks')
     async getMyHomeworks(@Request() req: any) {
         if (req.user.role !== 'STUDENT') {
@@ -155,6 +176,7 @@ export class TeachingController {
         return this.teachingService.getStudentHomeworks(studentId);
     }
 
+    /** 管理员触发作业种子数据（演示/调试用） */
     @Post('homeworks/seed')
     async seedHomeworks(@Request() req: any) {
         if (req.user.role !== 'ADMIN' && req.user.role !== 'CAMPUS_ADMIN') {
@@ -163,6 +185,7 @@ export class TeachingController {
         return this.teachingService.seedHomeworks();
     }
 
+    /** 按课节 ID 查询关联的作业 */
     @Get('homeworks/lesson/:lessonId')
     async getHomeworkByLesson(@Param('lessonId') lessonId: string) {
         return this.teachingService.getHomeworkByLesson(lessonId);
@@ -196,11 +219,16 @@ export class TeachingController {
         return this.teachingService.editHomework(teacherId, data);
     }
 
+    /** 获取班级成员名单（含学员基础信息） */
     @Get('class-members/:classId')
     async getClassMembers(@Param('classId') classId: string) {
         return this.teachingService.getClassMembers(classId);
     }
 
+    /**
+     * 查询考勤记录
+     * 按角色强制过滤：ADMIN 全量；CAMPUS_ADMIN 锁定本校区；TEACHER 自己课次；STUDENT 自己考勤
+     */
     @Get('attendance')
     async getAttendanceRecords(
         @Request() req: any,
@@ -232,6 +260,10 @@ export class TeachingController {
         return this.teachingService.getAttendanceRecords(scope);
     }
 
+    /**
+     * 提交考勤（教师/管理员）
+     * 入参含 lessonId 与 attendances 列表，服务端触发课消
+     */
     @Post('attendance')
     async submitAttendance(@Request() req: any, @Body() body: any) {
         if (!['TEACHER', 'CAMPUS_ADMIN', 'ADMIN'].includes(req.user.role)) {
@@ -247,11 +279,13 @@ export class TeachingController {
         });
     }
 
+    /** 撤销已确认的课消（回滚扣课时） */
     @Post('attendance/:lessonId/revoke')
     async revokeConsumption(@Request() req: any, @Param('lessonId') lessonId: string) {
         return this.teachingService.revokeConsumption(lessonId, req.user.userId, req.user.role, req.user.campusId);
     }
 
+    /** 教务主管二次确认课消（结转至财务） */
     @Post('confirm-consumption')
     async confirmConsumption(@Request() req: any, @Body() body: { lessonId: string }) {
         if (req.user.role !== 'CAMPUS_ADMIN' && req.user.role !== 'ADMIN') {
@@ -262,6 +296,7 @@ export class TeachingController {
 
     // ── Leave Request endpoints ──────────────────────────────────────
 
+    /** 学员发起请假申请 */
     @Post('leave/apply')
     async applyLeave(@Request() req: any, @Body() body: { lessonId: string; reason: string }) {
         if (req.user.role !== 'STUDENT') {
@@ -274,6 +309,7 @@ export class TeachingController {
         });
     }
 
+    /** 教师/管理员审批请假 */
     @Post('leave/review')
     async reviewLeave(@Request() req: any, @Body() body: { leaveRequestId: string; isApproved: boolean; reviewNote?: string }) {
         if (req.user.role !== 'TEACHER' && req.user.role !== 'CAMPUS_ADMIN' && req.user.role !== 'ADMIN') {
@@ -287,6 +323,7 @@ export class TeachingController {
         });
     }
 
+    /** 学员撤回自己的请假申请 */
     @Post('leave/cancel')
     async cancelLeave(@Request() req: any, @Body() body: { leaveRequestId: string }) {
         if (req.user.role !== 'STUDENT') {
@@ -295,11 +332,13 @@ export class TeachingController {
         return this.teachingService.cancelLeave(body.leaveRequestId, req.user.studentId);
     }
 
+    /** 学员查询自己的请假记录 */
     @Get('my-leaves')
     async getMyLeaves(@Request() req: any) {
         return this.teachingService.getMyLeaves(req.user.studentId);
     }
 
+    /** 教师/管理员查询某课次已通过的请假记录 */
     @Get('leave/by-lesson/:lessonId')
     async getLeavesByLesson(@Request() req: any, @Param('lessonId') lessonId: string) {
         if (!['TEACHER', 'CAMPUS_ADMIN', 'ADMIN'].includes(req.user.role)) {
@@ -308,6 +347,7 @@ export class TeachingController {
         return this.teachingService.getApprovedLeavesByLesson(lessonId);
     }
 
+    /** 教师/管理员查询待审批请假（按授课教师或本校区过滤） */
     @Get('leave/pending')
     async getPendingLeaves(@Request() req: any) {
         if (req.user.role !== 'TEACHER' && req.user.role !== 'CAMPUS_ADMIN' && req.user.role !== 'ADMIN') {

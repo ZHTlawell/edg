@@ -1,4 +1,12 @@
-
+/**
+ * TeacherApproval.tsx - 教师注册审核页
+ *
+ * 所在模块：超管/校区管理员端 -> 用户管理 -> 教师审核
+ * 功能：
+ *   - 列出所有 status=PENDING 的教师注册申请
+ *   - 支持逐条"通过 / 拒绝"，顶部展示待审核统计
+ * 使用方：侧边栏"教师注册审核"入口
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -15,10 +23,12 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+/** 审核页 Props：onBack 返回上级页面 */
 interface TeacherApprovalProps {
     onBack: () => void;
 }
 
+/** 待审核教师申请条目 */
 interface PendingTeacher {
     id: string;
     username: string;
@@ -29,12 +39,18 @@ interface PendingTeacher {
     teacherProfile?: { name: string } | null;
 }
 
+/**
+ * TeacherApproval 主组件
+ * - load 拉取 pendingUsers('teachers')
+ * - handleApprove/handleReject 调用 store 后本地移除该条目
+ */
 export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
     const { fetchPendingUsers, approveUser, rejectUser } = useStore();
     const [pendingList, setPendingList] = useState<PendingTeacher[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+    /** 拉取待审核教师列表 */
     const load = useCallback(async () => {
         setLoading(true);
         const data = await fetchPendingUsers('teachers');
@@ -44,6 +60,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
 
     useEffect(() => { load(); }, [load]);
 
+    /** 通过审核：调用 store 后移除本地条目 */
     const handleApprove = async (id: string) => {
         setActionLoading(id + '-approve');
         try {
@@ -53,6 +70,7 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
         setActionLoading(null);
     };
 
+    /** 拒绝审核：调用 store 后移除本地条目 */
     const handleReject = async (id: string) => {
         setActionLoading(id + '-reject');
         try {

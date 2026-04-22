@@ -1,6 +1,11 @@
+/**
+ * 题库批量导入工具
+ * 作用：解析 Excel/CSV 为题目草稿列表；支持单选/多选、分值与中英文列头
+ */
 import * as XLSX from 'xlsx';
 
 // ─── 题目数据结构（与 QuizPaperManager 一致） ─────────────────────
+// 题目草稿：导入后待入库的单条题目
 export interface QuestionDraft {
     type: 'single' | 'multiple';
     text: string;
@@ -23,6 +28,7 @@ const COL_MAP: Record<string, string[]> = {
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
+// 中英文表头模糊匹配：将 Excel 列名映射到内部字段 key
 function resolveColumn(header: string): string | null {
     const h = header.trim();
     for (const [key, aliases] of Object.entries(COL_MAP)) {
@@ -32,6 +38,7 @@ function resolveColumn(header: string): string | null {
 }
 
 // ─── 核心解析函数 ──────────────────────────────────────────────────
+// 解析题库文件：返回题目列表 + 行级错误信息；自动推断多选题型
 export async function parseQuizFile(file: File): Promise<{ questions: QuestionDraft[]; errors: string[] }> {
     const errors: string[] = [];
     const questions: QuestionDraft[] = [];
@@ -143,6 +150,7 @@ export async function parseQuizFile(file: File): Promise<{ questions: QuestionDr
 }
 
 // ─── 下载模板 ──────────────────────────────────────────────────────
+// 生成并下载题库 Excel 导入模板（含示例题目）
 export function downloadQuizTemplate() {
     const data = [
         ['题型', '题干', '选项A', '选项B', '选项C', '选项D', '正确答案', '分值'],

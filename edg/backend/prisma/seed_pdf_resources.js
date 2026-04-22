@@ -110,6 +110,9 @@ const PDF_BY_TITLE = {
     '用户增长策略':       [{ title: '增长黑客方法论 (讲义)', type: 'PDF', url: 'https://www.reforge.com/blog/growth-loops' }],
 };
 
+// 主流程：遍历所有 StdCourseLesson，为 PDF_BY_TITLE 中存在的课时追加文档类资源
+// 幂等策略：已有任意 PDF 资源的课时会被跳过，不会重复注入
+// 前置依赖：ADMIN 用户 + 已有课时/章节/标准目录（通常由 seed_catalog.ts 创建）
 async function main() {
     console.log('📄 开始注入 PDF/文档学习资源...\n');
 

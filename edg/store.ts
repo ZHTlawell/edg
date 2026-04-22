@@ -1,3 +1,19 @@
+/**
+ * 全局 Zustand Store（按角色隔离持久化）
+ *
+ * 职责分块：
+ *   1. 基础字典：校区 / 学员 / 课程 / 班级 / 教师 / 教室
+ *   2. 认证与用户：登录、注册、待审批用户审核、登出
+ *   3. 远程数据同步：initData + 各 fetchXxx 拉取接口
+ *   4. 考勤 & 课消：submitAttendance / confirmConsumption
+ *   5. 排课：generateDraft / publishSchedules
+ *   6. 订单 & 支付 & 退费：createOrder / processPayment / applyRefund 等
+ *   7. 作业：发布、提交、评分、退回、编辑、删除
+ *   8. 公告：草稿 / 发布 / 撤回 / 未读列表
+ *   9. UI 全局：toast 消息 / 班级筛选
+ *
+ * 持久化策略：按当前活跃角色存到不同 localStorage key（见 roleStorage）
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Student, Course, Class as ClassInfo, Teacher, StudentStatus, CourseStatus, ClassStatus, AttendanceRecord, AssetAccount, AssetLedger, AttendStatus, Order, PaymentRecord, RefundRecord, Homework, HomeworkSubmission, Announcement } from './types';
@@ -28,11 +44,13 @@ const roleStorage = createJSONStorage(() => ({
 }));
 
 // 基础数据字典类型
+// 校区：最小化的 id + 名称字典条目
 export type Campus = { id: string; name: string };
 
 // Re-exporting unified types
 export type { Student, Course, ClassInfo, Order, PaymentRecord, RefundRecord };
 // Deprecating the old Attendance type in favor of AttendanceRecord from types.ts
+// 登录后缓存在 store 中的当前用户信息
 export type User = {
     id: string;
     username: string;
@@ -45,7 +63,9 @@ export type User = {
     bindStudentId?: string
 };
 
+// Toast 消息的 4 种级别：成功 / 信息 / 警告 / 错误
 export type ToastType = 'success' | 'info' | 'warning' | 'error';
+// 单条 Toast 消息结构
 export interface ToastMessage {
     id: string;
     message: string;
@@ -53,6 +73,7 @@ export interface ToastMessage {
 }
 
 // 模拟数据库结构
+// Store 全量状态 + actions 类型定义（分为数据字段与各业务分区 actions）
 interface AppState {
     campuses: Campus[];
     students: Student[];
@@ -164,8 +185,10 @@ interface AppState {
     removeToast: (id: string) => void;
 }
 
+// 续费预警阈值：剩余课时 <= 3 即纳入低余额预警名单
 const RENEWAL_WARNING_THRESHOLD = 3;
 
+// useStore：全局 Zustand hook，组件与工具函数通过它读写应用状态
 export const useStore = create<AppState>()(
     persist(
         (set, get) => ({
@@ -210,6 +233,8 @@ export const useStore = create<AppState>()(
             classTeacherFilter: null,
             currentUser: null,
 
+            // ========== 认证与用户管理 ==========
+            // 账号密码登录：设置角色/Token/清理旧数据/初始化业务数据
             login: async (username, password) => {
                 try {
                     const res = await api.post('/api/auth/login', { username, password });
@@ -252,6 +277,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 学员自助注册
             register: async (data) => {
                 try {
                     await api.post('/api/auth/register/student', data);
@@ -262,6 +288,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 校区管理员注册（需平台管理员审核）
             registerCampusAdmin: async (data) => {
                 try {
                     await api.post('/api/auth/register/campus', data);
@@ -271,6 +298,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 教师注册（需校区管理员审核）
             registerTeacher: async (data) => {
                 try {
                     await api.post('/api/auth/register/teacher', data);
@@ -280,6 +308,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 按角色类别获取待审核用户列表
             fetchPendingUsers: async (role, campusId) => {
                 try {
                     let url: string;
@@ -298,6 +327,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 审核通过指定用户
             approveUser: async (userId) => {
                 try {
                     await api.post(`/api/users/${userId}/approve`);
@@ -308,6 +338,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拒绝指定用户的注册申请
             rejectUser: async (userId) => {
                 try {
                     await api.post(`/api/users/${userId}/reject`);
@@ -318,6 +349,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 退出登录：清除当前角色 token 与 currentUser
             logout: () => {
                 const role = get().currentUser?.role;
                 if (role) removeTokenForRole(role);
@@ -325,6 +357,8 @@ export const useStore = create<AppState>()(
                 get().addToast('已安全退出', 'info');
             },
 
+            // ========== 远程数据同步 ==========
+            // 按当前角色批量并行拉取首屏所需全部数据
             initData: async () => {
                 const user = get().currentUser;
                 if (!user) return;
@@ -364,6 +398,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取平台管理员工作台概览统计
             fetchWorkbenchOverview: async () => {
                 try {
                     const res = await api.get('/api/statistics/workbench-overview');
@@ -373,6 +408,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取课程列表（可按校区过滤）
             fetchCourses: async (campusId) => {
                 try {
                     const res = await api.get('/api/academic/courses', { params: { campusId, pageSize: 200 } });
@@ -382,6 +418,7 @@ export const useStore = create<AppState>()(
                     console.error('Fetch courses failed', error);
                 }
             },
+            // 软删除指定课程，删除后自动刷新课程列表
             deleteCourse: async (id) => {
                 try {
                     await api.post(`/api/academic/courses/${id}/delete`);
@@ -393,6 +430,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取班级列表（可按校区过滤）
             fetchClasses: async (campusId) => {
                 try {
                     const res = await api.get('/api/academic/classes', { params: { campusId, pageSize: 200 } });
@@ -403,6 +441,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取学员列表：校区管理员自动限制本校区；统一映射后端字段
             fetchStudents: async () => {
                 try {
                     const state = get();
@@ -434,6 +473,7 @@ export const useStore = create<AppState>()(
                     console.error('Fetch students failed', error);
                 }
             },
+            // 拉取教师列表（可按校区过滤）
             fetchTeachers: async (campusId) => {
                 try {
                     const res = await api.get(`/api/academic/teachers${campusId ? `?campusId=${campusId}` : ''}`);
@@ -442,6 +482,7 @@ export const useStore = create<AppState>()(
                     get().addToast('获取教师列表失败', 'error');
                 }
             },
+            // 拉取教室列表（排课选教室时使用）
             fetchClassrooms: async (campusId) => {
                 try {
                     const res = await api.get('/api/academic/classrooms', { params: { campusId } });
@@ -451,6 +492,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取全部校区字典
             fetchCampuses: async () => {
                 try {
                     const res = await api.get('/api/users/campuses');
@@ -460,6 +502,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 学员端：拉取"我的"资产账户 + 余额；并回填 bindStudentId
             fetchMyAssets: async () => {
                 try {
                     const res = await api.get('/api/finance/my-assets');
@@ -485,6 +528,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 管理端：拉取所有资产账户列表（可按校区过滤）
             fetchAssetAccounts: async (campusId?: string) => {
                 try {
                     const params: any = {};
@@ -497,6 +541,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取订单列表：学员端走 my-orders，管理员端走通用接口；统一字段命名
             fetchOrders: async (campusId?: string) => {
                 try {
                     const state = get();
@@ -525,6 +570,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 作废指定订单（VOID 状态不可再恢复）
             voidOrder: async (orderId: string) => {
                 try {
                     await api.post(`/api/finance/order/${orderId}/void`, {});
@@ -540,6 +586,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取考勤记录列表（可按校区过滤）
             fetchAttendanceRecords: async (campusId?: string) => {
                 try {
                     const params: any = {};
@@ -552,10 +599,12 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 直接覆盖学员/课程/班级列表（供测试或批量导入使用）
             setStudents: (students) => set({ students }),
             setCourses: (courses) => set({ courses }),
             setClasses: (classes) => set({ classes }),
 
+            // 本地新增学员（前端占位，生成随机 ID，不与后端交互）
             addStudent: (studentData) => {
                 set((state) => ({
                     students: [
@@ -571,17 +620,21 @@ export const useStore = create<AppState>()(
                     ]
                 }));
             },
+            // 本地更新学员（按 id 覆盖）
             updateStudent: (student) => {
                 set((state) => ({
                     students: state.students.map(s => s.id === student.id ? student : s)
                 }));
             },
+            // 本地删除学员（按 id 过滤）
             deleteStudent: (id) => {
                 set((state) => ({
                     students: state.students.filter(s => s.id !== id)
                 }));
             },
 
+            // ========== 考勤 & 课消 ==========
+            // 批量提交考勤记录；成功后刷新资产
             submitAttendance: async (lesson_id, course_id, class_id, campus_id, records) => {
                 try {
                     const data = {
@@ -601,6 +654,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 管理员确认课消：触发资产账户扣减 + 生成资产流水
             confirmConsumption: async (lessonId) => {
                 try {
                     await api.post('/api/teaching/confirm-consumption', { lessonId });
@@ -612,6 +666,8 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // ========== 排课 ==========
+            // 生成排课草稿（按开始日期 / 课次数 / 周几 / 时段自动生成课表）
             generateDraft: async (classId, startDate, lessonsCount, durationMinutes, opts) => {
                 try {
                     await api.post('/api/academic/classes/schedule-draft', {
@@ -629,6 +685,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 发布排课草稿，发布后学员 / 教师端可见
             publishSchedules: async (lessonIds) => {
                 try {
                     await api.post('/api/academic/classes/schedule-publish', { lessonIds });
@@ -640,6 +697,8 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // ========== 订单 / 支付 / 退费 ==========
+            // 管理员代为创建学员账户，返回默认用户名/密码
             createStudentByAdmin: async (data) => {
                 try {
                     const res = await api.post('/api/users/students/create', data);
@@ -652,6 +711,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 创建订单：金额/课时数由后端权威，前端只传学员 + 课程
             createOrder: async (orderData) => {
                 try {
                     // 金额与课时数后端权威，前端只传必要字段
@@ -665,6 +725,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 创建续费订单（学员对已购课程续费时使用）
             createRenewalOrder: async (orderData) => {
                 try {
                     const res = await api.post('/api/finance/order/renewal', {
@@ -678,6 +739,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 查询订单支付状态（用于二维码支付轮询）
             getPaymentStatus: async (orderId) => {
                 try {
                     const res = await api.get(`/api/finance/pay/status/${orderId}`);
@@ -688,6 +750,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 处理支付：后端完成扣款并入账，前端刷新"我的"资产
             processPayment: async (paymentData) => {
                 try {
                     await api.post('/api/finance/pay', paymentData);
@@ -699,6 +762,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 学员 / 管理员发起退费申请
             applyRefund: async (refundData) => {
                 try {
                     await api.post('/api/finance/refund/apply', {
@@ -714,6 +778,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 管理员手工退费：针对已消课时的特殊退款
             manualRefund: async (data) => {
                 try {
                     await api.post('/api/finance/refund/manual', data);
@@ -724,6 +789,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 审批退费申请（通过或驳回）
             approveRefund: async (refundId, isApproved) => {
                 try {
                     await api.post('/api/finance/refund/approve', { refundId, isApproved });
@@ -735,6 +801,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 获取待审批的退费列表
             getPendingRefunds: async () => {
                 try {
                     const res = await api.get('/api/finance/refund/pending');
@@ -745,6 +812,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 获取全部退费记录（历史 + 进行中）
             getAllRefunds: async () => {
                 try {
                     const res = await api.get('/api/finance/refund/all');
@@ -755,6 +823,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 学员转班（本地模拟）：更新所在班级名，并写入审计流水
             transferClass: (student_id, account_id, new_class_id) => {
                 set((state) => {
                     const newStudents = [...state.students];
@@ -797,6 +866,7 @@ export const useStore = create<AppState>()(
                 });
             },
 
+            // 报表导出：聚合订单 / 考勤数据，附加学员与课程名称供 CSV 使用
             getExportData: (type, filters) => {
                 const state = get();
                 const { campus_id, keyword } = filters || {};
@@ -831,6 +901,7 @@ export const useStore = create<AppState>()(
                 return [];
             },
 
+            // 获取低余额预警列表：剩余课时 ≤ 阈值且账户仍激活
             getLowBalanceAssetAccounts: (threshold = RENEWAL_WARNING_THRESHOLD) => {
                 const { assetAccounts, students, courses } = get();
                 return assetAccounts
@@ -846,6 +917,8 @@ export const useStore = create<AppState>()(
                     });
             },
 
+            // ========== 作业管理 ==========
+            // 学员端：拉取我的作业及提交记录
             fetchMyHomeworks: async () => {
                 if (get().currentUser?.role !== 'student') return;
                 try {
@@ -887,6 +960,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 教师 / 管理员端：拉取我发布的作业 + 所有学员提交
             fetchTeacherHomeworks: async () => {
                 const role = get().currentUser?.role;
                 if (role !== 'teacher' && role !== 'campus_admin' && role !== 'admin') return;
@@ -926,6 +1000,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 教师发布作业（支持附件）
             publishHomework: async (homeworkData, file?) => {
                 try {
                     let res;
@@ -950,6 +1025,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 教师删除作业
             deleteHomework: async (homeworkId) => {
                 try {
                     await api.post('/api/teaching/homeworks/delete', { homeworkId });
@@ -961,6 +1037,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 学员提交作业
             submitHomework: async (submissionData) => {
                 try {
                     const res = await api.post('/api/teaching/homeworks/submit', {
@@ -976,6 +1053,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 教师为作业提交评分 + 反馈
             gradeHomework: async (submissionId, score, feedback, teacherId) => {
                 try {
                     await api.post('/api/teaching/homeworks/grade', { submissionId, score, feedback, teacherId });
@@ -986,6 +1064,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 教师退回作业提交，要求学员重新修改
             returnSubmission: async (submissionId, feedback) => {
                 try {
                     await api.post(`/api/teaching/homeworks/submission/${submissionId}/return`, { feedback });
@@ -996,6 +1075,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 学员更新作业提交内容或附件
             editSubmission: async (submissionId, content, file?) => {
                 try {
                     if (file) {
@@ -1014,6 +1094,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 教师编辑已发布的作业（标题 / 内容 / 截止日期 / 附件）
             editHomework: async (homeworkId, data, file?) => {
                 try {
                     if (file) {
@@ -1034,6 +1115,8 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // ========== 公告管理 ==========
+            // 管理员端：拉取全部公告（含草稿 / 已撤回）
             fetchAnnouncementsAdmin: async () => {
                 try {
                     const res = await api.get('/api/announcements/admin/list');
@@ -1043,6 +1126,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取当前有效（已发布）的公告列表
             fetchAnnouncementsActive: async () => {
                 try {
                     const res = await api.get('/api/announcements/active');
@@ -1052,6 +1136,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 拉取当前用户未读公告（登录后弹窗展示）
             fetchUnreadAnnouncements: async () => {
                 try {
                     const res = await api.get('/api/announcements/unread');
@@ -1061,12 +1146,14 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 标记公告为已读
             markAnnouncementRead: async (announcementId: string) => {
                 try {
                     await api.post(`/api/announcements/${announcementId}/read`);
                 } catch { /* silent */ }
             },
 
+            // 创建公告草稿（支持全局或指定校区）
             createAnnouncement: async (data) => {
                 try {
                     const res = await api.post('/api/announcements', data);
@@ -1079,6 +1166,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 更新公告内容 / 覆盖范围
             updateAnnouncement: async (id, data) => {
                 try {
                     await api.put(`/api/announcements/${id}`, data);
@@ -1090,6 +1178,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 发布公告（从 DRAFT → PUBLISHED）
             publishAnnouncement: async (id) => {
                 try {
                     await api.post(`/api/announcements/${id}/publish`);
@@ -1101,6 +1190,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 撤回已发布的公告
             withdrawAnnouncement: async (id) => {
                 try {
                     await api.post(`/api/announcements/${id}/withdraw`);
@@ -1112,6 +1202,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 删除公告
             deleteAnnouncement: async (id) => {
                 try {
                     await api.delete(`/api/announcements/${id}`);
@@ -1123,8 +1214,11 @@ export const useStore = create<AppState>()(
                 }
             },
 
+            // 设置班级列表按教师名筛选（从其他模块跳转过来时使用）
             setClassTeacherFilter: (teacherName) => set({ classTeacherFilter: teacherName }),
 
+            // ========== UI 全局：Toast 通知 ==========
+            // 添加一条 Toast 通知，3 秒后自动移除
             addToast: (message, type) => {
                 const id = 'toast_' + Date.now() + Math.random().toString(36).substr(2, 5);
                 set((state) => ({
@@ -1138,6 +1232,7 @@ export const useStore = create<AppState>()(
                 }, 3000);
             },
 
+            // 手动移除指定 Toast
             removeToast: (id) => {
                 set((state) => ({
                     toasts: (state.toasts || []).filter(t => t.id !== id)

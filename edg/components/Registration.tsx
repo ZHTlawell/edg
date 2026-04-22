@@ -1,3 +1,12 @@
+/**
+ * Registration.tsx - 注册页（校区管理员 / 教师）
+ *
+ * 所在模块：登录/注册流程
+ * 功能：
+ *   - 根据 role 显示不同注册表单：校区管理员（分两步：基础信息 + 资质上传）或教师（单页）
+ *   - 提交后由 store.registerCampusAdmin / registerTeacher 发起注册
+ * 使用方：LoginPage 点击"立即注册"切换到本组件
+ */
 
 import React, { useState, useRef } from 'react';
 import {
@@ -22,14 +31,27 @@ import {
 import { ElmIcon } from './ElmIcon';
 import { useStore } from '../store';
 
+/**
+ * 注册 Props
+ * - role: 注册的角色类型（校区管理员 / 教师）
+ * - onBack: 点击返回登录页的回调
+ * - campusList: 可选的校区列表（教师注册时选择目标校区）
+ */
 interface RegistrationProps {
     role: 'campus_admin' | 'teacher';
     onBack: () => void;
     campusList?: { id: string; name: string }[];
 }
 
-type CampusStep = 1 | 2 | 3; // 1: 基础信息, 2: 资质上传, 3: 提交成功
+/** 校区管理员注册流程步骤：1 基础信息 -> 2 资质上传 -> 3 成功 */
+type CampusStep = 1 | 2 | 3;
 
+/**
+ * Registration 主组件
+ * - 维护表单 formData、当前步骤 campusStep、加载状态
+ * - 进入时强制刷新校区列表避免缓存
+ * - 关键交互：handleNextStep 校验必填；handleSubmit 提交注册
+ */
 export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campusList = [] }) => {
     const { registerCampusAdmin, registerTeacher, addToast, campuses, fetchCampuses } = useStore();
 
@@ -57,6 +79,7 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
 
     const isCampus = role === 'campus_admin';
 
+    /** 第一步 -> 第二步：校验必填项与密码一致性 */
     const handleNextStep = () => {
         if (campusStep === 1) {
             if (!formData.campusName || !formData.name || !formData.phone || !formData.address || !formData.username || !formData.password) {
@@ -71,10 +94,12 @@ export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campus
         }
     };
 
+    /** 返回上一步（从第 2 步回到第 1 步） */
     const handlePrevStep = () => {
         if (campusStep === 2) setCampusStep(1);
     };
 
+    /** 提交注册：根据 role 分别调用 registerCampusAdmin / registerTeacher */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 

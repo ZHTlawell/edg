@@ -1,7 +1,17 @@
+/**
+ * ActionModals.tsx
+ * ---------------------------------------------------------------
+ * 通用「动作确认」弹窗组件集合。
+ * 包含 ConfirmModal（二次确认）与 PromptModal（带输入框的确认）。
+ * 被全站各管理页面用于删除/修改/审批等操作前的轻量交互。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { AlertCircle, HelpCircle, X, Check } from 'lucide-react';
 
+// ConfirmModal 的 props：isOpen 控制显隐，title/message 为文案，
+// confirmText/cancelText 可自定义按钮文字，onConfirm/onCancel 为回调
 interface ConfirmModalProps {
     isOpen: boolean;
     title?: string;
@@ -12,6 +22,11 @@ interface ConfirmModalProps {
     onCancel: () => void;
 }
 
+/**
+ * ConfirmModal —— 通用二次确认弹窗
+ * 用途：执行危险/不可逆操作前给用户确认机会（删除、禁用、重置等）
+ * 关键交互：点击遮罩或「取消」关闭；点击「确认」触发 onConfirm
+ */
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     isOpen,
     title = '确认操作',
@@ -59,6 +74,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     );
 };
 
+// PromptModal 的 props：在确认弹窗基础上增加 placeholder，
+// onConfirm 回调接收用户输入的字符串
 interface PromptModalProps {
     isOpen: boolean;
     title: string;
@@ -70,6 +87,11 @@ interface PromptModalProps {
     onCancel: () => void;
 }
 
+/**
+ * PromptModal —— 带输入框的确认弹窗
+ * 用途：需要用户补充文字理由/备注时使用（拒绝原因、退款说明等）
+ * 关键交互：Enter 提交、Esc 取消；提交/取消后内部 inputValue 自动清空
+ */
 export const PromptModal: React.FC<PromptModalProps> = ({
     isOpen,
     title,

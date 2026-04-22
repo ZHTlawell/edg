@@ -1,9 +1,23 @@
-
+/**
+ * master_seed.js — 主种子脚本（多校区基础环境）
+ * 运行: node prisma/master_seed.js
+ *
+ * 何时运行：首次初始化多校区演示环境时；可重复运行（使用 upsert，不会重复创建账号）。
+ * 清理范围：不清理历史数据，仅 upsert 账号；但 edCourse / edClass / edLessonSchedule 每次都会新增（注意累积）。
+ * 插入内容：
+ *   - 4 个管理员账号（admin_hq + admin_c1~c3，分属 HQ / C001 / C002 / C003 校区）
+ *   - 4 个教师账号 + EduTeacher 档案
+ *   - 至少 1 个课程标准（若无则创建 Python入门 / IT编程 分类）
+ *   - 1 门课程实例 + 1 个班级 + 3 节预排课
+ * 前置依赖：数据库已执行过 prisma migrate；无其他数据依赖。
+ * 登录凭证：统一密码 123456
+ */
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
+// 主流程：顺序执行「管理员 upsert → 教师 upsert → 课程标准保证 → 新课程/班级/排课创建」
 async function main() {
     console.log('--- Database Master Seeding Started ---');
 

@@ -1,10 +1,25 @@
+/**
+ * 课程目录服务
+ * 职责：课程预览、章节/课节目录查询、学习进度记录、已购课程检索
+ * 所属模块：课程体系
+ * 被 CourseCatalogController 依赖注入
+ */
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * 课程目录业务服务
+ * 面向学员端：课前预览、课中学习目录、学习进度流转
+ */
 @Injectable()
 export class CourseCatalogService {
     constructor(private prisma: PrismaService) { }
 
+    /**
+     * 公开预览课程：返回章节 + 课节（不含资源、无进度）
+     * 未关联标准时返回空章节结构
+     * @param courseId 课程 ID
+     */
     // ─── Public course preview (chapters + lessons, no resources/progress) ────────
     async getPreview(courseId: string) {
         const course = await this.prisma.edCourse.findUnique({
@@ -58,6 +73,12 @@ export class CourseCatalogService {
         };
     }
 
+    /**
+     * 获取课程学习目录：章节 + 课节 + 资源 + 当前学员进度
+     * 需要学员对该课程有有效的资产账号，否则 403
+     * @param courseId 课程 ID
+     * @param studentId 学员 ID
+     */
     // ─── Get course catalog (chapters + lessons + resources + student progress) ──
     async getCatalog(courseId: string, studentId: string) {
         // Verify student has purchased this course
@@ -171,6 +192,17 @@ export class CourseCatalogService {
         };
     }
 
+    /**
+     * 更新某节课的学习进度（开始 / 完成）
+     * 规则：
+     *  1. 必须拥有该课程的有效资产
+     *  2. 必须按顺序解锁（前一节未完成则禁止）
+     *  3. 完成操作只在首次 COMPLETED 时扣一节课时
+     * @param studentId 学员 ID
+     * @param courseId 课程 ID
+     * @param lessonId 课节 ID
+     * @param action 行为：start / complete
+     */
     // ─── Update lesson progress ───────────────────────────────────────────────
     async updateProgress(
         studentId: string,
@@ -254,6 +286,11 @@ export class CourseCatalogService {
         return result;
     }
 
+    /**
+     * 查询学员已购买、可学习的课程列表
+     * 通过 finAssetAccount（资产账户）反查课程
+     * @param studentId 学员 ID
+     */
     // ─── List courses available for student to study (purchased) ─────────────
     async getMyStudyCourses(studentId: string) {
         const assets = await this.prisma.finAssetAccount.findMany({

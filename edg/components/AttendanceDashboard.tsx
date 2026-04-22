@@ -1,3 +1,12 @@
+/**
+ * AttendanceDashboard.tsx
+ * ---------------------------------------------------------------
+ * 考勤管理总览页（管理员/教务端）。
+ * 顶部展示出勤率统计卡片，下方为待登记/已登记课次列表，
+ * 支持按校区过滤、搜索，并可跳转到具体考勤登记页。
+ * 使用位置：后台侧边栏「考勤管理」入口。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
@@ -20,11 +29,18 @@ import {
   User as UserIcon
 } from 'lucide-react';
 
+// props：onRegister 跳转到具体课次登记页；onNavigate 可选，用于跳转到其他视图
 interface AttendanceDashboardProps {
   onRegister: (lessonId: string) => void;
   onNavigate?: (view: string) => void;
 }
 
+/**
+ * AttendanceDashboard —— 考勤总览主组件
+ * 关键状态：filterCampus 校区筛选、searchTerm 搜索、
+ * dismissedAlerts 本地已忽略的预警、openActionMenu 行内操作菜单开关。
+ * 校区管理员自动锁定到所属校区；全局 useEffect 负责点击空白关闭菜单。
+ */
 export const AttendanceDashboard: React.FC<AttendanceDashboardProps> = ({ onRegister, onNavigate }) => {
   const { attendanceRecords, classes, courses, students, addToast, fetchAttendanceRecords, currentUser } = useStore();
   const [filterCampus, setFilterCampus] = useState('all');

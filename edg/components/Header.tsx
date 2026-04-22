@@ -1,7 +1,19 @@
-
+/**
+ * Header.tsx
+ * ---------------------------------------------------------------
+ * 顶部导航栏（后台页面通用）。
+ * 包含侧边栏折叠按钮、帮助中心入口、退出登录按钮。
+ * 使用位置：App 根组件内的管理员/教师/学生布局。
+ * ---------------------------------------------------------------
+ */
 import React from 'react';
 import { ElmIcon } from './ElmIcon';
 
+// props：
+//   onLogout           退出登录回调（有值才渲染按钮）
+//   onNavigate         路由跳转（用于帮助中心）
+//   onToggleSidebar    切换侧边栏显隐（有值才渲染折叠按钮）
+//   userRole           当前用户角色（目前仅保留扩展位）
 interface HeaderProps {
   onLogout?: () => void;
   onNavigate?: (id: string) => void;
@@ -9,6 +21,10 @@ interface HeaderProps {
   userRole?: string;
 }
 
+/**
+ * Header —— 顶部通用导航条
+ * 纯展示组件，不含业务状态；所有动作由 props 回调向上抛出
+ */
 export const Header: React.FC<HeaderProps> = ({ onLogout, onNavigate, onToggleSidebar, userRole }) => {
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">

@@ -1,3 +1,9 @@
+/**
+ * AcademicService 单元测试
+ * 测试对象：教务服务
+ * 所属模块：教务管理
+ * 仅验证服务能正确实例化
+ */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AcademicService } from './academic.service';
 

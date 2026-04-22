@@ -1,5 +1,10 @@
+/**
+ * 学员转班链路测试
+ * 作用：验证 transferClass 能正确更新学员班级并写入审计流水
+ */
 import { useStore } from './store.ts';
 
+// 构造新班级 → 执行转班 → 断言班级变更与 assetLedger 流水生成
 async function testTransferClassFlow() {
     console.log('--- 开始学员转班业务逻辑测试 ---');
 

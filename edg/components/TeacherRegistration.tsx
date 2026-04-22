@@ -1,4 +1,13 @@
-
+/**
+ * TeacherRegistration.tsx - 教师档案管理
+ *
+ * 所在模块：超管/校区管理员端 -> 教务组织 -> 教师档案
+ * 功能：
+ *   - 列出校区/全局教师档案，支持搜索、按部门筛选
+ *   - 查看单个教师的任教班级（弹窗）
+ *   - 移除档案入口（当前为占位提示）
+ * 使用方：侧边栏"教师档案"入口
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -27,10 +36,16 @@ import {
 import { useStore } from '../store';
 import { Teacher } from '../types';
 
+/** 教师档案页 Props：可选的导航回调 */
 interface TeacherRegistrationProps {
     onNavigate?: (view: string) => void;
 }
 
+/**
+ * TeacherRegistration 主组件
+ * - 校区主管必须传入 campus_id 保证数据隔离（load 内处理）
+ * - teacherClasses useMemo 兼容 assignments 嵌套与顶层 teacher_id 老数据
+ */
 export const TeacherRegistration: React.FC<TeacherRegistrationProps> = ({ onNavigate }) => {
     const { currentUser, teachers, classes, fetchTeachers, fetchClasses, addToast } = useStore();
     const isCampusAdmin = currentUser?.role === 'campus_admin';
@@ -41,6 +56,7 @@ export const TeacherRegistration: React.FC<TeacherRegistrationProps> = ({ onNavi
     const [selectedDepartment, setSelectedDepartment] = useState('all');
     const [viewingTeacher, setViewingTeacher] = useState<Teacher | null>(null);
 
+    /** 拉取教师列表（校区主管需按 campus_id 隔离） */
     const load = useCallback(async () => {
         setLoading(true);
         // 重要：校区主管必须传入 campus_id 以确保数据隔离
@@ -60,12 +76,14 @@ export const TeacherRegistration: React.FC<TeacherRegistrationProps> = ({ onNavi
         return matchesSearch && matchesDept;
     });
 
+    /** 删除教师档案（占位，二次确认后提示开发中） */
     const handleDelete = async (id: string) => {
         if (window.confirm('确定要移除该教师档案吗？此操作无法撤销。')) {
             addToast('功能开发中：教师档案移除', 'info');
         }
     };
 
+    /** 查看某教师任教的全部班级（拉取后弹窗展示） */
     const handleViewClasses = async (teacher: Teacher) => {
         // 直接弹窗显示该教师的任教班级，不再跳转到班级管理全局页面
         const filterId = isCampusAdmin ? currentUser?.campus_id : undefined;

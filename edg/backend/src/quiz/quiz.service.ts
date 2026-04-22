@@ -1,3 +1,9 @@
+/**
+ * 测验服务
+ * 职责：试卷 CRUD、学员答卷评分、成绩记录与查询
+ * 所属模块：学习评估
+ * 被 QuizController 依赖注入
+ */
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -16,10 +22,19 @@ function isAnswerCorrect(correct: string[], student: string[]): boolean {
     return true;
 }
 
+/**
+ * 测验业务服务
+ * 覆盖教师出卷 / 学员答题 / 自动判分 / 成绩查询全流程
+ */
 @Injectable()
 export class QuizService {
     constructor(private prisma: PrismaService) { }
 
+    /**
+     * 创建试卷（含题目）
+     * 支持限时 timeLimit、合格分 passScore
+     * @param data 试卷与题目数据
+     */
     // ─── 创建试卷 ──────────────────────────────────────────────────
     async createPaper(data: {
         title: string;
@@ -63,6 +78,10 @@ export class QuizService {
     }
 
     // ─── 删除试卷及其题目 ──────────────────────────────────────────
+    /**
+     * 删除试卷（同时级联清理题目与答题记录）
+     * @param paperId 试卷 ID
+     */
     async deletePaper(paperId: string) {
         const paper = await this.prisma.quizPaper.findUnique({ where: { id: paperId } });
         if (!paper) throw new NotFoundException('试卷不存在');
@@ -75,6 +94,10 @@ export class QuizService {
     }
 
     // ─── 获取试卷（学员答题用，不返回答案） ──────────────────────────
+    /**
+     * 获取试卷内容（学员答题用：不含正确答案、不含解析）
+     * @param paperId 试卷 ID
+     */
     async getPaper(paperId: string) {
         const paper = await this.prisma.quizPaper.findUnique({
             where: { id: paperId },
@@ -100,6 +123,10 @@ export class QuizService {
     }
 
     // ─── 获取章节的试卷列表 ──────────────────────────────────────────
+    /**
+     * 查询某章节下的所有试卷（列表，不含题目详情）
+     * @param chapterId 章节 ID
+     */
     async getPapersByChapter(chapterId: string) {
         return this.prisma.quizPaper.findMany({
             where: { chapter_id: chapterId, status: 'PUBLISHED' },
@@ -109,6 +136,11 @@ export class QuizService {
     }
 
     // ─── 提交答卷并自动评分 ──────────────────────────────────────────
+    /**
+     * 学员提交答卷 — 自动判分
+     * 按题目正确答案逐题比较，汇总得分并记录答题详情
+     * @param data 答题数据（paperId、studentId、answers[]）
+     */
     async submitQuiz(data: {
         paperId: string;
         studentId: string;
@@ -162,6 +194,11 @@ export class QuizService {
     }
 
     // ─── 查看学员的测验记录 ──────────────────────────────────────────
+    /**
+     * 查询某学员在某课程下的答题记录列表
+     * @param studentId 学员 ID
+     * @param courseId 课程 ID
+     */
     async getStudentSubmissions(studentId: string, courseId: string) {
         return this.prisma.quizSubmission.findMany({
             where: { student_id: studentId, course_id: courseId },
@@ -173,6 +210,12 @@ export class QuizService {
     }
 
     // ─── 查看单次答题详情（含正确答案对比） ─────────────────────────
+    /**
+     * 查询单次答题详情（题目 + 学员答案 + 正确答案 + 得分）
+     * 仅允许学员看自己的记录
+     * @param submissionId 答题记录 ID
+     * @param studentId 当前学员 ID（权限校验）
+     */
     async getSubmissionDetail(submissionId: string, studentId: string) {
         const sub = await this.prisma.quizSubmission.findUnique({
             where: { id: submissionId },

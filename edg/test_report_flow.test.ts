@@ -1,5 +1,10 @@
+/**
+ * 报表导出逻辑测试脚本
+ * 作用：验证 getExportData 聚合、关键字过滤与统计汇总是否正确
+ */
 import { useStore } from './store.ts';
 
+// 验证订单导出数据的字段聚合、关键字过滤、汇总统计等逻辑
 async function testReportExportLogic() {
     console.log('--- 开始报表导出数据聚合逻辑测试 ---');
 

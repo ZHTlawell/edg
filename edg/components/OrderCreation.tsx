@@ -1,3 +1,14 @@
+/**
+ * OrderCreation.tsx - 报名创建订单页
+ *
+ * 所在模块：报名缴费中心 -> 创建订单
+ * 功能：
+ *   - 管理员/校区管理员为学员创建新的报名订单
+ *   - 包含学员信息确认、报名核心信息（校区/课程/等级/班级/课时/开课日期）、优惠减免、
+ *     支付方式、分期方案等完整表单
+ *   - 右侧有费用结算预览卡，支持实时计算折扣后应付金额
+ * 使用方：总部管理员、校区管理员（被 App.tsx / Payments 等路由调用）
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -25,6 +36,11 @@ import {
   Info
 } from 'lucide-react';
 
+/**
+ * 订单创建组件 Props
+ * - onBack: 点击左上角返回按钮触发
+ * - onSuccess: 成功创建订单后回调，携带订单 ID（通常用于跳转到订单详情）
+ */
 interface OrderCreationProps {
   onBack: () => void;
   onSuccess: (orderId: string) => void;
@@ -32,6 +48,17 @@ interface OrderCreationProps {
 
 import { useStore } from '../store';
 
+/**
+ * OrderCreation 主组件
+ * - 渲染三个核心表单卡：学员信息 / 报名核心信息 / 费用与支付
+ * - 右侧黑色结算卡实时显示原价/优惠/应付金额
+ * - 底部固定操作栏提供保存草稿 / 确认创建
+ * 关键交互：
+ *   1) 选择学员 -> 自动填充校区与家长信息
+ *   2) 选择课程 -> 等级联动刷新、单价按课程总课时反推
+ *   3) 优惠策略切换会重置 discountValue
+ *   4) 点击"确认创建"校验后调用 store.createOrder
+ */
 export const OrderCreation: React.FC<OrderCreationProps> = ({ onBack, onSuccess }) => {
   const { students, courses, campuses, fetchCampuses, createOrder, addToast, currentUser } = useStore();
 

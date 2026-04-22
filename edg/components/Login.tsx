@@ -1,4 +1,13 @@
-
+/**
+ * Login.tsx
+ * ---------------------------------------------------------------
+ * 登录页（多角色一体）。
+ * 左侧为品牌宣传/插图，右侧为登录表单；顶部可切换角色
+ * （总部管理员 / 校区管理员 / 教师 / 学生）。
+ * 支持忘记密码（短信/邮箱验证码重置）与跳转注册页。
+ * 使用位置：App 根组件未登录态。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect } from 'react';
 import {
@@ -19,15 +28,26 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+// props：onLogin 登录成功后的回调，参数为角色字符串
 interface LoginProps {
   onLogin: (role: string) => void;
 }
 
+// 可选择的用户角色：总部管理员 / 校区管理员 / 教师 / 学生
 type UserRole = 'admin' | 'campus_admin' | 'teacher' | 'student';
 
 import { Registration } from './Registration';
 import { StudentRegistration } from './StudentRegistration';
 
+/**
+ * Login —— 登录页主组件
+ * 关键状态：
+ *  - activeRole 当前选中的角色（影响提示文案和注册入口）
+ *  - isRegistering 是否切到注册表单（campus_admin / teacher / student）
+ *  - isForgotPassword 是否展示找回密码流程
+ *  - countdown 验证码倒计时（秒）
+ * 关键交互：账号密码登录 -> store.login -> 成功调用 onLogin 通知父级
+ */
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const { login, addToast } = useStore();
   const [isLoading, setIsLoading] = useState(false);

@@ -1,6 +1,15 @@
+/**
+ * detailed-linkage.js — 学员全链路 8 维深度分析（只读）
+ * 运行: node scripts/detailed-linkage.js
+ *
+ * 作用：对 check-linkage.js 的升级版，增加 groupBy 统计与按状态分布的细粒度诊断。
+ * 包含 8 个维度：学员登录 / 课程端 / 订单 / 资产 / 学习进度 / 考勤 / 作业 / 课程标准完整性
+ * 产出：stdout 报告 + Connectivity Index 百分比矩阵 + Critical Issues 列表；不修改任何数据。
+ */
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// 顶层 IIFE：按 8 个维度依次 count/groupBy，最后汇总连通率百分比与关键问题
 (async () => {
   console.log('\n╔═══════════════════════════════════════════════════════════╗');
   console.log('║      学员端全链路数据完整性深度分析报告                   ║');

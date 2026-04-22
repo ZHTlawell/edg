@@ -1,9 +1,27 @@
+/**
+ * Sidebar.tsx - 左侧导航栏
+ *
+ * 所在模块：全局布局
+ * 功能：
+ *   - 根据当前用户角色（admin / campus_admin / teacher / student）渲染不同菜单
+ *   - 支持菜单分组折叠、当前选中项高亮、点击跳转
+ *   - 顶部显示机构/用户标识
+ * 使用方：MainLayout / App 主骨架
+ */
 
 import React, { useState, useMemo } from 'react';
 import { ElmIcon } from './ElmIcon';
 import { School } from 'lucide-react';
 import { useStore } from '../store';
 
+/**
+ * Sidebar Props
+ * - isOpen: 侧边栏是否展开（移动端折叠）
+ * - toggle: 切换展开/收起
+ * - activeId: 当前激活的菜单项 id
+ * - onNavigate: 点击菜单时的路由跳转回调
+ * - userRole: 当前用户角色（决定菜单树内容）
+ */
 interface SidebarProps {
   isOpen: boolean;
   toggle: () => void;
@@ -12,7 +30,7 @@ interface SidebarProps {
   userRole: string; // 'admin' | 'teacher' | 'student'
 }
 
-// Added MenuItem interface to fix property 'children' does not exist error
+/** 菜单项类型（支持带 children 的分组项） */
 interface MenuItem {
   id: string;
   label: string;
@@ -20,10 +38,16 @@ interface MenuItem {
   children?: { id: string; label: string }[];
 }
 
+/**
+ * Sidebar 主组件
+ * - 维护 openGroups 控制哪些分组处于展开状态
+ * - 根据 userRole 切换 adminMenu / campusMenu / teacherMenu / studentMenu
+ */
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeId, onNavigate, userRole }) => {
   const { currentUser } = useStore();
   const [openGroups, setOpenGroups] = useState<string[]>(['student-group', 'teaching-group']);
 
+  /** 切换菜单分组的展开/收起 */
   const toggleGroup = (id: string) => {
     setOpenGroups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
   };

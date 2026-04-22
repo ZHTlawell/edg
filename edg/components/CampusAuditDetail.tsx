@@ -1,8 +1,18 @@
-
+/**
+ * CampusAuditDetail.tsx
+ * ---------------------------------------------------------------
+ * 校区审批「详情页」。
+ * 展示单条审批的完整信息（校区资料、证照、联系人等），
+ * 审核员可填写备注，点击「通过」或「驳回」。
+ * 使用位置：CampusAudit 中点击审批列表某行后进入。
+ * 注意：当前为演示数据与 alert 提示，未接入真实审批 API。
+ * ---------------------------------------------------------------
+ */
 import React, { useState } from 'react';
 import { ArrowLeft, Info, ShieldCheck, FileText, Eye, Phone, MapPin, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { ElmIcon } from './ElmIcon';
 
+// 审批记录的最简结构（与 CampusAudit 中保持一致）
 interface AuditRecord {
     id: string;
     reqNo: string;
@@ -13,11 +23,17 @@ interface AuditRecord {
     status: '待审批' | '已驳回' | '已通过';
 }
 
+// props：record 当前待审批记录；onBack 返回列表
 interface CampusAuditDetailProps {
     record: AuditRecord;
     onBack: () => void;
 }
 
+/**
+ * CampusAuditDetail —— 审批详情主组件
+ * 关键状态：remark 审核备注、submitted 是否已完成操作
+ * handleApprove / handleReject 分别处理通过与驳回（驳回必填备注）
+ */
 export const CampusAuditDetail: React.FC<CampusAuditDetailProps> = ({ record, onBack }) => {
     const [remark, setRemark] = useState('');
     const [submitted, setSubmitted] = useState(false);

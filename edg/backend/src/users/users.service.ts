@@ -1,11 +1,24 @@
+/**
+ * 用户服务
+ * 职责：用户（学员/教师/校区管理员/内部管理员）注册、审批、状态流转、校区信息维护
+ * 所属模块：用户与权限
+ * 被 UsersController、AuthController、AuthService 依赖注入
+ */
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 
+/**
+ * 用户业务服务
+ * 覆盖注册、审批、账号激活、教师/学员列表查询及校区管理
+ */
 @Injectable()
 export class UsersService {
     constructor(private prisma: PrismaService) { }
 
+    /**
+     * 按用户名精确查询用户（含学员、教师档案）
+     */
     async findOneByUsername(username: string) {
         return this.prisma.sysUser.findUnique({
             where: { username },
@@ -16,10 +29,16 @@ export class UsersService {
         });
     }
 
+    /**
+     * 按主键查询用户
+     */
     async findOneById(id: string) {
         return this.prisma.sysUser.findUnique({ where: { id } });
     }
 
+    /**
+     * 重置密码（已 hash 的密码由调用方传入）
+     */
     async resetPassword(username: string, newPasswordHash: string) {
         const user = await this.prisma.sysUser.findUnique({ where: { username } });
         if (!user) return null;
@@ -29,7 +48,10 @@ export class UsersService {
         });
     }
 
-    // C 端学员自主注册 — 需校区管理员审核后激活
+    /**
+     * C 端学员自主注册 — 需校区管理员审核后激活
+     * 同时创建 SysUser 与 EduStudent 档案
+     */
     async createStudentUser(data: {
         username: string;
         password_hash: string;
@@ -78,7 +100,10 @@ export class UsersService {
         });
     }
 
-    // 管理员代建学员账号（直接激活，不走审核）
+    /**
+     * 管理员代建学员账号（直接激活，不走审核）
+     * 默认用户名=手机号，初始密码=手机号后 6 位
+     */
     async createStudentByAdmin(data: {
         name: string;
         phone: string;
@@ -131,7 +156,10 @@ export class UsersService {
         };
     }
 
-    // 自主注册（校区端 / 教师端）— 创建 PENDING_APPROVAL 账号
+    /**
+     * 自主注册（校区端 / 教师端）— 创建 PENDING_APPROVAL 账号
+     * 教师注册时同步预建教师档案（EduTeacher）
+     */
     async createPendingUser(data: {
         username: string;
         password_hash: string;
@@ -174,7 +202,10 @@ export class UsersService {
         });
     }
 
-    // B 端管理员直接创建内部账号 — 直接激活
+    /**
+     * B 端管理员直接创建内部账号 — 直接激活
+     * 支持教师角色；教师会同步创建档案
+     */
     async createInternalUser(data: { username: string; password_hash: string; role: string; name: string; campus_id?: string }) {
         const existing = await this.findOneByUsername(data.username);
         if (existing) {
@@ -205,7 +236,7 @@ export class UsersService {
         });
     }
 
-    // 查询待审核的校区管理员（总管理员审核）
+    /** 查询待审核的校区管理员（总管理员审核） */
     async findPendingCampusAdmins() {
         return this.prisma.sysUser.findMany({
             where: { role: 'CAMPUS_ADMIN', status: 'PENDING_APPROVAL' },
@@ -213,7 +244,7 @@ export class UsersService {
         });
     }
 
-    // 查询待审核的教师（可按 campus_id 过滤）
+    /** 查询待审核的教师（可按 campus_id 过滤） */
     async findPendingTeachers(campusId?: string) {
         return this.prisma.sysUser.findMany({
             where: {
@@ -228,7 +259,7 @@ export class UsersService {
         });
     }
 
-    // 查询待审核的学员（校区管理员审本校区）
+    /** 查询待审核的学员（校区管理员审本校区） */
     async findPendingStudents(campusId?: string) {
         return this.prisma.sysUser.findMany({
             where: {
@@ -243,7 +274,10 @@ export class UsersService {
         });
     }
 
-    // 学员状态流转（TRIAL/ACTIVE/SUSPENDED/GRADUATED/CHURNED）
+    /**
+     * 学员状态流转（TRIAL/ACTIVE/SUSPENDED/GRADUATED/CHURNED）
+     * 内含状态机校验，非法转换抛 Conflict；并写入 StudentStatusLog
+     */
     async updateStudentStatus(data: { studentId: string; toStatus: string; reason?: string; operatorId: string }) {
         const student = await this.prisma.eduStudent.findUnique({ where: { id: data.studentId } });
         if (!student) throw new NotFoundException('学员不存在');
@@ -278,6 +312,7 @@ export class UsersService {
         });
     }
 
+    /** 查询学员的状态变更日志 */
     async getStudentStatusLogs(studentId: string) {
         return this.prisma.studentStatusLog.findMany({
             where: { student_id: studentId },
@@ -285,7 +320,7 @@ export class UsersService {
         });
     }
 
-    // 查询所有已激活的教师
+    /** 查询所有已激活的教师（可按校区过滤） */
     async findAllTeachers(campusId?: string) {
         return this.prisma.eduTeacher.findMany({
             where: {
@@ -300,7 +335,11 @@ export class UsersService {
         });
     }
 
-    // 审核通过
+    /**
+     * 审核通过用户
+     * - 校区管理员无 campus_id 时自动生成独立校区 ID，避免共享上下文
+     * - 校区管理员首次激活会自动初始化 20 间教室
+     */
     async approveUser(id: string) {
         const user = await this.findOneById(id);
         if (!user) throw new NotFoundException('用户不存在');
@@ -344,7 +383,7 @@ export class UsersService {
         });
     }
 
-    // 为已存在的用户补充 campus_id（用于修复存量数据）
+    /** 为已存在的用户补充 campus_id（用于修复存量数据） */
     async updateCampusId(userId: string, campusId: string) {
         return this.prisma.sysUser.update({
             where: { id: userId },
@@ -352,7 +391,7 @@ export class UsersService {
         });
     }
 
-    // 为指定校区初始化20个教室（如果尚未初始化）
+    /** 为指定校区初始化 20 个教室（幂等：已存在则跳过） */
     async initClassroomsForCampus(campusId: string) {
         const roomCount = await (this.prisma as any).eduClassroom.count({
             where: { campus_id: campusId }
@@ -370,7 +409,7 @@ export class UsersService {
         }
     }
 
-    // 审核拒绝
+    /** 审核拒绝用户（置为 DISABLED） */
     async rejectUser(id: string) {
         const user = await this.findOneById(id);
         if (!user) throw new NotFoundException('用户不存在');
@@ -380,6 +419,12 @@ export class UsersService {
         });
     }
 
+    /**
+     * 分页查询所有学员（支持按校区过滤 — 通过班级关联反查）
+     * @param page 页码，从 1 开始
+     * @param pageSize 每页条数，默认 50
+     * @param campusId 校区 ID
+     */
     async findAllStudents(page?: number, pageSize?: number, campusId?: string) {
         const take = pageSize || 50;
         const skip = page && page > 1 ? (page - 1) * take : 0;
@@ -418,6 +463,10 @@ export class UsersService {
         return { data, total, page: page || 1, pageSize: take };
     }
 
+    /**
+     * 获取所有校区列表
+     * 取自激活状态的 CAMPUS_ADMIN，去重；若不含总校区则补充
+     */
     async getAllCampuses() {
         // Find all unique campus names from active CAMPUS_ADMIN users
         const admins = await this.prisma.sysUser.findMany({

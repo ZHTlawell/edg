@@ -1,3 +1,11 @@
+/**
+ * StudentLearningHome.tsx - 学员端"我的课程"学习主页
+ *
+ * 所在模块：学员端 -> 开始学习
+ * 功能：
+ *   - 展示学员已购课程（按 asset 资产账户聚合），支持搜索、跳转到课程学习详情
+ * 使用方：学员端顶级学习入口
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect } from 'react';
 import {
@@ -7,10 +15,12 @@ import {
 import api from '../utils/api';
 import { API_BASE } from '../utils/config';
 
+/** 学习主页 Props：选择课程时回调课程 ID */
 interface Props {
   onSelectCourse: (id: string) => void;
 }
 
+/** 已购课程（按资产账户聚合）结构 */
 interface StudyCourse {
   asset_id: string;
   remaining_qty: number;
@@ -26,6 +36,11 @@ interface StudyCourse {
   }
 }
 
+/**
+ * StudentLearningHome 主组件
+ * - 拉取 /api/course-catalog/my-courses，对同 course.id 去重
+ * - 顶部展示累计课时，支持按名称搜索
+ */
 export const StudentLearningHome: React.FC<Props> = ({ onSelectCourse }) => {
   const [courses, setCourses] = useState<StudyCourse[]>([]);
   const [loading, setLoading] = useState(true);

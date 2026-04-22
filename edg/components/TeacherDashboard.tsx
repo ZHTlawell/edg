@@ -1,4 +1,13 @@
-
+/**
+ * TeacherDashboard.tsx - 教师端工作台
+ *
+ * 所在模块：教师端 -> 首页
+ * 功能：
+ *   - 展示今日授课计划（从 classes 的 schedules 提取）
+ *   - KPI：本月考勤人次、平均出勤率、负责班级学员总数
+ *   - 快捷入口：录入考勤、查看完整周表
+ * 使用方：教师登录后默认落地页
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useMemo, useEffect, useState } from 'react';
 import {
@@ -7,11 +16,17 @@ import {
 import { useStore } from '../store';
 import api from '../utils/api';
 
+/** 教师工作台 Props：跳转考勤录入 / 完整周表 */
 interface TeacherDashboardProps {
    onEnterAttendance?: (lessonId: string) => void;
    onViewSchedule?: () => void;
 }
 
+/**
+ * TeacherDashboard 主组件
+ * - useEffect 从 classes(+assignments.schedules) 解析今日课次并排序
+ * - attendanceRate/totalStudents/monthConsumption 为派生 KPI
+ */
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onEnterAttendance, onViewSchedule }) => {
    const { currentUser, attendanceRecords, classes, homeworkSubmissions } = useStore();
    const teacherId = (currentUser as any)?.teacherId;

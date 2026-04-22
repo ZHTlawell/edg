@@ -1,3 +1,13 @@
+/**
+ * StudentNotifications.tsx - 学员端通知中心
+ *
+ * 所在模块：学员端 -> 消息 / 通知
+ * 功能：
+ *   - 聚合系统通知、作业提醒、校区公告到一个列表
+ *   - 支持按类型 Tab 筛选，标记已读、查看详情
+ *   - 融合 store.announcements 中的真实公告与静态 MOCK 示例
+ * 使用方：学员侧边栏 / 顶部通知入口
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect } from 'react';
@@ -13,8 +23,10 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+/** Tab 类型：全部 / 系统 / 作业 / 校区公告 */
 type NotificationType = 'all' | 'system' | 'homework' | 'campus';
 
+/** 兜底的静态通知示例数据 */
 const MOCK_NOTIFICATIONS = [
     { id: 1, title: '【调课通知】高级UI/UX设计实战', content: '尊敬的学员，由于原教室电路检修，原定于明天14:00的课程将调整至 A305 教室举行，请知悉。', time: '10分钟前', type: 'system' as const, read: false },
     { id: 2, title: '作业批改提醒', content: '您提交的《App 复杂列表系统设计》作业李建国老师已完成批改，快去查看评价吧！', time: '1小时前', type: 'homework' as const, read: false },
@@ -24,6 +36,7 @@ const MOCK_NOTIFICATIONS = [
     { id: 6, title: '校区五一课程安排', content: '五一假期期间部分课程时间有调整，请查看最新课表。如有疑问请联系班主任。', time: '3天前', type: 'campus' as const, read: true },
 ];
 
+/** Tab 标签映射（label 与枚举值对应） */
 const TAB_MAP: { label: string; value: NotificationType }[] = [
     { label: '全部消息', value: 'all' },
     { label: '系统通知', value: 'system' },
@@ -31,6 +44,11 @@ const TAB_MAP: { label: string; value: NotificationType }[] = [
     { label: '校区公告', value: 'campus' },
 ];
 
+/**
+ * StudentNotifications 主组件（无 props）
+ * - 合并真实 announcements 与本地 MOCK，按标题去重
+ * - activeTab 控制列表筛选
+ */
 export const StudentNotifications: React.FC = () => {
     const { addToast, announcements, fetchAnnouncementsActive } = useStore();
     const [activeTab, setActiveTab] = useState<NotificationType>('all');

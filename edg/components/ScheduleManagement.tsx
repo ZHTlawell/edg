@@ -1,3 +1,14 @@
+/**
+ * ScheduleManagement.tsx - 课表管理页
+ *
+ * 所在模块：教学管理 -> 课表管理
+ * 功能：
+ *   - 同时支持总部/校区管理员、教师、学员三种角色的课表视图
+ *   - 日历视图 & 列表视图两种模式
+ *   - 支持考勤、生成草稿、发布、请假、调课、取消课次、退出等完整课次操作
+ *   - 提供多维度筛选（班级/任务/课程/教师/状态/校区）
+ * 使用方：App.tsx 根据角色路由到此页面
+ */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ElmIcon } from './ElmIcon';
@@ -5,15 +16,28 @@ import { AttendanceModal } from './AttendanceModal';
 import { ScheduleGenerationModal } from './ScheduleGenerationModal';
 import api from '../utils/api';
 
+/** 课次状态枚举 */
 type ScheduleStatus = 'draft' | 'published' | 'completed' | 'canceled' | 'scheduled';
+/** 视图模式：日历 / 列表 */
 type ViewMode = 'calendar' | 'list';
 
+/**
+ * ScheduleManagement Props
+ * - onEnterAttendance / onEnterConsumption: 预留回调（当前未使用）
+ * - defaultViewMode: 非管理员角色的默认视图模式
+ */
 interface ScheduleManagementProps {
   onEnterAttendance?: (lesson: any) => void;
   onEnterConsumption?: (lesson: any) => void;
   defaultViewMode?: 'calendar' | 'list';
 }
 
+/**
+ * ScheduleManagement 主组件
+ * - 根据角色切换默认视图（admin 走 list，其他默认 calendar）
+ * - 维护大量弹窗与选中状态（考勤/冲突/生成/请假/调课/取消）
+ * - 包含周导航（handlePrevWeek 等）
+ */
 export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterAttendance: _unused, onEnterConsumption: _unused_c, defaultViewMode }) => {
   /* Use real store data */
   const { 
@@ -72,12 +96,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
+  /** 日历视图：跳到上一周 */
   const handlePrevWeek = () => {
     const d = new Date(anchorDate);
     d.setDate(d.getDate() - 7);
     setAnchorDate(d);
   };
 
+  /** 日历视图：跳到下一周 */
   const handleNextWeek = () => {
     const d = new Date(anchorDate);
     d.setDate(d.getDate() + 7);
@@ -113,6 +139,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
     return () => { cancelled = true; };
   }, [isStudent, selectedLesson?.id]);
 
+  /** 应用筛选条件，刷新课次数据 */
   const handleSearch = async () => {
     const campusId = selectedCampusId === 'all' ? currentUser?.campus_id : selectedCampusId;
     console.log('[ScheduleManagement] Querying for campusId:', campusId);
@@ -125,6 +152,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
     }
   };
 
+  /** 清空全部筛选条件回到默认状态 */
   const handleReset = () => {
     setSelectedCampusId('all');
     setSelectedAssignmentId('all');
@@ -243,6 +271,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
     }
   };
 
+  /** 导出当前筛选结果的课表到 CSV/Excel */
   const handleExportSchedule = () => {
     if (!displayLessons || displayLessons.length === 0) {
       addToast('暂无课表数据可导出', 'warning');

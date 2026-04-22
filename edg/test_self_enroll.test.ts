@@ -1,6 +1,11 @@
+/**
+ * 学员自助购课链路测试
+ * 作用：验证"学员下单 → 资产账户课时增加 → 订单流水正确"的完整业务逻辑
+ */
 
 import { useStore } from './store.ts';
 
+// 模拟学员"立即选购"动作，断言资产/订单的变化是否符合预期
 async function testSelfEnrollmentFlow() {
     console.log('--- 开始学员自助购课业务逻辑测试 ---');
 

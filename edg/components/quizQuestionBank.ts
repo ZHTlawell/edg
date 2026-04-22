@@ -1,9 +1,15 @@
 /**
- * quizQuestionBank.ts — 章节测验题库
- * key = 数据库中的实际章节标题（来自 seed_catalog.ts）
- * 每章 5 道题（单选 + 多选混合），与章节内容对应
+ * quizQuestionBank.ts - 章节测验题库（前端兜底数据）
+ *
+ * 所在模块：学员端章节测验 / 教师端题库预览
+ * 功能：
+ *   - 提供每个章节的题目集合（单选 + 多选），按"章节标题"作为 key
+ *   - key 必须与数据库 seed_catalog.ts 中的章节标题一致，便于与后端章节对齐
+ *   - 当后端接口未返回题目或离线环境时，作为静态兜底数据使用
+ * 使用方：QuizView、QuizPaperManager 等题库相关组件
  */
 
+/** 单条题目结构：支持单选(single)与多选(multiple)，answer 统一为字符串数组 */
 export interface QuizQuestion {
   id: number;
   type: 'single' | 'multiple';
@@ -12,6 +18,7 @@ export interface QuizQuestion {
   answer: string[];
 }
 
+/** 全部题库：章节标题 -> 该章节的题目列表 */
 export const QUESTION_BANK: Record<string, QuizQuestion[]> = {
 
   // ═══════════════════════════════════════════════════════════════════════════

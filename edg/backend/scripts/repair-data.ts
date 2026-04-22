@@ -9,6 +9,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// 为 course_id 为 null 的 EdLessonSchedule 从其 assignment 取 course_id 回填
 async function backfillScheduleCourseId() {
     console.log('[1/2] 回填 EdLessonSchedule.course_id ...');
     const schedules = await prisma.edLessonSchedule.findMany({
@@ -28,6 +29,7 @@ async function backfillScheduleCourseId() {
     console.log(`    ✓ 共处理 ${schedules.length} 条，成功回填 ${updated} 条`);
 }
 
+// 根据实际 EduStudentInClass 条数同步每个 EdClass.enrolled 字段，修复计数漂移
 async function syncAllClassEnrolled() {
     console.log('[2/2] 同步 EdClass.enrolled ...');
     const classes = await prisma.edClass.findMany({ select: { id: true, enrolled: true } });
@@ -42,6 +44,7 @@ async function syncAllClassEnrolled() {
     console.log(`    ✓ 共检查 ${classes.length} 个班级，修复 ${fixed} 个不一致`);
 }
 
+// 主流程：顺序执行两步修复任务
 async function main() {
     console.log('=== 数据修复开始 ===');
     await backfillScheduleCourseId();

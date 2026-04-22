@@ -1,4 +1,12 @@
-
+/**
+ * AttendanceRegistration.tsx
+ * ---------------------------------------------------------------
+ * 单课次考勤登记页（全屏版）。
+ * 相比 AttendanceModal 提供更完整的流程：学员列表、状态切换、
+ * 课时扣减、临时学员加入、历史记录查看等。
+ * 使用位置：AttendanceDashboard 中点击「去登记」进入。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo } from 'react';
 import {
@@ -25,13 +33,16 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+// props：lessonId 课次 id，onBack 返回列表页回调
 interface AttendanceRegistrationProps {
   lessonId: string;
   onBack: () => void;
 }
 
+// 出勤状态：出勤 / 请假 / 缺席 / 迟到
 type AttendanceStatus = 'present' | 'leave' | 'absent' | 'late';
 
+// 单个学员的考勤表行数据（显示名/电话/状态/扣课时等）
 interface StudentAttendance {
   id: string;
   name: string;
@@ -41,6 +52,10 @@ interface StudentAttendance {
   remarks: string;
 }
 
+/**
+ * AttendanceRegistration —— 考勤登记主视图
+ * 根据 lessonId 定位课次；提供批量置状态、逐人调整、保存草稿/正式提交等操作
+ */
 export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ lessonId, onBack }) => {
   const { classes, students, courses, submitAttendance, addToast, attendanceRecords } = useStore();
 
@@ -497,6 +512,7 @@ export const AttendanceRegistration: React.FC<AttendanceRegistrationProps> = ({ 
 };
 
 // Internal icon for +/- deduction
+// PlusCircle —— 内部用的简单 + 圆形图标 SVG（加号图标占位）
 const PlusCircle: React.FC<{ size?: number }> = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />

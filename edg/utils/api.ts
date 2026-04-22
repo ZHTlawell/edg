@@ -1,7 +1,15 @@
+/**
+ * 统一 Axios 实例
+ * 作用：
+ *   1. 绑定后端基础地址与 5 分钟超时（兼容大文件上传）
+ *   2. 请求拦截器：自动注入当前标签页活跃角色的 JWT
+ *   3. 响应拦截器：统一错误消息，登录态失效时自动清会话
+ */
 import axios from 'axios';
 import { getActiveToken, clearActiveSession } from './session';
 import { API_BASE } from './config';
 
+// 创建 Axios 实例：所有业务请求均应使用此实例，保证拦截器统一生效
 const api = axios.create({
     baseURL: API_BASE,
     timeout: 300000, // 5 分钟，兼容大文件上传（Cloudflare Tunnel 下延迟较高）

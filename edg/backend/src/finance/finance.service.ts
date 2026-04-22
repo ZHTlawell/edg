@@ -1,3 +1,9 @@
+/**
+ * 财务服务
+ * 职责：订单创建、支付、退款、资产账户、余额预警、自动排课与入班
+ * 所属模块：财务管理
+ * 被 FinanceController 依赖注入；金额与课时数由后端权威计算
+ */
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -53,6 +59,10 @@ function buildWeeklySchedule(opts: {
     return results;
 }
 
+/**
+ * 财务业务服务
+ * 覆盖报名 → 支付 → 资产 → 退款 → 余额预警完整闭环
+ */
 @Injectable()
 export class FinanceService {
     constructor(private prisma: PrismaService) { }
@@ -61,6 +71,14 @@ export class FinanceService {
     // 报名下单流程 (Enrollment & Payment)
     // ==========================================
 
+    /**
+     * 创建报名订单
+     * 金额 = 课程单价 × 课时数（由服务端权威计算）
+     * @param data.studentId 学员 ID
+     * @param data.courseId 课程 ID
+     * @param data.orderSource 订单来源（student/admin）
+     * @param data.operatorId 管理员代操作时的操作人 ID
+     */
     async createOrder(data: { studentId: string; courseId: string; orderSource: string; operatorId?: string }) {
         const course = await this.prisma.edCourse.findUnique({ where: { id: data.courseId } });
         if (!course) throw new NotFoundException('找不到该课程');
@@ -108,6 +126,10 @@ export class FinanceService {
     /**
      * 续费下单：累加到原资产账户（不新建账户），支付完成后由 processPayment 累加
      */
+    /**
+     * 创建续费订单
+     * 用于已购课程的二次报名（续课包）
+     */
     async createRenewalOrder(data: { studentId: string; courseId: string; operatorId?: string }) {
         const course = await this.prisma.edCourse.findUnique({ where: { id: data.courseId } });
         if (!course) throw new NotFoundException('找不到该课程');
@@ -138,6 +160,7 @@ export class FinanceService {
     /**
      * 支付状态查询（供前端模拟支付轮询使用）
      */
+    /** 查询订单支付状态（供前端轮询） */
     async getPaymentStatus(orderId: string) {
         const order = await this.prisma.finOrder.findUnique({
             where: { id: orderId },
@@ -152,6 +175,11 @@ export class FinanceService {
         };
     }
 
+    /**
+     * 订单支付
+     * 事务内：校验金额 → 写支付流水 → 开通资产账户 → 自动入班/排课
+     * 金额必须与订单金额一致，否则抛错
+     */
     async processPayment(data: { orderId: string; amount: number; channel: string; campusId: string; operatorId?: string; classId?: string }) {
         return this.prisma.$transaction(async (prisma) => {
             const order = await prisma.finOrder.findUnique({ where: { id: data.orderId } });
@@ -413,6 +441,11 @@ export class FinanceService {
     /**
      * 学员申请退费：锁定课时，等待校区审批
      */
+    /**
+     * 发起退款申请
+     * @param data.refundQty 退课时数，未传则全退
+     * 状态初始 PENDING_APPROVAL，等待管理员审批
+     */
     async applyRefund(data: { orderId: string; refundQty?: number; reason: string; applicantId: string }) {
         return this.prisma.$transaction(async (prisma) => {
             const order = await prisma.finOrder.findUnique({
@@ -495,6 +528,11 @@ export class FinanceService {
 
     /**
      * 校区管理员审批退费（无需总部审批）
+     */
+    /**
+     * 审批退款申请
+     * 通过：扣减资产课时、回滚订单、写退款流水；拒绝：置为 REJECTED
+     * 权限：CAMPUS_ADMIN 仅限本校区；ADMIN 全量
      */
     async approveRefund(data: { refundId: string; approverId: string; approverRole?: string; campusId?: string; isApproved: boolean; reviewNote?: string }) {
         return this.prisma.$transaction(async (prisma) => {
@@ -629,6 +667,7 @@ export class FinanceService {
     /**
      * 欠费与低余额预警
      */
+    /** 查询指定学员的余额不足预警列表 */
     async getLowBalanceAlert(studentId: string) {
         const accounts = await this.prisma.finAssetAccount.findMany({
             where: { student_id: studentId, status: 'ACTIVE' },
@@ -649,6 +688,7 @@ export class FinanceService {
     /**
      * 管理员查询校区内欠费学员
      */
+    /** 查询某校区内余额不足的学员列表（管理员视角） */
     async getLowBalanceStudentsByCampus(campusId: string) {
         return this.prisma.finAssetAccount.findMany({
             where: {
@@ -663,6 +703,10 @@ export class FinanceService {
 
     /**
      * 管理员手动发起退费
+     */
+    /**
+     * 管理员手动退款（直接对资产账户扣减）
+     * 事务内：扣减账户课时、写退款记录（APPROVED）
      */
     async manualRefund(data: { accountId: string; refundQty: number; reason: string; applicantId: string }) {
         return this.prisma.$transaction(async (prisma) => {
@@ -717,6 +761,7 @@ export class FinanceService {
     // 查询接口
     // ==========================================
 
+    /** 查询某学员的所有资产账户（课时余额等） */
     async getAssetsByStudent(studentId: string) {
         const student = await this.prisma.eduStudent.findUnique({
             where: { id: studentId },
@@ -734,6 +779,7 @@ export class FinanceService {
         return { balance: student?.balance || 0, accounts };
     }
 
+    /** 查询全部学员资产（可按校区过滤） */
     async getAllAssets(campusId?: string) {
         const where: any = {};
         if (campusId) {
@@ -749,6 +795,7 @@ export class FinanceService {
         });
     }
 
+    /** 查询全部订单（可按校区过滤） */
     async getAllOrders(campusId?: string) {
         const where: any = {};
         if (campusId) {
@@ -776,6 +823,7 @@ export class FinanceService {
         }));
     }
 
+    /** 作废订单（仅限未支付/异常订单） */
     async voidOrder(orderId: string, operatorId: string) {
         const order = await this.prisma.finOrder.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException('订单不存在');
@@ -787,6 +835,7 @@ export class FinanceService {
         });
     }
 
+    /** 查询学员的订单历史 */
     async getOrdersByStudent(studentId: string) {
         return this.prisma.finOrder.findMany({
             where: { student_id: studentId },
@@ -798,6 +847,7 @@ export class FinanceService {
     /**
      * 通过学员+课程查找已支付订单（用于管理员手动发起退费）
      */
+    /** 查询学员在某课程下的已支付订单 */
     async findPaidOrder(studentId: string, courseId: string) {
         const order = await this.prisma.finOrder.findFirst({
             where: { student_id: studentId, course_id: courseId, status: { in: ['PAID', 'PARTIAL_REFUNDED'] } },
@@ -807,6 +857,7 @@ export class FinanceService {
         return order;
     }
 
+    /** 查询学员本人的退款申请列表 */
     async getMyRefunds(studentId: string) {
         return this.prisma.finRefundRecord.findMany({
             where: { student_id: studentId },
@@ -819,6 +870,7 @@ export class FinanceService {
         });
     }
 
+    /** 待审批退款申请（按校区过滤） */
     async getPendingRefunds(campusId?: string) {
         const where: any = { status: 'PENDING' };
         if (campusId) {
@@ -835,6 +887,7 @@ export class FinanceService {
         });
     }
 
+    /** 查询所有退款申请（含已完结） */
     async getRefundApplications(campusId?: string) {
         const where: any = {};
         if (campusId) {

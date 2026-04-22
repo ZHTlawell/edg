@@ -1,6 +1,14 @@
+/**
+ * 全局类型定义
+ * 集中维护前端用到的数据模型：导航、课程、班级、学员、订单、
+ * 考勤、资产账户/流水、作业、公告等核心业务实体。
+ * 与后端字段保持一致；部分字段因历史原因同时存在驼峰与下划线命名。
+ */
+
 // Added React import to resolve missing 'React' namespace in TypeScript
 import React from 'react';
 
+// 侧边栏 / 顶部导航项结构（支持多级子菜单）
 export interface NavItem {
   id: string;
   label: string;
@@ -9,6 +17,7 @@ export interface NavItem {
   children?: NavItem[];
 }
 
+// 仪表盘统计卡片数据模型（含变化趋势、图标样式）
 export interface StatData {
   label: string;
   value: string;
@@ -18,6 +27,7 @@ export interface StatData {
   iconBg: string;
 }
 
+// 最近活动流数据模型（报名 / 缴费 / 告警 / 课程）
 export interface Activity {
   id: string;
   title: string;
@@ -26,8 +36,10 @@ export interface Activity {
   type: 'registration' | 'payment' | 'alert' | 'course';
 }
 
+// 课程上下架状态：启用 / 停用 / 审核中
 export type CourseStatus = 'enabled' | 'disabled' | 'pending';
 
+// 课程数据模型（用于课程管理、选课、学员资产等场景）
 export interface Course {
   id: string;
   code: string; // 课程编号
@@ -48,6 +60,7 @@ export interface Course {
   standard_name?: string;
 }
 
+// 教师基础信息
 export interface Teacher {
   id: string;
   name: string;
@@ -57,6 +70,7 @@ export interface Teacher {
   campus_id?: string;
 }
 
+// 单节课时（Schedule/Lesson）排课记录
 export interface Schedule {
   id: string;
   class_id: string;
@@ -67,8 +81,10 @@ export interface Schedule {
   attendances?: any[];
 }
 
+// 班级状态：待开班 / 进行中 / 已结课
 export type ClassStatus = 'pending' | 'ongoing' | 'closed';
 
+// 班级数据模型（一个班级绑定一个课程 + 一位教师 + 多个排课）
 export interface Class {
   id: string;
   name: string;
@@ -89,8 +105,10 @@ export interface Class {
   createdAt?: string; // Legacy
 }
 
+// 学员生命周期状态：潜客 / 试听 / 在读 / 沉睡 / 结业 / 流失
 export type StudentStatus = 'potential' | 'trial' | 'active' | 'inactive' | 'graduated' | 'dropped';
 
+// 学员数据模型（含余额、余课时等财务摘要字段）
 export interface Student {
   id: string;
   name: string;
@@ -108,8 +126,10 @@ export interface Student {
   balanceLessons?: number;
 }
 
+// 出勤状态：出勤 / 请假 / 旷课 / 迟到
 export type AttendStatus = 'present' | 'leave' | 'absent' | 'late';
 
+// 单条考勤记录（含扣课时数、扣课状态等）
 export interface AttendanceRecord {
   id: string;
   lesson_id: string;
@@ -128,6 +148,7 @@ export interface AttendanceRecord {
   createdAt: string;
 }
 
+// 学员资产账户：某学员在某课程下的课时账户（总/剩余/锁定/已退）
 export interface AssetAccount {
   id: string;
   student_id: string;
@@ -148,6 +169,7 @@ export interface AssetAccount {
   course?: Course;
 }
 
+// 资产流水（购买 / 消耗 / 退费）记录，用于审计
 export interface AssetLedger {
   id: string;
   account_id: string;
@@ -160,8 +182,10 @@ export interface AssetLedger {
   occurTime: string;
 }
 
+// 订单状态：待付款 / 已付款 / 部分退款 / 已退款 / 已取消
 export type OrderStatus = 'PENDING_PAYMENT' | 'PAID' | 'PARTIAL_REFUNDED' | 'REFUNDED' | 'CANCELLED';
 
+// 订单数据模型（学员自助下单或管理员代下单）
 export interface Order {
   id: string;
   student_id: string;
@@ -182,6 +206,7 @@ export interface Order {
   paymentMethod?: string;
 }
 
+// 支付流水记录（微信 / 支付宝 / 现金等）
 export interface PaymentRecord {
   id: string;
   order_id: string;
@@ -192,6 +217,7 @@ export interface PaymentRecord {
   createdAt: string;
 }
 
+// 退费申请 / 审批记录
 export interface RefundRecord {
   id: string;
   order_id: string;
@@ -212,6 +238,7 @@ export interface RefundRecord {
   order?: Order;
 }
 
+// 教师发布的作业实体
 export interface Homework {
   id: string;
   title: string;
@@ -226,6 +253,7 @@ export interface Homework {
   status: 'active' | 'closed';
 }
 
+// 学员作业提交记录（可被教师评分）
 export interface HomeworkSubmission {
   id: string;
   homework_id: string;
@@ -237,15 +265,19 @@ export interface HomeworkSubmission {
   submittedAt: string;
 }
 
+// 公告发布状态：草稿 / 已发布 / 已撤回
 export type AnnouncementStatus = 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
+// 公告覆盖范围：全部校区 / 指定校区
 export type AnnouncementScope = 'ALL' | 'SPECIFIC';
 
+// 公告的目标校区关联表（scope=SPECIFIC 时使用）
 export interface AnnouncementTarget {
   id: string;
   announcement_id: string;
   campus_id: string;
 }
 
+// 公告实体（支持草稿、发布、撤回等完整生命周期）
 export interface Announcement {
   id: string;
   title: string;

@@ -1,3 +1,12 @@
+/**
+ * StudentHomework.tsx - 学员端作业页
+ *
+ * 所在模块：学员端 -> 作业
+ * 功能：
+ *   - 展示教师布置的作业、学员可上传/替换/查看批改结果
+ *   - 内置文件预览弹窗（视频、音频、PDF、图片、Office 文档）
+ * 使用方：学员端课程学习流程中的作业模块
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
@@ -5,7 +14,9 @@ import { API_BASE } from '../utils/config';
 import { UploadCloud, Link2, FileText, ChevronDown, ChevronUp, Paperclip, X, Edit3, Download, Eye } from 'lucide-react';
 
 /* ─── 文件预览工具 ─── */
+/** 预览文件的大类，用于选择具体的渲染方式 */
 type PreviewKind = 'video' | 'audio' | 'pdf' | 'image' | 'office' | 'other';
+/** 根据文件扩展名判断预览类型 */
 const detectKind = (filename: string): PreviewKind => {
     const ext = (filename.split('.').pop() || '').toLowerCase();
     if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'video';
@@ -15,11 +26,18 @@ const detectKind = (filename: string): PreviewKind => {
     if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) return 'office';
     return 'other';
 };
+/** 判断 URL 是否为本地/内网地址（Office Online 无法预览内网文件） */
 const isLocalhostUrl = (url: string) =>
     /^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01]))/i.test(url);
 
+/** 预览文件 Props（url + 显示名称） */
 interface PreviewFile { url: string; name: string; }
 
+/**
+ * FilePreviewModal - 通用文件预览弹窗
+ * - 根据 detectKind 选择 video/audio/pdf/image/office 渲染
+ * - 本地地址的 Office 文件会走兜底下载提示
+ */
 const FilePreviewModal: React.FC<{ file: PreviewFile; onClose: () => void }> = ({ file, onClose }) => {
     const kind = detectKind(file.name);
     const absUrl = file.url.startsWith('http') ? file.url : `${API_BASE}${file.url}`;
@@ -84,6 +102,11 @@ const FilePreviewModal: React.FC<{ file: PreviewFile; onClose: () => void }> = (
 type FilterTab = 'all' | 'pending' | 'submitted' | 'graded';
 type SubmitMode = 'text' | 'link' | 'file';
 
+/**
+ * StudentHomework 主组件（无 props）
+ * - 拉取学员的作业清单，支持筛选、上传、替换、下载
+ * - 关键交互：选择作业 -> 上传附件/填写答案 -> 提交 -> 查看批改
+ */
 export const StudentHomework: React.FC = () => {
     const { currentUser, homeworks, homeworkSubmissions, submitHomework, editSubmission, fetchMyHomeworks, addToast } = useStore();
     const [activeFilter, setActiveFilter] = useState<FilterTab>('all');

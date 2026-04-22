@@ -1,4 +1,11 @@
-
+/**
+ * CourseFormModal.tsx
+ * ---------------------------------------------------------------
+ * 课程新增 / 编辑弹窗。
+ * 字段包含课程名、分类、主讲教师、课时数、价格、起止日期、上课地点等。
+ * 使用位置：CourseManagement 点击「新建课程」或列表行「编辑」。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, AlertCircle, Calendar as CalendarIcon, Info, Layers, User as UserIcon, MapPin, DollarSign, Search, CheckCircle2 } from 'lucide-react';
@@ -6,6 +13,7 @@ import { Course } from '../types';
 import { useStore } from '../store';
 import api from '../utils/api';
 
+// props：isOpen/onClose 显隐；onSave 保存回调；initialData 为 null 表示新增，否则编辑
 interface CourseFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +21,11 @@ interface CourseFormModalProps {
   initialData: Course | null;
 }
 
+/**
+ * ModalDatePicker —— 弹窗内使用的日期选择器
+ * 将原生 <input type="date"> 透明化覆盖在自定义样式的显示层之上，
+ * 点击任意位置都会唤起浏览器原生日历（优先使用 showPicker()）。
+ */
 const ModalDatePicker: React.FC<{
   value: string;
   onChange: (val: string) => void;
@@ -42,6 +55,11 @@ const ModalDatePicker: React.FC<{
   );
 };
 
+/**
+ * CourseFormModal —— 课程表单主弹窗
+ * 新增模式下 initialData 为 null，所有字段初始化为空；编辑模式下带入现有数据。
+ * 提交前校验必填项，通过 onSave 将数据传回父组件完成入库。
+ */
 export const CourseFormModal: React.FC<CourseFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
   const { currentUser, addToast, teachers, fetchTeachers, campuses, fetchCampuses } = useStore();
   const isCampusAdmin = currentUser?.role === 'campus_admin';

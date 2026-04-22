@@ -1,5 +1,10 @@
+/**
+ * 续费预警逻辑测试
+ * 作用：验证 getLowBalanceAssetAccounts 在课时耗尽 / 续费后的正确触发与消除
+ */
 import { useStore } from './store.ts';
 
+// 分 3 步演绎：初始充足 → 消课触发预警 → 续费消除预警
 async function testRenewalWarningFlow() {
     console.log('--- 开始续费预警业务逻辑测试 ---');
 

@@ -1,9 +1,19 @@
+/**
+ * ToastContainer.tsx - 全局 Toast 通知容器
+ *
+ * 所在模块：全局（App 顶层）
+ * 功能：
+ *   - 订阅 store.toasts，在右上角渲染 success/error/warning/info 类型的提示
+ *   - 支持手动关闭（调用 store.removeToast）
+ * 使用方：App.tsx 中挂载一次
+ */
 import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import { useStore } from '../store';
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 import type { ToastType } from '../store';
 
+/** Toast 类型对应图标 */
 const ToastIcon = ({ type }: { type: ToastType }) => {
     switch (type) {
         case 'success':
@@ -18,6 +28,7 @@ const ToastIcon = ({ type }: { type: ToastType }) => {
     }
 };
 
+/** ToastContainer 主组件：监听 store.toasts 渲染浮层队列 */
 export const ToastContainer: React.FC = () => {
     const { toasts, removeToast } = useStore();
 

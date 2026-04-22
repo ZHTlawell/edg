@@ -53,6 +53,7 @@ const COVERS = {
     },
 };
 
+// 将十六进制颜色字符串（如 "#6366f1"）解析为 {r, g, b} 数值对象
 function hexToRGB(hex) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -60,6 +61,8 @@ function hexToRGB(hex) {
     return { r, g, b };
 }
 
+// 根据课程名和配色/图标/标签配置生成 800×400 的 PNG 封面 Buffer
+// 封面布局：渐变底色 + 装饰圆 + 网格点 + 图标 + 课程名 + 英文副标题 + 标签胶囊 + 底部品牌标识
 function generateCover(courseName, config) {
     const W = 800, H = 400;
     const canvas = createCanvas(W, H);
@@ -149,6 +152,7 @@ function generateCover(courseName, config) {
     return canvas.toBuffer('image/png');
 }
 
+// 在 Canvas 上绘制圆角矩形路径（不 fill/stroke，仅构造路径）
 function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -163,6 +167,9 @@ function roundRect(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
+// 主流程：遍历 StdCourseStandard，为每个有 COVERS 配置的课程生成 PNG
+// 并写入 uploads/resources 目录，同时更新 standard.cover_url 字段
+// 前置依赖：标准课程表 StdCourseStandard 已有数据
 async function main() {
     console.log('🖼️  生成课程封面图...\n');
     if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });

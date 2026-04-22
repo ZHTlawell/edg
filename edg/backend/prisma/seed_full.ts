@@ -20,19 +20,21 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 // ─── 工具函数 ────────────────────────────────────────────────
+// 返回 base 日期加上 days 天的新 Date（不会修改原始对象）
 function addDays(base: Date, days: number): Date {
     const d = new Date(base);
     d.setDate(d.getDate() + days);
     return d;
 }
 
+// 返回 base 日期当天指定时/分（秒、毫秒归零）的新 Date
 function setHour(base: Date, h: number, m = 0): Date {
     const d = new Date(base);
     d.setHours(h, m, 0, 0);
     return d;
 }
 
-// 获取本周一 00:00
+// 获取本周一 00:00（周日视为上周的最后一天，返回其前一周一）
 function getThisMonday(): Date {
     const now = new Date();
     const day = now.getDay(); // 0=Sun
@@ -43,6 +45,11 @@ function getThisMonday(): Date {
     return mon;
 }
 
+// 主流程：按「叶 → 根」顺序清空所有业务表，然后依次重建全量演示数据
+// 清理范围（全表 deleteMany）：考勤/学习进度/课时资源/资源/课时/章节/课程版本/模板/标准-校区/标准/分类/
+//   课次/作业提交/作业/资产流水/资产账户/退费/支付/订单/学员入班/班级分配/班级/学员/教师/课程/公告/审计/SysUser
+// 插入内容（见文件顶注释）——13 步顺序写入
+// 前置依赖：仅需 schema 已迁移
 async function main() {
     console.log('🗑  清理旧数据...');
     await prisma.teachAttendance.deleteMany();

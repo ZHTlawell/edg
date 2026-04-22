@@ -1,6 +1,11 @@
+/**
+ * 课程章节批量导入工具
+ * 作用：解析 Excel/CSV 文件为章节 + 课时结构，并提供模板下载
+ */
 import * as XLSX from 'xlsx';
 
 // ─── 数据结构 ──────────────────────────────────────────────────────
+// 章节草稿结构：标题 + 课时列表（用于导入后批量入库）
 export interface ChapterDraft {
     title: string;
     lessons: { title: string }[];
@@ -12,6 +17,7 @@ const COL_MAP: Record<string, string[]> = {
     lesson: ['课时名称', '课时', 'lesson', 'lesson_name'],
 };
 
+// 根据 Excel 表头找出对应的标准字段名（中英文模糊匹配）
 function resolveColumn(header: string): string | null {
     const h = String(header || '').trim();
     for (const [key, aliases] of Object.entries(COL_MAP)) {
@@ -21,6 +27,7 @@ function resolveColumn(header: string): string | null {
 }
 
 // ─── 核心解析函数 ──────────────────────────────────────────────────
+// 解析用户上传的章节 Excel 文件；返回章节列表 + 行级错误信息
 export async function parseChapterFile(file: File): Promise<{ chapters: ChapterDraft[]; errors: string[] }> {
     const errors: string[] = [];
     const chapterMap = new Map<string, string[]>();
@@ -89,6 +96,7 @@ export async function parseChapterFile(file: File): Promise<{ chapters: ChapterD
 }
 
 // ─── 下载模板 ──────────────────────────────────────────────────────
+// 生成并下载章节导入 Excel 模板（含示例数据 + 使用说明工作表）
 export function downloadChapterTemplate() {
     const data = [
         ['章节名称', '课时名称'],

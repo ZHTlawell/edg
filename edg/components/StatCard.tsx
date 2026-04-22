@@ -1,8 +1,24 @@
+/**
+ * StatCard.tsx - 仪表盘通用统计卡片
+ *
+ * 所在模块：工作台 / Dashboard 等指标面板
+ * 功能：展示单个 KPI（标签、数值、趋势百分比、图标）
+ * 使用方：Dashboard / StatisticsOverview / TeacherStats 等
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
+/**
+ * StatCard Props
+ * - label: 指标名称（如"本月新增学员"）
+ * - value: 当前数值（字符串，已格式化）
+ * - change: 变化量文本（如"+12%"）
+ * - trend: 趋势方向，用于决定颜色和图标
+ * - icon: 左上角图标 ReactNode
+ * - iconBg: 图标容器背景色 class
+ */
 interface StatCardProps {
   label: string;
   value: string;
@@ -12,8 +28,8 @@ interface StatCardProps {
   iconBg: string;
 }
 
-// StatCard component used in the Dashboard to display key metrics
-export const StatCard: React.FC<StatCardProps> = ({ 
+/** StatCard 组件：纯展示型，根据 trend 切换正负趋势样式 */
+export const StatCard: React.FC<StatCardProps> = ({
   label, 
   value, 
   change, 

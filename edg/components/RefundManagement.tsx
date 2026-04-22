@@ -1,3 +1,12 @@
+/**
+ * RefundManagement.tsx - 退款管理页
+ *
+ * 所在模块：财务管理 -> 退款管理
+ * 功能：
+ *   - pending Tab：展示待审批的退款申请，支持审批通过/拒绝
+ *   - manual Tab：管理员手动代学员发起退款（选校区 -> 选学员 -> 选资产账户 -> 指定课时数）
+ * 使用方：财务管理员在后台处理退款流程
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -22,6 +31,13 @@ import {
 import { useStore, RefundRecord } from '../store';
 import api from '../utils/api';
 
+/**
+ * RefundManagement 主组件（无 props）
+ * 关键交互：
+ *   - fetchPending: 拉取待审批退款列表
+ *   - 选中学员后从 /api/finance/assets 加载其课时资产账户
+ *   - 支持提交退款申请（applyRefund）与审批（approveRefund）
+ */
 export const RefundManagement: React.FC = () => {
     const {
         campuses,
@@ -70,6 +86,7 @@ export const RefundManagement: React.FC = () => {
         }
     }, [selectedStudentId, activeTab]);
 
+    /** 从后端拉取待审批退款列表 */
     const fetchPending = async () => {
         setIsLoadingPending(true);
         try {
@@ -81,6 +98,7 @@ export const RefundManagement: React.FC = () => {
         }
     };
 
+    /** 审批退款：approved=true 通过，false 拒绝，完成后刷新列表 */
     const handleApprove = async (id: string, approved: boolean) => {
         try {
             await approveRefund(id, approved);
@@ -127,6 +145,7 @@ export const RefundManagement: React.FC = () => {
         return { unitPrice, amount };
     }, [selectedAccount, selectedCourse, refundQty]);
 
+    /** 管理员手动退款：先找订单，再发起退费申请（支持部分退费） */
     const handleManualRefund = async () => {
         if (!selectedAccountId || refundQty <= 0) {
             addToast('请选择课程账户并输入退费课时', 'error');

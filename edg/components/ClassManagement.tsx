@@ -1,3 +1,11 @@
+/**
+ * ClassManagement.tsx
+ * ---------------------------------------------------------------
+ * 班级管理主页（教务/校区管理员）。
+ * 功能：班级列表（分页 + 筛选）、新建班级、课程/教师分配、学员入班、开班。
+ * 使用位置：后台侧边栏「班级管理」入口。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -8,6 +16,7 @@ import api from '../utils/api';
 import { ClassFormModal } from './ClassFormModal';
 import { CourseAssignmentModal } from './CourseAssignmentModal';
 
+// 班级状态 -> 展示标签 + Tailwind 颜色样式
 const statusConfig: Record<string, { label: string; color: string }> = {
   PENDING: { label: '招生中', color: 'bg-amber-50 text-amber-700 border border-amber-200' },
   ONGOING: { label: '开班中', color: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
@@ -15,6 +24,11 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: '已取消', color: 'bg-red-50 text-red-500 border border-red-200' },
 };
 
+/**
+ * ClassManagement —— 班级管理主组件
+ * 关键状态：筛选条件（校区/状态/搜索）、多个弹窗开关（新建、分配、入班）、
+ *           openingClassId 表示正在「开班」中的班级 id（按钮 loading）
+ */
 export const ClassManagement: React.FC = () => {
   const { classes, currentUser, campuses, fetchCampuses, fetchClasses, students, addToast } = useStore();
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);

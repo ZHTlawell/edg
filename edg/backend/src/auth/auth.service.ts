@@ -1,8 +1,18 @@
+/**
+ * 认证服务
+ * 职责：用户身份验证、JWT 签发、密码 bcrypt 加密、各角色注册逻辑
+ * 所属模块：认证授权
+ * 被 AuthController / AdminUsersController 依赖注入
+ */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 
+/**
+ * 认证业务服务
+ * 封装登录校验、JWT 颁发、各类注册、密码重置等核心逻辑
+ */
 @Injectable()
 export class AuthService {
     constructor(
@@ -10,6 +20,14 @@ export class AuthService {
         private jwtService: JwtService
     ) { }
 
+    /**
+     * 校验用户名+密码是否正确
+     * - 用户不存在或密码错误返回 null
+     * - 账号状态为待审核或已禁用时直接抛 401
+     * @param username 登录账号
+     * @param pass 明文密码
+     * @returns 去掉密码哈希的用户对象，或 null
+     */
     async validateUser(username: string, pass: string): Promise<any> {
         const user = await this.usersService.findOneByUsername(username);
         if (!user) return null;
@@ -29,6 +47,13 @@ export class AuthService {
         return result;
     }
 
+    /**
+     * 为已通过校验的用户签发 JWT
+     * 特殊逻辑：存量校区管理员若缺 campus_id，会在此处补一个随机 UUID
+     * 并同步初始化该校区的 20 间教室数据
+     * @param user validateUser 返回的用户对象
+     * @returns { access_token, user } 结构
+     */
     async login(user: any) {
         // 存量校区管理员如果没有 campus_id，登录时为其补全一个独立的校区ID
         // 防止多个校区管理员因 campus_id 都是 null 而互相看到彼此数据
@@ -57,7 +82,12 @@ export class AuthService {
         };
     }
 
-    // C端专用学员自助注册
+    /**
+     * C 端学员自主注册（直接激活）
+     * 密码使用 bcrypt 加盐 10 轮
+     * 同时根据校区名反查 campus_id（若匹配）
+     * @param data 学员注册表单
+     */
     async registerStudent(data: any) {
         const hash = await bcrypt.hash(data.password, 10);
 
@@ -76,7 +106,11 @@ export class AuthService {
         });
     }
 
-    // 校区端自主注册（需总管理员审核）
+    /**
+     * 校区端自主注册（等待总管理员审核）
+     * 注册后账号状态为 PENDING_APPROVAL
+     * @param data 校区管理员注册表单
+     */
     async registerCampusAdmin(data: any) {
         const hash = await bcrypt.hash(data.password, 10);
         return this.usersService.createPendingUser({
@@ -90,7 +124,10 @@ export class AuthService {
         });
     }
 
-    // 教师端自主注册（需校区管理员审核）
+    /**
+     * 教师端自主注册（等待校区管理员审核）
+     * @param data 教师注册表单，需带希望加入的校区
+     */
     async registerTeacher(data: any) {
         const hash = await bcrypt.hash(data.password, 10);
         return this.usersService.createPendingUser({
@@ -104,7 +141,13 @@ export class AuthService {
         });
     }
 
-    // 密码重置（通过用户名查找用户并重置密码）
+    /**
+     * 密码重置
+     * 通过用户名定位用户并用新密码覆盖哈希
+     * @param username 目标账号
+     * @param newPassword 新明文密码
+     * @returns 找不到账号返回 null，成功返回 { success: true }
+     */
     async resetPassword(username: string, newPassword: string) {
         const user = await this.usersService.findOneByUsername(username);
         if (!user) {
@@ -115,7 +158,10 @@ export class AuthService {
         return { success: true };
     }
 
-    // B端内部账号创建 (例如管理员建老师账号) — 直接激活
+    /**
+     * B 端内部账号创建（例如管理员帮老师建账号） — 创建后直接激活
+     * @param data 账号信息（用户名、密码、角色、姓名、校区 ID）
+     */
     async registerInternalUser(data: any) {
         const hash = await bcrypt.hash(data.password, 10);
         return this.usersService.createInternalUser({

@@ -1,3 +1,12 @@
+/**
+ * StudentOrders.tsx - 学员端订单与退费页
+ *
+ * 所在模块：学员端 -> 我的订单
+ * 功能：
+ *   - 展示学员的历史订单与退费申请记录
+ *   - 支持发起退费、查看退费进度、撤回申请
+ * 使用方：学员侧边栏"我的订单"入口
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -8,10 +17,12 @@ import {
 import { useStore, Order } from '../store';
 import api from '../utils/api';
 
+/** 学员订单页 Props：onNavigate 用于在页面间切换（如跳精品课程市场） */
 interface StudentOrdersProps {
     onNavigate?: (view: string) => void;
 }
 
+/** 退费记录结构（前端视图用） */
 interface RefundRecord {
     id: string;
     order_id: string;
@@ -26,6 +37,7 @@ interface RefundRecord {
     reviewedAt?: string;
 }
 
+/** 退费状态到视觉样式（标签/图标/徽章色/小圆点色）的映射表，含老状态兼容 */
 const REFUND_STATUS_CONFIG: Record<string, { label: string; icon: any; badge: string; dot: string }> = {
     PENDING: {
         label: '审批中',
@@ -81,6 +93,12 @@ const REFUND_STEPS = [
     { label: '退费完成' },
 ];
 
+/**
+ * StudentOrders 主组件
+ * - 拉取当前学员订单与退费记录
+ * - handlePay: 继续支付未完成订单
+ * - handleRefund: 发起退费申请
+ */
 export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
     const { currentUser, students, orders, assetAccounts, courses, processPayment, applyRefund, fetchOrders, fetchMyAssets, addToast } = useStore();
 
@@ -159,6 +177,7 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
         studentOrders.filter(o => o.status === 'PAID').reduce((sum, o) => sum + (o.amount || 0), 0)
     ), [studentOrders]);
 
+    /** 继续支付：对未支付订单调用 processPayment */
     const handlePay = async () => {
         if (!selectedOrder) return;
         try {
@@ -177,6 +196,7 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
         }
     };
 
+    /** 发起退费：调用 applyRefund，完成后刷新列表 */
     const handleRefund = async () => {
         if (!selectedOrder) return;
         const finalReason = refundReason === '其他原因' ? customReason : refundReason;

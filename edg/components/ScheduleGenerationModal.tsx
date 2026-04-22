@@ -1,9 +1,25 @@
+/**
+ * ScheduleGenerationModal.tsx - 课表草稿生成弹窗
+ *
+ * 所在模块：课表管理 -> 生成课表
+ * 功能：
+ *   - 为指定教学任务（assignment）批量生成课次草稿
+ *   - 支持自定义上课星期与时间，或使用默认模式
+ * 使用方：ScheduleManagement 中的"生成课表"按钮触发
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { X, Calendar, Clock, BookOpen, AlertCircle } from 'lucide-react';
 import { useStore } from '../store';
 
+/**
+ * 课表生成弹窗 Props
+ * - isOpen: 是否显示
+ * - onClose: 关闭回调
+ * - assignmentId: 要生成课表的教学任务 ID（必需，否则无法提交）
+ * - assignmentName: 任务名称，用于展示标题
+ */
 interface ScheduleGenerationModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -11,7 +27,12 @@ interface ScheduleGenerationModalProps {
     assignmentName?: string;
 }
 
-export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({ 
+/**
+ * ScheduleGenerationModal 组件
+ * - 内部维护 formData：起始日期、课次数量、单课时长、是否自定义模式、上课日、时间
+ * - 提交时调用 store.generateDraft
+ */
+export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
     isOpen, 
     onClose, 
     assignmentId,
@@ -28,6 +49,7 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    /** 切换周几勾选状态（0-6 对应周日-周六） */
     const toggleWeekday = (day: number) => {
         setFormData(prev => ({
             ...prev,
@@ -37,6 +59,7 @@ export const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = (
         }));
     };
 
+    /** 提交：校验后调用 generateDraft 生成课表草稿 */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!assignmentId) {

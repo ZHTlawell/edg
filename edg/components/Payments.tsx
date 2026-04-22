@@ -1,3 +1,14 @@
+/**
+ * Payments.tsx - 报名缴费中心 / 订单记录
+ *
+ * 所在模块：报名缴费
+ * 功能：
+ *   - 顶部 Tab 在"报名缴费"与"订单记录"之间切换
+ *   - 报名缴费：多步骤向导（选学员 -> 选课程 -> 确认 -> 缴费 -> 成功）
+ *   - 订单记录：表格展示所有订单，支持搜索、分页、跳转详情
+ *   - 支持新建学员（自动生成账号与初始密码）与选择已有学员
+ * 使用方：被 App.tsx 作为一级路由页面，支持通过 initialTab 指定默认 Tab
+ */
 
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -14,13 +25,29 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 
+/** 报名流程的步骤枚举（select-class 已移除，后端 processPayment 自动分班） */
 type Step = 'select-student' | 'select-course' | 'select-class' | 'confirm' | 'payment' | 'success';
 
+/**
+ * Payments Props
+ * - initialTab: 初始顶部 Tab（报名缴费 or 订单记录）
+ * - onViewOrder: 点击订单行跳转详情的回调
+ */
 interface PaymentsProps {
     initialTab?: 'enroll' | 'orders';
     onViewOrder?: (orderId: string) => void;
 }
 
+/**
+ * Payments 主组件
+ * - 维护当前顶部 Tab、报名向导步骤、新建学员表单、订单搜索分页等状态
+ * - enroll 模式：6 步向导（新/搜学员 -> 选课 -> 确认 -> 缴费 -> 成功）
+ * - orders 模式：订单列表表格 + 分页
+ * 关键交互：
+ *   - handleCreateStudent: 后端创建学员并返回账号/密码
+ *   - handleSubmit: 创建订单并登记支付，后端校验金额
+ *   - handleContinue / handleReset: 结果页的二次流程控制
+ */
 export const Payments: React.FC<PaymentsProps> = ({ initialTab = 'enroll', onViewOrder }) => {
     const {
         students,
@@ -96,6 +123,7 @@ export const Payments: React.FC<PaymentsProps> = ({ initialTab = 'enroll', onVie
     }, [coursePrice, selectedCourse]);
 
     // ─── Handlers ────────────────────────────────────────────────
+    /** 新建学员：校验姓名与手机号后调用 createStudentByAdmin，成功后进入选课步骤 */
     const handleCreateStudent = async () => {
         if (!newName.trim() || !newPhone.trim()) {
             addToast('请填写姓名和手机号', 'error');
@@ -127,6 +155,7 @@ export const Payments: React.FC<PaymentsProps> = ({ initialTab = 'enroll', onVie
         }
     };
 
+    /** 从已有学员列表选中一个并进入选课步骤 */
     const handleSelectStudent = (id: string) => {
         setSelectedStudentId(id);
         setCreatedCredentials(null);
@@ -135,26 +164,31 @@ export const Payments: React.FC<PaymentsProps> = ({ initialTab = 'enroll', onVie
         setStep('select-course');
     };
 
+    /** 选择课程：跳过选班级，直接到确认页（后端自动分班） */
     const handleSelectCourse = (id: string) => {
         setSelectedCourseId(id);
         setSelectedClassId('');
         setStep('confirm'); // 跳过选班级（后端 processPayment 自动分班）
     };
 
+    /** 选择班级并进入确认页（保留逻辑备用，当前流程不会走到此函数） */
     const handleSelectClass = (id: string) => {
         setSelectedClassId(id);
         setStep('confirm');
     };
 
+    /** 跳过选班级直接确认 */
     const handleSkipClass = () => {
         setSelectedClassId('');
         setStep('confirm');
     };
 
+    /** 从确认页前进到缴费页 */
     const handleConfirmToPayment = () => {
         setStep('payment');
     };
 
+    /** 提交：先 createOrder 再 processPayment，后端权威计算金额并校验 */
     const handleSubmit = async () => {
         if (!selectedStudentId || !selectedCourseId) return;
         setIsSubmitting(true);
@@ -181,6 +215,7 @@ export const Payments: React.FC<PaymentsProps> = ({ initialTab = 'enroll', onVie
         }
     };
 
+    /** 重置整个向导回到第一步（清空所有选择与表单） */
     const handleReset = () => {
         setStep('select-student');
         setSelectedStudentId('');
@@ -195,6 +230,7 @@ export const Payments: React.FC<PaymentsProps> = ({ initialTab = 'enroll', onVie
         setNewCampusId('');
     };
 
+    /** 成功页：保持当前学员，清空课程选择，继续为其报名其他课程 */
     const handleContinue = () => {
         // 保持学员，重新选课
         setSelectedCourseId('');

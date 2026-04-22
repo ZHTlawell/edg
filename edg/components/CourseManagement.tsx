@@ -1,4 +1,11 @@
-
+/**
+ * CourseManagement.tsx
+ * ---------------------------------------------------------------
+ * 课程管理主页（教务/校区管理员）。
+ * 列表展示课程 + 搜索/筛选/分页 + 新建/编辑/删除/上下架。
+ * 使用位置：后台侧边栏「课程管理」入口。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
@@ -23,6 +30,11 @@ import { CourseFormModal } from './CourseFormModal';
 import { useStore } from '../store';
 import api from '../utils/api';
 
+/**
+ * CourseManagement —— 课程管理主组件
+ * 校区管理员仅展示本校区课程；超管可跨校区。
+ * 关键状态：多种筛选条件 + 新建/编辑弹窗开关；deleteCourse 走 store 封装的 API
+ */
 export const CourseManagement: React.FC = () => {
   const { courses, currentUser, fetchCourses, addToast, setCourses, campuses, fetchCampuses, deleteCourse } = useStore();
 

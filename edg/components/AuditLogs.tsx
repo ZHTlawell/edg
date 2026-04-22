@@ -1,10 +1,25 @@
+/**
+ * AuditLogs.tsx
+ * ---------------------------------------------------------------
+ * 安全审计日志页（总部管理员）。
+ * 展示登录、业务操作、系统自动化、安全拦截等事件；支持按关键字过滤并导出 CSV。
+ * 使用位置：后台「安全审计」菜单。
+ * 注意：当前为演示数据（硬编码 logs 数组），尚未接入后端接口。
+ * ---------------------------------------------------------------
+ */
 import { ElmIcon } from './ElmIcon';
 import React, { useState } from 'react';
 import { Search, Filter, ShieldAlert, LogIn, ExternalLink, Download, FileText } from 'lucide-react';
 
+/**
+ * AuditLogs —— 审计日志主组件
+ * 无 props；本地维护 searchTerm 用于关键字过滤。
+ * 关键交互：点击「导出」将筛选后的日志保存为带 BOM 的 UTF-8 CSV
+ */
 export const AuditLogs: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
+    // 导出日志为 CSV：按 searchTerm 过滤 -> 拼 CSV -> 浏览器下载
     const handleExportLogs = (logsToExport: typeof logs) => {
         const filtered = logsToExport.filter(l =>
             !searchTerm || l.user.includes(searchTerm) || l.action.includes(searchTerm) || l.ip.includes(searchTerm)

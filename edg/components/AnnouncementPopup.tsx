@@ -1,13 +1,25 @@
-
+/**
+ * AnnouncementPopup.tsx
+ * ---------------------------------------------------------------
+ * 登录后自动弹出的「系统公告」弹窗。
+ * 仅展示最新一条公告，用户关闭后由父组件负责记录已读状态。
+ * 使用位置：App 根组件，用户登录后检测到未读公告时展示。
+ * ---------------------------------------------------------------
+ */
 import React from 'react';
 import { ElmIcon } from './ElmIcon';
 import { Announcement } from '../types';
 
+// props：announcements 为待展示公告列表（通常只用第一条），onClose 关闭回调
 interface AnnouncementPopupProps {
     announcements: Announcement[];
     onClose: () => void;
 }
 
+/**
+ * AnnouncementPopup —— 公告弹窗
+ * 仅渲染 announcements[0]；列表为空时返回 null 不渲染
+ */
 export const AnnouncementPopup: React.FC<AnnouncementPopupProps> = ({ announcements, onClose }) => {
     // Only show the latest (first) announcement
     const ann = announcements[0];

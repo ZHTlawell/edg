@@ -1,9 +1,25 @@
-
+/**
+ * seed_v2.js — v2 教学模型最小集种子（用于验证 Class / Assignment / Schedule 新结构）
+ * 运行: node prisma/seed_v2.js
+ *
+ * 用途：演示"班级(edClass) + 教学任务(edClassAssignment) + 排课(edLessonSchedule)"这套新模型的最小闭环。
+ * 清理范围：不清空历史；用户用 upsert（可重复跑），但 edCourse / edClass / assignment / schedule / student 每次都会新增（注意累积）。
+ * 插入内容：
+ *   - 校区管理员 admin_c1（C001 总校区）
+ *   - 教师 teacher1 + EduTeacher "王老师"
+ *   - 1 门"高级UI设计"课程
+ *   - 1 个"2024 UI设计提升班"班级 + 教学任务分配
+ *   - 5 节已发布课表（未来 5 周每周一节）
+ *   - 1 个学生 student1"小明"并入班
+ * 前置依赖：仅需 schema 已迁移。
+ * 登录凭证：统一密码 123456
+ */
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
+// 主流程：upsert 管理员/教师/学生 → 创建课程/班级/分配 → 循环生成 5 节课表 → 学生入班
 async function main() {
     console.log('--- Seeding Updated Academic Model ---');
     const passwordHash = await bcrypt.hash('123456', 10);

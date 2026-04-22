@@ -1,3 +1,13 @@
+/**
+ * QuizPaperManager.tsx - 章节测验试卷管理组件
+ *
+ * 所在模块：课程资源 / 课程标准 -> 章节测验
+ * 功能：
+ *   - 按课程标准（standardId）列出所有章节，每章节下展示已发布的测验试卷
+ *   - 支持为单个章节新建试卷（在弹窗内出题）、从 Excel/CSV 导入题目、下载模板
+ *   - 支持删除已发布试卷
+ * 使用方：CourseStandardDetail 等课程资源管理页面的子组件
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ElmIcon } from './ElmIcon';
 import { Plus, Trash2, FileText, X, ChevronDown, ChevronRight as ChevRight, Upload, Download } from 'lucide-react';
@@ -5,12 +15,14 @@ import api from '../utils/api';
 import { useStore } from '../store';
 import { parseQuizFile, downloadQuizTemplate } from '../utils/quizImport';
 
+/** 章节元数据结构（来自 course-resource API） */
 interface Chapter {
     id: string;
     title: string;
     sort_order: number;
 }
 
+/** 试卷元数据 + 题目/提交计数（列表展示用） */
 interface QuizPaper {
     id: string;
     title: string;
@@ -23,6 +35,7 @@ interface QuizPaper {
     _count?: { questions: number; submissions: number };
 }
 
+/** 新建试卷时的题目草稿结构（前端内部状态） */
 interface QuestionDraft {
     type: 'single' | 'multiple';
     text: string;
@@ -31,6 +44,7 @@ interface QuestionDraft {
     score: number;
 }
 
+/** 构造一个空白单选题（4 个选项 A-D，默认 10 分） */
 const blankQuestion = (): QuestionDraft => ({
     type: 'single',
     text: '',
@@ -45,6 +59,15 @@ const blankQuestion = (): QuestionDraft => ({
 });
 
 // ───── 出题表单 Modal ─────────────────────────────────────────────
+/**
+ * QuizEditorModal - 为某一章节创建/编辑试卷的弹窗
+ * Props:
+ *   - chapter: 关联的章节对象
+ *   - standardId: 所属课程标准 ID
+ *   - onClose: 关闭弹窗
+ *   - onSaved: 保存成功后的回调（用于外层刷新列表）
+ * 交互：支持本地出题、从 Excel/CSV 导入、单题与选项编辑、保存发布
+ */
 const QuizEditorModal: React.FC<{
     chapter: Chapter;
     standardId: string;
@@ -59,6 +82,7 @@ const QuizEditorModal: React.FC<{
     const [saving, setSaving] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    /** 选择 Excel/CSV 文件后解析题目并合并到题目列表 */
     const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -81,9 +105,11 @@ const QuizEditorModal: React.FC<{
         addToast(`成功导入 ${parsed.length} 道题目`, 'success');
     };
 
+    /** 更新指定索引题目的部分字段 */
     const updateQ = (idx: number, patch: Partial<QuestionDraft>) => {
         setQuestions(prev => prev.map((q, i) => (i === idx ? { ...q, ...patch } : q)));
     };
+    /** 更新指定题目中指定选项的文字 */
     const updateOption = (qIdx: number, oIdx: number, text: string) => {
         setQuestions(prev =>
             prev.map((q, i) =>
@@ -91,6 +117,7 @@ const QuizEditorModal: React.FC<{
             )
         );
     };
+    /** 切换答案选项：单选题会替换，多选题在集合中加入/移除 */
     const toggleAnswer = (qIdx: number, optId: string) => {
         const q = questions[qIdx];
         let newAnswer: string[];
@@ -102,6 +129,7 @@ const QuizEditorModal: React.FC<{
         updateQ(qIdx, { answer: newAnswer });
     };
 
+    /** 保存整套试卷：先前端校验再调用后端 /api/quiz/papers */
     const handleSave = async () => {
         // 校验
         if (!title.trim()) {
@@ -268,6 +296,14 @@ const QuizEditorModal: React.FC<{
 };
 
 // ───── 主 Manager 组件 ─────────────────────────────────────────────
+/**
+ * QuizPaperManager - 章节试卷管理主组件
+ * Props:
+ *   - standardId: 当前课程标准 ID，用于拉取该标准下的章节及试卷
+ * 渲染：
+ *   - 章节列表（可折叠展开），每章节下列出试卷，支持新建/删除
+ *   - 空态提示（无章节时）
+ */
 export const QuizPaperManager: React.FC<{ standardId: string }> = ({ standardId }) => {
     const { addToast } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -275,6 +311,7 @@ export const QuizPaperManager: React.FC<{ standardId: string }> = ({ standardId 
     const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
+    /** 加载：先拉章节，再并行拉每章节下的试卷 */
     const load = useCallback(async () => {
         try {
             const chRes = await api.get(`/api/course-resource/chapters?standard_id=${standardId}`);
@@ -298,6 +335,7 @@ export const QuizPaperManager: React.FC<{ standardId: string }> = ({ standardId 
 
     useEffect(() => { load(); }, [load]);
 
+    /** 删除试卷：二次确认后调用 API，成功后刷新列表 */
     const handleDelete = async (paperId: string, title: string) => {
         if (!window.confirm(`确认删除试卷「${title}」？该操作不可恢复，且会清除已有提交记录。`)) return;
         try {
@@ -309,6 +347,7 @@ export const QuizPaperManager: React.FC<{ standardId: string }> = ({ standardId 
         }
     };
 
+    /** 切换章节展开/收起 */
     const toggle = (chId: string) => setExpanded(prev => {
         const n = new Set(prev);
         n.has(chId) ? n.delete(chId) : n.add(chId);
