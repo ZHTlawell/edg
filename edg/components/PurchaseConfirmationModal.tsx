@@ -28,7 +28,7 @@ export const PurchaseConfirmationModal: React.FC<PurchaseConfirmationModalProps>
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
+                className="absolute inset-0 bg-slate-900/60 animate-in fade-in duration-300"
                 onClick={onClose}
             />
 

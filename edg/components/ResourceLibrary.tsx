@@ -212,7 +212,7 @@ export const ResourceLibrary: React.FC = () => {
 
             {/* Upload Modal */}
             {showUpload && (
-                <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                             <h3 className="font-bold text-slate-800">上传班级资料</h3>

@@ -33,9 +33,10 @@ type CampusStep = 1 | 2 | 3; // 1: 基础信息, 2: 资质上传, 3: 提交成�
 export const Registration: React.FC<RegistrationProps> = ({ role, onBack, campusList = [] }) => {
     const { registerCampusAdmin, registerTeacher, addToast, campuses, fetchCampuses } = useStore();
 
+    // 每次进入注册页都强制拉最新校区列表，避免 zustand 持久化缓存导致新建校区不显示
     React.useEffect(() => {
-        if (campuses.length === 0) fetchCampuses();
-    }, [campuses.length, fetchCampuses]);
+        fetchCampuses();
+    }, [fetchCampuses]);
 
     const [campusStep, setCampusStep] = useState<CampusStep>(1);
     const [isLoading, setIsLoading] = useState(false);

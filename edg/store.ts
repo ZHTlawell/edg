@@ -115,6 +115,7 @@ interface AppState {
     publishSchedules: (lessonIds: string[]) => Promise<void>;
 
     // Order & Asset Actions
+    createStudentByAdmin: (data: { name: string; phone: string; gender?: string; campus_id?: string; campusName?: string }) => Promise<{ studentId: string; userId: string; username: string; defaultPassword: string }>;
     createOrder: (orderData: { studentId?: string; student_id?: string; courseId: string; course_id?: string; classId?: string; notes?: string; [key: string]: any }) => Promise<string>;
     createRenewalOrder: (orderData: { studentId?: string; courseId: string }) => Promise<string>;
     processPayment: (paymentData: { orderId: string; amount: number; channel: string; campusId: string; classId?: string }) => Promise<void>;
@@ -635,6 +636,18 @@ export const useStore = create<AppState>()(
                     await get().fetchClasses();
                 } catch (error: any) {
                     get().addToast(error.message || '发布失败', 'error');
+                    throw error;
+                }
+            },
+
+            createStudentByAdmin: async (data) => {
+                try {
+                    const res = await api.post('/api/users/students/create', data);
+                    get().addToast('学员创建成功', 'success');
+                    await get().fetchStudents();
+                    return res.data;
+                } catch (error: any) {
+                    get().addToast(error.message || '创建学员失败', 'error');
                     throw error;
                 }
             },

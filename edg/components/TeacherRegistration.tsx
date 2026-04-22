@@ -32,13 +32,14 @@ interface TeacherRegistrationProps {
 }
 
 export const TeacherRegistration: React.FC<TeacherRegistrationProps> = ({ onNavigate }) => {
-    const { currentUser, teachers, fetchTeachers, setClassTeacherFilter, addToast } = useStore();
+    const { currentUser, teachers, classes, fetchTeachers, fetchClasses, addToast } = useStore();
     const isCampusAdmin = currentUser?.role === 'campus_admin';
     const myCampus = currentUser?.campus || '总校区';
 
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDepartment, setSelectedDepartment] = useState('all');
+    const [viewingTeacher, setViewingTeacher] = useState<Teacher | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -65,14 +66,30 @@ export const TeacherRegistration: React.FC<TeacherRegistrationProps> = ({ onNavi
         }
     };
 
-    const handleViewClasses = (teacher: Teacher) => {
-        // 1. 设置全局班级过滤器
-        setClassTeacherFilter(teacher.name);
-        // 2. 切换视图
-        if (onNavigate) {
-            onNavigate('classes');
-        }
+    const handleViewClasses = async (teacher: Teacher) => {
+        // 直接弹窗显示该教师的任教班级，不再跳转到班级管理全局页面
+        const filterId = isCampusAdmin ? currentUser?.campus_id : undefined;
+        await fetchClasses(filterId);
+        setViewingTeacher(teacher);
     };
+
+    const teacherClasses = React.useMemo(() => {
+        if (!viewingTeacher) return [];
+        // 后端返回的 class 结构里，任教老师信息挂在 assignments[].teacher 上，而不是顶层 teacher_id/teacherName。
+        // 兼容老数据（顶层 teacher_id / teacherName）也一并匹配。
+        return (classes || []).filter((c: any) => {
+            const asn = Array.isArray(c.assignments) ? c.assignments : [];
+            const hitAssignment = asn.some((a: any) =>
+                a?.teacher_id === viewingTeacher.id ||
+                a?.teacher?.id === viewingTeacher.id ||
+                a?.teacher?.name === viewingTeacher.name
+            );
+            return hitAssignment ||
+                c.teacher_id === viewingTeacher.id ||
+                c.teacherName === viewingTeacher.name ||
+                c.teacher?.name === viewingTeacher.name;
+        });
+    }, [classes, viewingTeacher]);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -210,6 +227,89 @@ export const TeacherRegistration: React.FC<TeacherRegistrationProps> = ({ onNavi
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {viewingTeacher && (
+                <div
+                    className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+                    onClick={() => setViewingTeacher(null)}
+                >
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800">
+                                    {viewingTeacher.name} 的任教班级
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-0.5">共 {teacherClasses.length} 个班级</p>
+                            </div>
+                            <button
+                                onClick={() => setViewingTeacher(null)}
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
+                            >
+                                <XCircle size={18} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto px-6 py-4">
+                            {teacherClasses.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                    <FileText size={36} className="opacity-30 mb-3" />
+                                    <p className="text-sm font-medium">该教师暂无任教班级</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {teacherClasses.map((cls: any) => {
+                                        const asn = Array.isArray(cls.assignments) ? cls.assignments : [];
+                                        const courseName = cls.courseName || cls.course?.name
+                                            || asn.map((a: any) => a?.course?.name).filter(Boolean).join('、')
+                                            || '—';
+                                        const enrolled = cls.enrolled ?? cls.students?.length ?? 0;
+                                        return (
+                                        <div
+                                            key={cls.id}
+                                            className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-cyan-200 hover:bg-cyan-50/40 transition-all"
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-slate-800 text-sm truncate">{cls.name}</p>
+                                                <p className="text-xs text-slate-400 mt-0.5">
+                                                    {courseName}
+                                                    <span className="mx-2">·</span>
+                                                    {enrolled}/{cls.capacity || 0} 人
+                                                </p>
+                                            </div>
+                                            {(() => {
+                                                const s = String(cls.status || '').toUpperCase();
+                                                const label = s === 'ONGOING' ? '进行中'
+                                                    : s === 'PENDING' ? '招生中'
+                                                    : s === 'CANCELLED' ? '已取消'
+                                                    : s === 'COMPLETED' ? '已结业'
+                                                    : cls.status || '—';
+                                                const cls2 = s === 'ONGOING' ? 'bg-emerald-50 text-emerald-600'
+                                                    : s === 'PENDING' ? 'bg-amber-50 text-amber-600'
+                                                    : s === 'CANCELLED' ? 'bg-red-50 text-red-500'
+                                                    : 'bg-slate-100 text-slate-500';
+                                                return <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${cls2}`}>{label}</span>;
+                                            })()}
+                                        </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="px-6 py-3 border-t border-slate-100 flex justify-end">
+                            <button
+                                onClick={() => setViewingTeacher(null)}
+                                className="text-sm font-bold text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all"
+                            >
+                                关闭
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

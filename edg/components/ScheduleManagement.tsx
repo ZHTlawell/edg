@@ -1049,7 +1049,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
       {/* Conflict Modal */}
       {isConflictModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsConflictModalOpen(false)} />
+          <div className="absolute inset-0 bg-slate-900/60" onClick={() => setIsConflictModalOpen(false)} />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-red-50/50">
               <div className="flex items-center gap-3">
@@ -1086,7 +1086,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
       {/* Leave Request Modal */}
       {isLeaveModalOpen && selectedLesson && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsLeaveModalOpen(false)} />
+          <div className="absolute inset-0 bg-slate-900/60" onClick={() => setIsLeaveModalOpen(false)} />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1141,7 +1141,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
       {/* Attendance List Modal */}
       {isAttendanceListOpen && selectedLesson && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsAttendanceListOpen(false)} />
+          <div className="absolute inset-0 bg-slate-900/60" onClick={() => setIsAttendanceListOpen(false)} />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1192,7 +1192,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
       {/* Reschedule Modal */}
       {isRescheduleModalOpen && selectedLesson && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsRescheduleModalOpen(false)} />
+          <div className="absolute inset-0 bg-slate-900/60" onClick={() => setIsRescheduleModalOpen(false)} />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1225,7 +1225,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ onEnterA
       {/* Cancel Lesson Confirm */}
       {isCancelConfirmOpen && selectedLesson && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsCancelConfirmOpen(false)} />
+          <div className="absolute inset-0 bg-slate-900/60" onClick={() => setIsCancelConfirmOpen(false)} />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-8 space-y-4 text-center">
               <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto"><ElmIcon name="close" size={24} /></div>

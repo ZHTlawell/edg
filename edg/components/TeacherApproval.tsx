@@ -88,16 +88,19 @@ export const TeacherApproval: React.FC<TeacherApprovalProps> = ({ onBack }) => {
                 </button>
             </div>
 
-            {/* Stats */}
+            {/* Stats —— 简色设计：统一白底，仅用一个小色点标识语义 */}
             <div className="grid grid-cols-3 gap-4">
                 {[
-                    { label: '待审核', value: pendingList.length, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
-                    { label: '今日已通过', value: 0, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-                    { label: '今日已拒绝', value: 0, color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-100' },
+                    { label: '待审核', value: pendingList.length, dot: 'bg-amber-500' },
+                    { label: '今日已通过', value: 0, dot: 'bg-emerald-500' },
+                    { label: '今日已拒绝', value: 0, dot: 'bg-red-500' },
                 ].map((s, i) => (
-                    <div key={i} className={`rounded-2xl border p-4 ${s.bg} ${s.border}`}>
-                        <p className="text-xs font-medium text-slate-500 mb-1">{s.label}</p>
-                        <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+                    <div key={i} className="rounded-2xl border border-slate-100 bg-white p-5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                            <p className="text-xs font-medium text-slate-500">{s.label}</p>
+                        </div>
+                        <p className="text-3xl font-bold text-slate-900 tabular-nums">{s.value}</p>
                     </div>
                 ))}
             </div>

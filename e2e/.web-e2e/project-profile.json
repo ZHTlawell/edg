@@ -1,0 +1,30 @@
+{
+  "projectRoot": "/Users/macmini/Desktop/Edg1",
+  "framework": "react",
+  "buildTool": "vite",
+  "routerLib": "none",
+  "stateLib": "zustand",
+  "authPattern": "jwt-localstorage",
+  "hasBackend": true,
+  "backendPath": "backend",
+  "devPort": 3000,
+  "backendPort": 3001,
+  "existingTests": "none",
+  "detectedRoles": [
+    "student",
+    "teacher",
+    "campus_admin",
+    "admin",
+    "CAMPUS_ADMIN",
+    "ADMIN",
+    "TEACHER",
+    "STUDENT"
+  ],
+  "detectedAt": "2026-04-21T07:34:09.004Z",
+  "needsInterview": {
+    "roles": false,
+    "testDataStrategy": true,
+    "loginEndpoint": true,
+    "testAccounts": true
+  }
+}

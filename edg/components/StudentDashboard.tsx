@@ -348,7 +348,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
          {/* ── 在线请假 Modal ────────────────────────────────────────────── */}
          {showLeaveModal && (
-            <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowLeaveModal(false)}>
+            <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/40" onClick={() => setShowLeaveModal(false)}>
                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 space-y-6 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                   {leaveSubmitted ? (
                      <div className="flex flex-col items-center gap-4 py-6 text-center">

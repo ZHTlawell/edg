@@ -329,7 +329,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, cours
       {/* Submission Confirm Dialog */}
       {showConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowConfirm(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 animate-in fade-in" onClick={() => setShowConfirm(false)}></div>
           <div className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-10 text-center space-y-6">
               <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-blue-50/50">
@@ -376,7 +376,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ chapterTitle, paperId, cours
 
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-slate-900/70" />
             <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
               <div className={`px-10 pt-12 pb-8 text-center ${passed ? 'bg-gradient-to-b from-emerald-50 to-white' : 'bg-gradient-to-b from-red-50 to-white'}`}>
                 <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ${passed ? 'bg-emerald-100 text-emerald-600 ring-emerald-50' : 'bg-red-100 text-red-500 ring-red-50'}`}>

@@ -146,7 +146,7 @@ const QuizEditorModal: React.FC<{
 
     return (
         <div className="fixed inset-0 z-[600] flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
             <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
                 <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div>

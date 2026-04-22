@@ -453,7 +453,7 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
 
             {/* ── Pay Modal ── */}
             {isPayModalOpen && selectedOrder && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative">
                         <button onClick={() => setPayModalOpen(false)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-600"><ElmIcon name="close" size={16} /></button>
                         <h3 className="text-xl font-bold text-slate-900 mb-6">支付订单</h3>
@@ -493,7 +493,7 @@ export const StudentOrders: React.FC<StudentOrdersProps> = ({ onNavigate }) => {
                 const acc = studentAssets.find(a => a.course_id === selectedOrder.course_id);
                 const usedQty = acc ? acc.total_qty - acc.remaining_qty : 0;
                 return (
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-[2.5rem] max-w-lg w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
 
                             {/* Header */}

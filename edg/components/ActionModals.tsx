@@ -25,7 +25,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity animate-in fade-in" onClick={onCancel} />
+            <div className="absolute inset-0 bg-slate-900/40 transition-opacity animate-in fade-in" onClick={onCancel} />
 
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="p-6">
@@ -96,7 +96,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity animate-in fade-in" onClick={handleCancel} />
+            <div className="absolute inset-0 bg-slate-900/40 transition-opacity animate-in fade-in" onClick={handleCancel} />
 
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="p-6">

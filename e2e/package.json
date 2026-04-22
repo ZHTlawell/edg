@@ -1,0 +1,20 @@
+{
+  "name": "edg-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Web UI 自动化测试项目（独立于 edg 业务代码）",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:slow": "SLOWMO=300 playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "dump": "node .web-e2e/dump-edg1.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^22.14.0",
+    "typescript": "~5.8.2"
+  }
+}

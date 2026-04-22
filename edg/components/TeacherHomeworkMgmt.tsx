@@ -314,7 +314,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
             {/* Publish Modal */}
             {
                 showModal && (
-                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-20">
+                    <div className="fixed inset-0 bg-slate-900/40 flex items-start justify-center z-50 p-4 pt-20">
                         <div className="bg-white w-full max-w-lg max-h-[calc(100vh-6rem)] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                                 <h3 className="font-bold text-slate-800">发布新作业</h3>
@@ -431,7 +431,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
 
             {/* 编辑作业弹窗 */}
             {editingHw && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <h3 className="font-bold text-slate-800">编辑作业</h3>
@@ -484,7 +484,7 @@ export const TeacherHomeworkMgmt: React.FC = () => {
 
             {/* 批改抽屉 */}
             {gradingHomework && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div>
