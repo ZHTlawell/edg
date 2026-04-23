@@ -42,9 +42,11 @@ import {
  * - 非校区管理员则从 fetchWorkbenchOverview 拉取全局概览数据
  */
 export const StatisticsOverview: React.FC = () => {
-  const { students, orders, attendanceRecords, assetLedgers, currentUser, courses, workbenchOverview, fetchWorkbenchOverview, addToast } = useStore();
+  const { students, orders, attendanceRecords, assetLedgers, currentUser, courses, workbenchOverview,
+    fetchWorkbenchOverview, fetchOrders, fetchStudents, fetchAttendanceRecords, fetchAssetAccounts, addToast } = useStore();
   const isCampusAdmin = currentUser?.role === 'campus_admin';
   const myCampus = currentUser?.campus || '总校区';
+  const myCampusId = currentUser?.campus_id || '';
 
   const [timeRange, setTimeRange] = useState('30d');
   const [isFilterOpen, setIsFilterOpen] = useState(true);
@@ -52,11 +54,17 @@ export const StatisticsOverview: React.FC = () => {
   useEffect(() => {
     if (!isCampusAdmin) {
       fetchWorkbenchOverview();
+      return;
     }
-  }, [fetchWorkbenchOverview, isCampusAdmin]);
+    // 校区端首次进入需要主动拉取本校区订单/学员/考勤/资产台账，
+    // 否则依赖其他页已经拉过才有数据，导致"第一次进入空白，第二次才有"
+    fetchOrders?.(myCampusId);
+    fetchStudents?.();
+    fetchAttendanceRecords?.(myCampusId);
+    fetchAssetAccounts?.(myCampusId);
+  }, [fetchWorkbenchOverview, fetchOrders, fetchStudents, fetchAttendanceRecords, fetchAssetAccounts, isCampusAdmin, myCampusId]);
 
   // 按角色过滤数据：校区管理员只看本校区
-  const myCampusId = currentUser?.campus_id || '';
   const scopedOrders = useMemo(() => {
     if (!isCampusAdmin) return orders;
     return orders.filter((o: any) => {
@@ -178,9 +186,25 @@ export const StatisticsOverview: React.FC = () => {
             let months: string[] = [];
             let values: number[] = [];
 
-            if (workbenchOverview?.revenueTrend?.length > 0) {
-              months = workbenchOverview.revenueTrend.map((d: any) => d.month);
-              values = workbenchOverview.revenueTrend.map((d: any) => d.amount); // already in 万元
+            // 构造最近 12 个月的完整序列（以当月为最右），保证 x 轴稳定显示 12 格
+            const buildLast12Keys = () => {
+              const arr: string[] = [];
+              const now = new Date();
+              for (let i = 11; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                arr.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+              }
+              return arr;
+            };
+            const last12 = buildLast12Keys();
+
+            // 校区端强制走本地聚合（按本校区订单），避免读到 zustand 持久化的总部数据
+            if (!isCampusAdmin && workbenchOverview?.revenueTrend?.length > 0) {
+              const map = new Map<string, number>(
+                workbenchOverview.revenueTrend.map((d: any) => [d.month, d.amount])
+              );
+              months = last12;
+              values = last12.map(m => Number(map.get(m) || 0)); // 已是万元
             } else {
               const paidOrders = scopedOrders.filter((o: any) => o.status === 'PAID' && o.createdAt);
               const monthMap: Record<string, number> = {};
@@ -188,8 +212,8 @@ export const StatisticsOverview: React.FC = () => {
                 const month = (o.createdAt || '').slice(0, 7);
                 if (month) monthMap[month] = (monthMap[month] || 0) + (o.amount || 0);
               });
-              months = Object.keys(monthMap).sort().slice(-12);
-              values = months.map(m => monthMap[m] / 10000);
+              months = last12;
+              values = last12.map(m => (monthMap[m] || 0) / 10000);
             }
 
             if (months.length === 0) {
@@ -263,19 +287,20 @@ export const StatisticsOverview: React.FC = () => {
                       {/* Dot */}
                       <circle cx={p.x} cy={p.y} r="4" fill="white" stroke="#3b82f6" strokeWidth="2.5" className="transition-all duration-200" />
 
-                      {/* Value tooltip — show on top of every other point, or all if <=6 */}
-                      {(months.length <= 6 || i % Math.ceil(months.length / 6) === 0 || i === months.length - 1) && (
+                      {/* Value tooltip — 非零月份才显示，避免底部一排 0.00万 重叠 */}
+                      {p.val > 0 && (
                         <text x={p.x} y={p.y - 12} textAnchor="middle" className="fill-slate-700" style={{ fontSize: '10px', fontWeight: 700, fontFamily: 'ui-monospace, monospace' }}>
                           {p.val >= 1 ? p.val.toFixed(1) : p.val.toFixed(2)}万
                         </text>
                       )}
 
-                      {/* X-axis month label */}
-                      {(months.length <= 8 || i % Math.ceil(months.length / 8) === 0 || i === months.length - 1) && (
-                        <text x={p.x} y={svgH - 8} textAnchor="middle" className="fill-slate-400" style={{ fontSize: '10px', fontWeight: 600 }}>
-                          {p.month.slice(5)}月
-                        </text>
-                      )}
+                      {/* X-axis month label — 12 个月全部显示 */}
+                      <text x={p.x} y={svgH - 8} textAnchor="middle" className="fill-slate-400" style={{ fontSize: '10px', fontWeight: 600 }}>
+                        {(() => {
+                          const m = /^\d{4}-(\d{2})$/.exec(p.month || '')?.[1];
+                          return m ? `${Number(m)}月` : p.month;
+                        })()}
+                      </text>
                     </g>
                   ))}
                 </svg>

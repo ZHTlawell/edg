@@ -14,7 +14,7 @@ import {
     BookOpen, Plus, Search, Edit3, Eye, CheckCircle2, XCircle,
     ChevronRight, Building2, Globe, Tag, Clock, Users2, ArrowLeft,
     Upload, Image, X, BookMarked, Layers, Settings, RotateCcw,
-    AlertTriangle, Shield, History, Folder
+    AlertTriangle, Shield, History, Folder, Archive
 } from 'lucide-react';
 import api from '../utils/api';
 import { API_BASE } from '../utils/config';
@@ -448,6 +448,24 @@ const StandardDetail: React.FC<{
         if (!window.confirm('停用后校区将无法引用此标准，确认继续？')) return;
         await api.post(`/api/course-standards/standards/${standard.id}/disable`); onRefresh();
     };
+    /** 归档（软删除）：不会影响历史订单和班级，但该标准从默认列表消失 */
+    const archive = async () => {
+        if (!window.confirm('归档后该课程标准将从列表隐藏，但历史订单 / 班级数据保留。确认归档？')) return;
+        try {
+            await api.post(`/api/course-standards/standards/${standard.id}/archive`);
+            addToast('已归档', 'success');
+            onBack();
+            onRefresh();
+        } catch (e: any) { addToast(e.response?.data?.message || '归档失败', 'error'); }
+    };
+    /** 取消归档：恢复为 DISABLED，由管理员再手动启用 */
+    const unarchive = async () => {
+        try {
+            await api.post(`/api/course-standards/standards/${standard.id}/unarchive`);
+            addToast('已从归档中恢复', 'success');
+            onRefresh();
+        } catch (e: any) { addToast(e.response?.data?.message || '操作失败', 'error'); }
+    };
 
     const catIdx = categories.findIndex(c => c.id === standard.category_id);
     const gradient = CAT_GRADIENTS[catIdx >= 0 ? catIdx % CAT_GRADIENTS.length : 0];
@@ -486,14 +504,25 @@ const StandardDetail: React.FC<{
                             <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-white/30 transition-all">
                                 <Edit3 size={13} />编辑
                             </button>
-                            {standard.status !== 'ENABLED' ? (
-                                <button onClick={enable} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/80 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-emerald-500 transition-all">
-                                    <ElmIcon name="circle-check" size={16} />启用
+                            {standard.status === 'ARCHIVED' ? (
+                                <button onClick={unarchive} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/80 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-amber-500 transition-all">
+                                    <RotateCcw size={13} />取消归档
                                 </button>
+                            ) : standard.status !== 'ENABLED' ? (
+                                <>
+                                    <button onClick={enable} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/80 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-emerald-500 transition-all">
+                                        <ElmIcon name="circle-check" size={16} />启用
+                                    </button>
+                                    <button onClick={archive} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/70 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-red-500 transition-all">
+                                        <Archive size={13} />归档
+                                    </button>
+                                </>
                             ) : (
-                                <button onClick={disable} className="flex items-center gap-1.5 px-3 py-1.5 bg-black/30 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-black/40 transition-all">
-                                    <XCircle size={13} />停用
-                                </button>
+                                <>
+                                    <button onClick={disable} className="flex items-center gap-1.5 px-3 py-1.5 bg-black/30 backdrop-blur text-white text-xs font-bold rounded-xl hover:bg-black/40 transition-all">
+                                        <XCircle size={13} />停用
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>

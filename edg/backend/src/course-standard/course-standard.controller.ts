@@ -117,6 +117,26 @@ export class CourseStandardController {
         return this.svc.disableStandard(id);
     }
 
+    /**
+     * 归档课程标准（软删除）
+     * - 归档后默认列表不再显示；历史订单/班级不受影响
+     * - 仅 ADMIN 可操作
+     */
+    @UseGuards(AuthGuard('jwt'))
+    @Post('standards/:id/archive')
+    archiveStandard(@Request() req: any, @Param('id') id: string) {
+        if (req.user.role.toUpperCase() !== 'ADMIN') throw new ForbiddenException('仅总部管理员可操作');
+        return this.svc.archiveStandard(id, req.user.userId);
+    }
+
+    /** 取消归档（恢复为 DISABLED，由管理员再决定是否重新启用） */
+    @UseGuards(AuthGuard('jwt'))
+    @Post('standards/:id/unarchive')
+    unarchiveStandard(@Request() req: any, @Param('id') id: string) {
+        if (req.user.role.toUpperCase() !== 'ADMIN') throw new ForbiddenException('仅总部管理员可操作');
+        return this.svc.unarchiveStandard(id, req.user.userId);
+    }
+
     // ─── Template Endpoints ────────────────────────────────
     /**
      * 新增或更新课程标准的模板（upsert）

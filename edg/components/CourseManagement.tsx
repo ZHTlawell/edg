@@ -211,7 +211,7 @@ export const CourseManagement: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {/* Search Box */}
           <div className="xl:col-span-2 relative group">
-            <ElmIcon name="search" size={16} />
+            <ElmIcon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="搜索课程名称 / 课程编号..."
@@ -234,7 +234,7 @@ export const CourseManagement: React.FC = () => {
               <option value="数据">数据分析</option>
               <option value="艺术">艺术文化</option>
             </select>
-            <ElmIcon name="arrow-down" size={16} />
+            <ElmIcon name="arrow-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
 
           {/* Level Select */}
@@ -249,7 +249,7 @@ export const CourseManagement: React.FC = () => {
               <option value="中级">中级课程</option>
               <option value="高级">高级研修</option>
             </select>
-            <ElmIcon name="arrow-down" size={16} />
+            <ElmIcon name="arrow-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
 
           {/* Campus Select - Hidden for campus_admin */}

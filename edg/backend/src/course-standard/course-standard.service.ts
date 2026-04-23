@@ -45,9 +45,14 @@ export class CourseStandardService {
      * @param filters.category_id 分类
      * @param filters.keyword 名称/编码关键字
      */
-    async findAllStandards(filters?: { status?: string; category_id?: string; keyword?: string }) {
+    async findAllStandards(filters?: { status?: string; category_id?: string; keyword?: string; include_archived?: string }) {
         const where: any = {};
-        if (filters?.status) where.status = filters.status;
+        if (filters?.status) {
+            where.status = filters.status;
+        } else if (filters?.include_archived !== 'true' && filters?.include_archived !== '1') {
+            // 默认不返回已归档标准；需要在"归档库"页面显式传 include_archived=true
+            where.status = { not: 'ARCHIVED' };
+        }
         if (filters?.category_id) where.category_id = filters.category_id;
         if (filters?.keyword) {
             where.OR = [
@@ -230,6 +235,64 @@ export class CourseStandardService {
         return this.prisma.stdCourseStandard.update({
             where: { id },
             data: { status: 'DISABLED' },
+        });
+    }
+
+    /**
+     * 归档课程标准（软删除，置为 ARCHIVED）
+     * - 归档后不再出现在默认列表和校区可用列表
+     * - 历史订单/班级中对此标准的引用仍然保留，避免破坏财务/教学数据
+     * @param id 标准 ID
+     */
+    async archiveStandard(id: string, operator_id: string) {
+        const existing = await this.prisma.stdCourseStandard.findUnique({
+            where: { id },
+            include: { courses: { select: { id: true } } },
+        });
+        if (!existing) throw new NotFoundException('课程标准不存在');
+        if (existing.status === 'ARCHIVED') throw new ConflictException('该课程标准已归档');
+
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.stdCourseStandard.update({
+                where: { id },
+                data: { status: 'ARCHIVED' },
+            });
+            await tx.stdCourseVersion.create({
+                data: {
+                    standard_id: id,
+                    version: existing.version,
+                    snapshot: JSON.stringify({ ...existing, status: 'ARCHIVED' }),
+                    change_note: '归档下架',
+                    operator_id,
+                },
+            });
+            return updated;
+        });
+    }
+
+    /**
+     * 取消归档（恢复为 DISABLED，由管理员再手动启用）
+     */
+    async unarchiveStandard(id: string, operator_id: string) {
+        const existing = await this.prisma.stdCourseStandard.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundException('课程标准不存在');
+        if (existing.status !== 'ARCHIVED') throw new ConflictException('该课程标准未处于归档状态');
+
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.stdCourseStandard.update({
+                where: { id },
+                data: { status: 'DISABLED' },
+            });
+            await tx.stdCourseVersion.create({
+                data: {
+                    standard_id: id,
+                    version: existing.version,
+                    snapshot: JSON.stringify({ ...existing, status: 'DISABLED' }),
+                    change_note: '取消归档',
+                    operator_id,
+                },
+            });
+            return updated;
         });
     }
 

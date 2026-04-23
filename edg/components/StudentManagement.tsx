@@ -139,6 +139,10 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
   const [filterGender, setFilterGender] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // 课程分类筛选（根据报读班级名关键字匹配）
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  // 剩余课时区间筛选
+  const [filterLessonRange, setFilterLessonRange] = useState<string>('all');
 
   const [editingStudent, setEditingStudent] = useState<Partial<Student> | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -156,6 +160,16 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     }
   }, [isCampusAdmin, myCampus]);
 
+  // 从已有学员中聚合出实际报读过的班级/课程名，用于"课程分类"下拉选项
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    (students || []).forEach(s => {
+      const name = (s.className || '').trim();
+      if (name) set.add(name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }, [students]);
+
   const filteredStudents = useMemo(() => {
     return (students || []).filter(student => {
       const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.phone.includes(searchTerm) || (student.className || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -165,21 +179,31 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
 
       let matchesTab = true;
       if (activeTab === 'alert') matchesTab = student.balanceLessons <= 5;
-      else if (activeTab === 'unpaid') matchesTab = student.balanceAmount <= 0;
+      else if (activeTab === 'unpaid') matchesTab = (student.balanceLessons ?? 0) <= 0;
       else if (activeTab === 'suspended') matchesTab = student.status === 'inactive';
 
       let matchesDate = true;
       if (startDate) matchesDate = matchesDate && student.createdAt >= startDate;
       if (endDate) matchesDate = matchesDate && student.createdAt <= endDate;
 
-      return matchesSearch && matchesStatus && matchesCampus && matchesGender && matchesDate && matchesTab;
+      // 课程分类筛选：按学员所在班级名精确匹配（下拉选项来自真实数据）
+      const matchesCategory = filterCategory === 'all' || (student.className || '') === filterCategory;
+
+      // 剩余课时区间筛选
+      let matchesLessons = true;
+      const lessons = student.balanceLessons ?? 0;
+      if (filterLessonRange === '0-5') matchesLessons = lessons >= 0 && lessons <= 5;
+      else if (filterLessonRange === '6-10') matchesLessons = lessons >= 6 && lessons <= 10;
+      else if (filterLessonRange === '10+') matchesLessons = lessons > 10;
+
+      return matchesSearch && matchesStatus && matchesCampus && matchesGender && matchesDate && matchesTab && matchesCategory && matchesLessons;
     }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')); // 最新注册的排在前
-  }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, students, activeTab]);
+  }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, students, activeTab, filterCategory, filterLessonRange]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, activeTab]);
+  }, [searchTerm, selectedStatus, selectedCampus, filterGender, startDate, endDate, activeTab, filterCategory, filterLessonRange]);
 
   // 顶部统计卡片 + Tab 计数：全部基于真实学员数据计算（在读/预警/欠费/本月新招）
   const dashboardStats = useMemo(() => {
@@ -188,7 +212,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const active = list.filter(s => s.status !== 'inactive').length;
     const lowLessons = list.filter(s => (s.balanceLessons ?? 0) <= 5 && s.status !== 'inactive').length;
-    const overdue = list.filter(s => (s.balanceAmount ?? 0) <= 0 && s.status !== 'inactive').length;
+    const overdue = list.filter(s => (s.balanceLessons ?? 0) <= 0 && s.status !== 'inactive').length;
     const newThisMonth = list.filter(s => (s.createdAt || '').startsWith(currentYM)).length;
     const suspended = list.filter(s => s.status === 'inactive').length;
     return { active, lowLessons, overdue, newThisMonth, suspended, total: list.length };
@@ -223,6 +247,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
     setFilterGender('all');
     setStartDate('');
     setEndDate('');
+    setFilterCategory('all');
+    setFilterLessonRange('all');
   };
 
   /** 导出当前筛选结果为 Excel/CSV */
@@ -586,7 +612,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
               <History size={24} />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">当前欠费</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">待续费</p>
               <h3 className="text-2xl font-black text-slate-900">{dashboardStats.overdue}</h3>
             </div>
           </div>
@@ -622,18 +648,22 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
           <div className="flex items-center gap-3">
             <div className="relative">
               <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer shadow-sm min-w-[140px]"
               >
-                <option value="all">全部分类</option>
-                <option value="ui">UI/UX设计</option>
-                <option value="python">Python开发</option>
-                <option value="data">数据分析</option>
+                <option value="all">课程分类</option>
+                {categoryOptions.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
               </select>
               <ElmIcon name="arrow-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
 
             <div className="relative">
               <select
+                value={filterLessonRange}
+                onChange={(e) => setFilterLessonRange(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 pr-10 text-sm font-bold text-slate-700 outline-none focus:bg-white appearance-none cursor-pointer shadow-sm min-w-[160px]"
               >
                 <option value="all">剩余课时区间</option>
@@ -652,7 +682,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
           {[
             { id: 'all', label: '全部学员', count: dashboardStats.total },
             { id: 'alert', label: '课时预警', count: dashboardStats.lowLessons },
-            { id: 'unpaid', label: '当前欠费', count: dashboardStats.overdue },
+            { id: 'unpaid', label: '待续费', count: dashboardStats.overdue },
             { id: 'suspended', label: '休学/停课', count: dashboardStats.suspended },
           ].map((tab) => (
             <button
@@ -723,9 +753,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({ onShowDeta
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${student.balanceAmount > 0 ? 'bg-emerald-500' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${student.balanceAmount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                        {student.balanceAmount > 0 ? '正常' : '欠费'}
+                      <div className={`w-2 h-2 rounded-full ${(student.balanceLessons ?? 0) > 0 ? 'bg-emerald-500' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`}></div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${(student.balanceLessons ?? 0) > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {(student.balanceLessons ?? 0) > 0 ? '正常' : '待续费'}
                       </span>
                     </div>
                   </td>

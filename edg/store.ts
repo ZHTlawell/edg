@@ -353,7 +353,18 @@ export const useStore = create<AppState>()(
             logout: () => {
                 const role = get().currentUser?.role;
                 if (role) removeTokenForRole(role);
-                set({ currentUser: null });
+                // 清理登录相关 + 各端会串扰的缓存数据（否则下一位用户会看到上一位的全局统计）
+                set({
+                    currentUser: null,
+                    workbenchOverview: null,
+                    students: [],
+                    teachers: [],
+                    orders: [],
+                    classes: [],
+                    courses: [],
+                    attendanceRecords: [],
+                    assetLedgers: [],
+                });
                 get().addToast('已安全退出', 'info');
             },
 
